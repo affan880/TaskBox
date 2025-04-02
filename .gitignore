@@ -73,3 +73,21 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+*.p8
+service-account.json
+firebase-credentials.json
+.runtimeconfig.json
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production

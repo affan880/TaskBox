@@ -16,6 +16,14 @@ end
 
 target 'TaskBox' do
   config = use_native_modules!
+  use_frameworks! :linkage => :static
+  $RNFirebaseAsStaticFramework = true
+
+  # Add explicit version for GTMSessionFetcher
+  pod 'GTMSessionFetcher/Core', '3.4.0'
+  
+  # Add Google Sign-in pod explicitly
+  pod 'GoogleSignIn', '~> 7.0'
 
   use_react_native!(
     :path => config[:reactNativePath],
