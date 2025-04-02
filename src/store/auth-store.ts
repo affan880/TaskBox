@@ -3,6 +3,7 @@ import firebase from '@react-native-firebase/app';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { FIREBASE_WEB_CLIENT_ID, FIREBASE_IOS_CLIENT_ID } from '@env';
+import { revokeGmailAccess } from '../utils/gmail-api';
 
 type AuthState = {
   user: FirebaseAuthTypes.User | null;
@@ -16,8 +17,18 @@ type AuthState = {
 
 // Initialize Google Sign-in
 GoogleSignin.configure({
-  webClientId: FIREBASE_WEB_CLIENT_ID,
-  iosClientId: FIREBASE_IOS_CLIENT_ID,
+  webClientId: '383417509865-kg70tvpj3ofpqhn58tb34dplgtim32lk.apps.googleusercontent.com',
+  iosClientId: '383417509865-0kvhv5r2e2jlpuf1dghqv2j9p34mk4ns.apps.googleusercontent.com',
+  // Add Gmail API scopes
+  scopes: [
+    'https://www.googleapis.com/auth/gmail.readonly',  // For reading emails
+    'https://www.googleapis.com/auth/gmail.send',      // For sending emails
+    'https://www.googleapis.com/auth/gmail.modify',    // For modifying emails, including trash/archive
+    'profile',
+    'email'
+  ],
+  // Enable offline access to get refresh token
+  offlineAccess: true,
 });
 
 // Create the store
@@ -93,16 +104,24 @@ const useAuthStoreBase = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     try {
-      set({ isLoading: true, error: null });
-      await GoogleSignin.signOut();
-      const firebaseAuth = auth();
-      await firebaseAuth.signOut();
-      set({ user: null, isLoading: false });
-    } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Sign out failed',
-        isLoading: false 
+      set({ isLoading: true });
+      
+      // Revoke Gmail API access
+      await revokeGmailAccess().catch((error) => {
+        console.error('Failed to revoke Gmail access:', error);
+        // Continue with signout even if revocation fails
       });
+      
+      // Sign out from Google
+      await GoogleSignin.signOut();
+      
+      // Sign out from Firebase
+      await auth().signOut();
+      
+      set({ user: null, isLoading: false, error: null });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+      set({ error: errorMessage, isLoading: false });
     }
   },
 }));
