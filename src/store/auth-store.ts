@@ -17,8 +17,13 @@ type AuthState = {
 
 // Initialize Google Sign-in
 GoogleSignin.configure({
+<<<<<<< HEAD
   webClientId: '383417509865-kg70tvpj3ofpqhn58tb34dplgtim32lk.apps.googleusercontent.com',
   iosClientId: '383417509865-0kvhv5r2e2jlpuf1dghqv2j9p34mk4ns.apps.googleusercontent.com',
+=======
+  webClientId: FIREBASE_WEB_CLIENT_ID,
+  iosClientId: FIREBASE_IOS_CLIENT_ID,
+>>>>>>> 6832d9f (feat(email): add Gmail integration and email screen)
   // Add Gmail API scopes
   scopes: [
     'https://www.googleapis.com/auth/gmail.readonly',  // For reading emails
