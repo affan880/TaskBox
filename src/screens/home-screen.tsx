@@ -1,9 +1,12 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity, TextInput } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/auth-store';
 import { useCollection } from '../hooks/use-firestore';
 import { Button } from '../components/ui/button';
 import { colors } from '../utils/styling';
+import { RootStackParamList } from '../navigation/app-navigator';
 
 type Task = {
   id: string;
@@ -13,6 +16,7 @@ type Task = {
 };
 
 export function HomeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore.useUser();
   const { signOut } = useAuthStore.useActions();
 
@@ -117,6 +121,12 @@ export function HomeScreen() {
         )}
 
         <View style={styles.footer}>
+          <Button 
+            onPress={() => navigation.navigate('Email')}
+            style={styles.emailButton}
+          >
+            Open Email
+          </Button>
           <Button 
             variant="outline" 
             onPress={signOut}
@@ -243,6 +253,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 20,
+  },
+  emailButton: {
+    marginBottom: 10,
   },
   signOutButton: {
     marginTop: 10,
