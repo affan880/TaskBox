@@ -4,9 +4,9 @@ import { useAuthStore } from '../../store/auth-store';
 import { Button } from '../../components/ui/button';
 
 export function LoginScreen() {
-  const { signInWithGoogle } = useAuthStore.useActions();
-  const isLoading = useAuthStore.useIsLoading();
-  const error = useAuthStore.useError();
+  const signInWithGoogle = useAuthStore(state => state.signInWithGoogle);
+  const isLoading = useAuthStore(state => state.isLoading);
+  const error = useAuthStore(state => state.error);
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', padding: 16 }}>
