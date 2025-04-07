@@ -1,6 +1,7 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Define email data type
+// email.ts
 export type EmailData = {
   id: string;
   threadId: string;
@@ -12,6 +13,7 @@ export type EmailData = {
   body: string;
   isUnread?: boolean;
 };
+
 
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -27,7 +29,7 @@ async function getAccessToken(): Promise<string> {
     }
     return accessToken;
   } catch (error) {
-    console.error('Error getting access token:', error);
+    console.log('Error getting access token:', error);
     throw error;
   }
 }
@@ -76,6 +78,7 @@ export async function getEmails(maxResults: number = 10, labelIds: string[] = ['
   }).toString();
   
   const response = await makeGmailApiRequest(`/messages?${queryParams}`);
+  console.log('Gmail API response:', response);
   
   // If we just have message IDs, fetch the full content for each message
   if (response.messages && response.messages.length > 0) {
@@ -137,6 +140,129 @@ export async function markAsUnread(messageId: string): Promise<any> {
  */
 export async function archiveEmail(messageId: string): Promise<any> {
   return updateEmail(messageId, [], ['INBOX']);
+}
+
+/**
+ * Delete an email (move to trash)
+ * @param messageId The ID of the message to delete
+ */
+export async function deleteEmail(messageId: string): Promise<any> {
+  try {
+    return await makeGmailApiRequest(`/messages/${messageId}/trash`, 'POST');
+  } catch (error) {
+    console.error('Error deleting email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Permanently delete an email (skip trash)
+ * @param messageId The ID of the message to permanently delete
+ */
+export async function permanentlyDeleteEmail(messageId: string): Promise<any> {
+  try {
+    return await makeGmailApiRequest(`/messages/${messageId}`, 'DELETE');
+  } catch (error) {
+    console.error('Error permanently deleting email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add one or more labels to an email
+ * @param messageId The ID of the message to label
+ * @param labelIds Array of label IDs to add to the message
+ */
+export async function addLabels(messageId: string, labelIds: string[]): Promise<any> {
+  return updateEmail(messageId, labelIds, []);
+}
+
+/**
+ * Remove one or more labels from an email
+ * @param messageId The ID of the message
+ * @param labelIds Array of label IDs to remove from the message
+ */
+export async function removeLabels(messageId: string, labelIds: string[]): Promise<any> {
+  return updateEmail(messageId, [], labelIds);
+}
+
+/**
+ * Get all available labels in the user's Gmail account
+ */
+export async function getLabels(): Promise<any> {
+  try {
+    return await makeGmailApiRequest('/labels');
+  } catch (error) {
+    console.log('Error getting labels:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new label
+ * @param name The name of the label to create
+ */
+export async function createLabel(name: string): Promise<any> {
+  try {
+    return await makeGmailApiRequest('/labels', 'POST', { name });
+  } catch (error) {
+    console.error('Error creating label:', error);
+    throw error;
+  }
+}
+
+/**
+ * Snooze an email by removing from inbox and adding a custom label
+ * Note: This uses a custom implementation as Gmail API doesn't directly support snoozing
+ * @param messageId The ID of the message to snooze
+ * @param snoozeUntil Date to snooze the email until
+ */
+export async function snoozeEmail(messageId: string, snoozeUntil: Date): Promise<any> {
+  try {
+    // First, create or find the 'SNOOZED' label
+    let snoozedLabelId: string;
+    
+    try {
+      const labels = await getLabels();
+      const snoozedLabel = labels.labels.find((label: any) => label.name === 'SNOOZED');
+      
+      if (snoozedLabel) {
+        snoozedLabelId = snoozedLabel.id;
+      } else {
+        // Create the label if it doesn't exist
+        const newLabel = await createLabel('SNOOZED');
+        snoozedLabelId = newLabel.id;
+      }
+    } catch (error) {
+      console.error('Error finding/creating SNOOZED label:', error);
+      throw new Error('Failed to find or create SNOOZED label');
+    }
+    
+    // Store the snooze time in localStorage or a similar persistence mechanism
+    // This is a simplified implementation - in a real app, you might use a server
+    // to track snooze times or implement a background process to "unsnooze" emails
+    try {
+      const snoozeData = {
+        messageId,
+        snoozeUntil: snoozeUntil.toISOString(),
+      };
+      
+      // Store the snooze data
+      const existingData = localStorage.getItem('snoozedEmails');
+      const snoozedEmails = existingData ? JSON.parse(existingData) : [];
+      snoozedEmails.push(snoozeData);
+      localStorage.setItem('snoozedEmails', JSON.stringify(snoozedEmails));
+    } catch (error) {
+      console.error('Error storing snooze data:', error);
+      // Continue even if local storage fails
+    }
+    
+    // Remove from inbox and add the SNOOZED label
+    return updateEmail(messageId, [snoozedLabelId], ['INBOX']);
+  } catch (error) {
+    console.error('Error snoozing email:', error);
+    throw error;
+  }
 }
 
 /**
@@ -206,7 +332,7 @@ async function getSenderEmail(): Promise<string> {
     const response = await makeGmailApiRequest('/profile');
     return response.emailAddress || '';
   } catch (error) {
-    console.error('Error getting sender email:', error);
+    console.log('Error getting sender email:', error);
     return '';
   }
 }
