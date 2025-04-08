@@ -12,23 +12,19 @@ async function handleResponse(response: Response) {
       const errorJson = JSON.parse(errorText);
       if (errorJson.error && errorJson.error.code === 401) {
         console.log('Auth error in Gmail API, getting fresh token');
-        // Instead of using refreshAuthToken, try to get a fresh token directly
         try {
-          // Configure GoogleSignin to ensure it's properly initialized
           const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
-          // Attempt to get fresh tokens
           await GoogleSignin.getTokens();
         } catch (refreshError) {
-          console.error('Failed to get fresh token:', refreshError);
+          console.error('Failed to refresh token:', typeof refreshError === 'object' ? JSON.stringify(refreshError) : refreshError);
           throw new Error('Failed to refresh authentication token');
         }
       }
       throw new Error(errorJson.error?.message || 'Unknown API error');
     } catch (e) {
-      if (e instanceof SyntaxError) {
-        throw new Error(`API Error: ${errorText || response.statusText}`);
-      }
-      throw e;
+      // Safely handle the error without accessing stack
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      throw new Error(`API Error: ${errorText || response.statusText || errorMessage}`);
     }
   }
   return response.json();
@@ -37,83 +33,39 @@ async function handleResponse(response: Response) {
 // Get the current auth token
 async function getAuthToken(): Promise<string> {
   try {
-    console.log('Getting auth token for API request');
+    const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
     
-    // Try to ensure GoogleSignin is properly configured before getting tokens
-    try {
-      // Import and ensure GoogleSignin configuration
-      const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
-      
-      console.log('Configuring GoogleSignin with appropriate scopes');
-      GoogleSignin.configure({
-        webClientId: FIREBASE_WEB_CLIENT_ID,
-        iosClientId: FIREBASE_IOS_CLIENT_ID,
-        scopes: [
-          'https://www.googleapis.com/auth/gmail.readonly',
-          'https://www.googleapis.com/auth/gmail.send',
-          'https://www.googleapis.com/auth/gmail.modify',
-          'profile',
-          'email',
-          'openid'
-        ],
-        offlineAccess: true,
-      });
-      
-      // Small delay to ensure configuration is applied
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('Checking if user is signed in with Google');
-      const isSignedIn = await (GoogleSignin as any).isSignedIn();
-      console.log('User is signed in with Google:', isSignedIn);
-      
-      if (!isSignedIn) {
-        console.log('User not signed in with Google, attempting to get current user info');
-        try {
-          const userInfo = await GoogleSignin.getCurrentUser();
-          console.log('Current user info obtained:', userInfo ? 'yes' : 'no');
-        } catch (userInfoError) {
-          console.log('Could not get current user info:', userInfoError);
-        }
-      }
-    } catch (configError) {
-      console.log('Error during GoogleSignin configuration:', configError);
+    GoogleSignin.configure({
+      webClientId: FIREBASE_WEB_CLIENT_ID,
+      iosClientId: FIREBASE_IOS_CLIENT_ID,
+      scopes: [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.modify',
+        'profile',
+        'email',
+        'openid'
+      ],
+      offlineAccess: true,
+    });
+
+    const { accessToken } = await GoogleSignin.getTokens();
+    if (!accessToken) {
+      throw new Error('No access token available');
     }
-    
-    // Get fresh tokens directly from GoogleSignin
+    return accessToken;
+  } catch (error) {
     try {
-      console.log('Attempting to get tokens from GoogleSignin');
+      await GoogleSignin.signInSilently();
       const { accessToken } = await GoogleSignin.getTokens();
-      
       if (!accessToken) {
-        console.error('No access token available');
-        throw new Error('No access token available');
+        throw new Error('No access token available after silent sign in');
       }
-      
-      console.log('Successfully retrieved access token');
       return accessToken;
-    } catch (tokenError) {
-      console.log('Error getting tokens:', tokenError);
-      
-      // Try silent sign-in as fallback
-      try {
-        console.log('Attempting silent sign-in as fallback');
-        const userInfo = await GoogleSignin.signInSilently();
-        console.log('Silent sign-in successful:', userInfo ? 'yes' : 'no');
-        
-        const { accessToken } = await GoogleSignin.getTokens();
-        if (accessToken) {
-          console.log('Successfully retrieved access token after silent sign-in');
-          return accessToken;
-        }
-      } catch (silentSignInError) {
-        console.log('Silent sign-in failed:', silentSignInError);
-      }
-      
+    } catch (silentSignInError) {
+      console.error('Authentication error:', error);
       throw new Error('Not authenticated');
     }
-  } catch (error) {
-    console.error('Authentication error in getAuthToken:', error);
-    throw new Error('Not authenticated');
   }
 }
 

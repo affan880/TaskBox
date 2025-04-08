@@ -18,26 +18,24 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '../store/auth-store';
 import { AuthNavigator } from './auth-navigator';
 import { ProfileScreen } from '../screens/profile/profile-screen';
 import { ComposeScreen } from '../screens/email/compose-screen';
 import { EmailScreen } from '../screens/email/email-screen';
+import { COLORS } from '../theme/colors';
 
-// Define stack navigator types
+// Define navigator types
 export type RootStackParamList = {
-  Main: undefined;
-  Profile: undefined;
+  MainTabs: undefined;
   Auth: undefined;
-  Chat: undefined;
 };
 
-// Define tab navigator types
-type MainTabParamList = {
+export type MainTabParamList = {
   Inbox: undefined;
-  Compose: undefined;
-  Todo: undefined;
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -138,97 +136,78 @@ const VoiceButton = () => {
 
 function MainTabNavigator() {
   return (
-    <View style={{ flex: 1 }}>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName = '';
-            
-            if (route.name === 'Inbox') {
-              iconName = focused ? 'mail' : 'mail-outline';
-            } else if (route.name === 'Compose') {
-              iconName = 'create';
-            } else if (route.name === 'Todo') {
-              iconName = focused ? 'check-circle' : 'check-circle-outline';
-            }
-            
-            return <Icon name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: '#1976d2',
-          tabBarInactiveTintColor: 'gray',
-          tabBarLabelStyle: {
-            fontSize: 12,
-          },
-          tabBarStyle: {
-            height: 80,
-            paddingBottom: 5,
-          },
-        })}
-      >
-        <Tab.Screen 
-          name="Inbox" 
-          component={EmailScreen} 
-          options={{ 
-            headerShown: false,
-          }}
-        />
-        <Tab.Screen 
-          name="Compose" 
-          component={ComposeScreen} 
-          options={{ 
-            headerShown: false,
-          }}
-        />
-        {/* <Tab.Screen 
-          name="Todo" 
-          component={TodoScreen} 
-          options={{ 
-            headerShown: false,
-          }}
-        /> */}
-      </Tab.Navigator>
-    </View>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          const iconName = route.name === 'Inbox' 
+            ? focused ? 'mail' : 'mail-outline'
+            : focused ? 'person' : 'person-outline';
+          
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: COLORS.text.secondary,
+        tabBarInactiveTintColor: COLORS.text.tertiary,
+        tabBarStyle: {
+          height: 80,
+          paddingBottom: 20,
+          paddingTop: 10,
+          backgroundColor: COLORS.background.secondary,
+          borderTopColor: COLORS.border,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Inbox" 
+        component={EmailScreen}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+      />
+    </Tab.Navigator>
   );
 }
 
-export function AppNavigator() {
-  const user = useAuthStore(state => state.user);
-  const isLoading = useAuthStore(state => state.isLoading);
-  const initialized = useAuthStore(state => state.initialized);
+function NavigationRoot() {
+  const { user, isLoading, initialized } = useAuthStore();
 
-  // Show a loading spinner while checking authentication
   if (isLoading || !initialized) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#1976d2" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.text.secondary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        {user ? (
-          <>
-            <Stack.Screen 
-              name="Main" 
-              component={MainTabNavigator} 
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen 
-              name="Profile" 
-              component={ProfileScreen} 
-            />
-          </>
-        ) : (
-          <Stack.Screen
-            name="Auth"
-            component={AuthNavigator}
-            options={{ headerShown: false }}
-          />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? (
+        <Stack.Screen 
+          name="MainTabs" 
+          component={MainTabNavigator}
+        />
+      ) : (
+        <Stack.Screen
+          name="Auth"
+          component={AuthNavigator}
+        />
+      )}
+    </Stack.Navigator>
+  );
+}
+
+export function AppNavigator() {
+  return (
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <NavigationRoot />
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
@@ -303,5 +282,11 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: '#1e0a36',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.primary,
   },
 }); 

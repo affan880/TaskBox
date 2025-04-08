@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { EmailData } from '../../../types/email';
 import { parseHtmlContent } from '../utils/html-parser';
+import { COLORS } from '../../../theme/colors';
 
 type ReadEmailModalProps = {
   visible: boolean;
@@ -80,7 +81,7 @@ export function ReadEmailModal({
             </TouchableOpacity>
             <View style={styles.actionButtons}>
               {isActionLoading ? (
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color={COLORS.text.secondary} />
               ) : (
                 <>
                   <TouchableOpacity
@@ -108,7 +109,7 @@ export function ReadEmailModal({
             </View>
           </View>
 
-          <ScrollView style={styles.content}>
+          <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
             <View style={styles.emailHeader}>
               <Text style={styles.subject}>{currentEmail.subject}</Text>
               <Text style={styles.from}>{currentEmail.from}</Text>
@@ -129,11 +130,12 @@ export function ReadEmailModal({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background.primary,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
+    backgroundColor: COLORS.background.primary,
   },
   header: {
     flexDirection: 'row',
@@ -141,14 +143,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background.secondary,
   },
   headerButton: {
     padding: 8,
   },
   headerButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: COLORS.text.secondary,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -159,34 +162,43 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: COLORS.text.secondary,
   },
   deleteButton: {
-    color: '#FF3B30',
+    color: COLORS.error,
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
   },
   emailHeader: {
     marginBottom: 24,
+    backgroundColor: COLORS.card.background,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.card.border,
   },
   subject: {
     fontSize: 24,
     fontWeight: '600',
     marginBottom: 8,
+    color: COLORS.text.primary,
   },
   from: {
     fontSize: 16,
-    color: '#666',
+    color: COLORS.text.secondary,
     marginBottom: 4,
   },
   date: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.text.tertiary,
   },
   body: {
     fontSize: 16,
     lineHeight: 24,
+    color: COLORS.text.primary,
   },
 }); 
