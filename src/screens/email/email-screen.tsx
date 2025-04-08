@@ -1,1042 +1,190 @@
 import * as React from 'react';
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { 
-  ActivityIndicator, 
-  FlatList, 
-  RefreshControl, 
-  SafeAreaView, 
-  Text, 
-  TouchableOpacity, 
-  View, 
-  Modal, 
-  TextInput, 
-  Alert,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
-  PermissionsAndroid
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useGmail } from '../../hooks/use-gmail';
-import { EmailData } from '../../utils/gmail-api';
-import { EmailData as TypesEmailData } from '../../types/email';
-import { useAuthStore } from '../../store/auth-store';
-import { useFocusEffect } from '@react-navigation/native';
-
-/**
- * Simple HTML to text parser to extract readable content from HTML emails
- */
-function parseHtmlContent(html: string): string {
-  if (!html) return '';
-  
-  // Remove DOCTYPE, HTML, HEAD sections
-  let content = html.replace(/<head[\s\S]*?<\/head>/gi, '')
-                   .replace(/<style[\s\S]*?<\/style>/gi, '')
-                   .replace(/<script[\s\S]*?<\/script>/gi, '');
-  
-  // Replace common tags with line breaks or spacing
-  content = content
-    .replace(/<\/div>|<\/p>|<\/h[1-6]>|<br\s*\/?>/gi, '\n')
-    .replace(/<li>/gi, '\n• ')
-    .replace(/<hr\s*\/?>/gi, '\n-------------------------\n')
-    .replace(/<tr>/gi, '\n')
-    .replace(/<\/td>|<\/th>/gi, '  ');
-  
-  // Remove all remaining HTML tags
-  content = content.replace(/<[^>]*>/g, '');
-  
-  // Decode HTML entities
-  content = content
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-  
-  // Remove excessive whitespace
-  content = content
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .replace(/  +/g, ' ')
-    .trim();
-  
-  return content;
-}
-
-// Compose Email Modal as a separate component
-const ComposeEmailModal = ({ 
-  visible, 
-  onClose, 
-  onSend 
-}: { 
-  visible: boolean; 
-  onClose: () => void; 
-  onSend: (to: string, subject: string, body: string) => Promise<any>;
-}) => {
-  const [recipient, setRecipient] = useState('');
-  const [subject, setSubject] = useState('');
-  const [messageBody, setMessageBody] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  
-  const recipientInputRef = useRef<TextInput>(null);
-
-  // Set up keyboard listeners
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-      }
-    );
-
-    // Auto-focus recipient input when modal appears
-    if (visible) {
-      setTimeout(() => {
-        recipientInputRef.current?.focus();
-      }, 100);
-    }
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, [visible]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!visible) {
-      setRecipient('');
-      setSubject('');
-      setMessageBody('');
-      setIsLoading(false);
-    }
-  }, [visible]);
-
-  const handleSend = async () => {
-    // Validate form
-    if (!recipient.trim()) {
-      Alert.alert('Error', 'Please enter a recipient email address');
-      return;
-    }
-    
-    if (!subject.trim()) {
-      Alert.alert('Error', 'Please enter a subject for your email');
-      return;
-    }
-    
-    if (!messageBody.trim()) {
-      Alert.alert('Error', 'Please enter a message body');
-      return;
-    }
-    
-    // Simple email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(recipient.trim())) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      await onSend(recipient.trim(), subject.trim(), messageBody.trim());
-      // Success is handled by parent component
-    } catch (error) {
-      console.error('Failed to send email:', error);
-      
-      // Format error message for better readability
-      let errorMessage = 'Failed to send email. Please try again.';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        
-        // Special handling for common errors
-        if (error.message.includes("Buffer")) {
-          errorMessage = 'Email encoding error. Please try with a simpler message.';
-        } else if (error.message.includes("network")) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else if (error.message.includes("401") || error.message.includes("403")) {
-          errorMessage = 'Authentication error. Please sign in again.';
-        }
-      }
-      
-      Alert.alert(
-        'Error Sending Email', 
-        errorMessage,
-        [
-          { 
-            text: 'OK',
-            onPress: () => console.log('Error acknowledged')
-          }
-        ]
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={() => {
-        if (!isLoading) {
-          onClose();
-        }
-      }}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <KeyboardAvoidingView 
-          style={styles.container} 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-        >
-          <SafeAreaView style={styles.container}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity 
-                onPress={onClose}
-                disabled={isLoading}
-              >
-                <Text style={[styles.actionButtonText, isLoading && styles.disabledText]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>New Email</Text>
-              <TouchableOpacity 
-                onPress={handleSend}
-                disabled={isLoading}
-              >
-                <Text style={[styles.actionButtonText, isLoading && styles.disabledText]}>
-                  {isLoading ? 'Sending...' : 'Send'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.formContainer}>
-              {isLoading && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color="#0000ff" />
-                  <Text style={styles.loadingText}>Sending email...</Text>
-                </View>
-              )}
-              
-              <TextInput
-                ref={recipientInputRef}
-                style={styles.input}
-                placeholder="To"
-                value={recipient}
-                onChangeText={setRecipient}
-                keyboardType="email-address"
-                editable={!isLoading}
-                autoCapitalize="none"
-                returnKeyType="next"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Subject"
-                value={subject}
-                onChangeText={setSubject}
-                editable={!isLoading}
-                returnKeyType="next"
-              />
-              <TextInput
-                style={[
-                  styles.messageInput,
-                  keyboardVisible && Platform.OS === 'ios' ? { maxHeight: 120 } : {}
-                ]}
-                placeholder="Message"
-                value={messageBody}
-                onChangeText={setMessageBody}
-                multiline
-                editable={!isLoading}
-                textAlignVertical="top"
-                scrollEnabled
-                blurOnSubmit={false}
-              />
-            </View>
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
-
-// Reading Email Modal component
-interface ReadEmailModalProps {
-  visible: boolean;
-  currentEmail: TypesEmailData | null;
-  onClose: () => void;
-  onArchive: (emailId: string) => void;
-  onDelete: (emailId: string) => void;
-  onLabel: (emailId: string, labelId: string) => void;
-  onSnooze: (emailId: string, date: Date) => void;
-  onMarkAsUnread: (emailId: string) => void;
-}
-
-const ReadEmailModal = ({ 
-  visible, 
-  currentEmail, 
-  onClose, 
-  onArchive, 
-  onDelete, 
-  onLabel, 
-  onSnooze,
-  onMarkAsUnread
-}: ReadEmailModalProps) => {
-  const [showActions, setShowActions] = useState(false);
-  const [showLabelModal, setShowLabelModal] = useState(false);
-  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
-  
-  const isHtmlContent = React.useMemo(() => {
-    if (!currentEmail?.body) return false;
-    return currentEmail.body.trim().toLowerCase().startsWith('<!doctype') || 
-           currentEmail.body.trim().toLowerCase().startsWith('<html');
-  }, [currentEmail?.body]);
-
-  const parsedEmailContent = React.useMemo(() => {
-    if (!currentEmail?.body) return '';
-    if (isHtmlContent) {
-      return parseHtmlContent(currentEmail.body);
-    }
-    return currentEmail.body;
-  }, [currentEmail?.body, isHtmlContent]);
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-    >
-      {currentEmail ? (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.actionButtonText}>Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowActions(!showActions)}>
-              <Text style={styles.actionButtonText}>More</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Email Actions Menu */}
-          {showActions && (
-            <View style={styles.actionsMenu}>
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setShowActions(false);
-                  onArchive(currentEmail.id);
-                }}
-              >
-                <Text style={styles.actionButtonLabel}>Archive</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setShowActions(false);
-                  onDelete(currentEmail.id);
-                }}
-              >
-                <Text style={styles.actionButtonLabel}>Delete</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setShowActions(false);
-                  setShowLabelModal(true);
-                }}
-              >
-                <Text style={styles.actionButtonLabel}>Add Label</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setShowActions(false);
-                  setShowSnoozeModal(true);
-                }}
-              >
-                <Text style={styles.actionButtonLabel}>Snooze</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={() => {
-                  setShowActions(false);
-                  onMarkAsUnread(currentEmail.id);
-                  onClose();
-                }}
-              >
-                <Text style={styles.actionButtonLabel}>Mark as Unread</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          
-          <View style={styles.emailDetailsContainer}>
-            <Text style={styles.emailDetailTitle}>{currentEmail.subject}</Text>
-            <Text style={styles.emailDetailText}>From: {currentEmail.from}</Text>
-            <Text style={styles.emailDetailText}>To: {currentEmail.to}</Text>
-            <Text style={styles.emailDetailText}>
-              {new Date(currentEmail.date).toLocaleString()}
-            </Text>
-          </View>
-          
-          <View style={styles.emailBodyContainer}>
-            <ScrollView>
-              <Text style={styles.emailBodyText}>{parsedEmailContent}</Text>
-            </ScrollView>
-          </View>
-          
-          {/* Label Modal */}
-          <LabelModal 
-            visible={showLabelModal}
-            onClose={() => setShowLabelModal(false)}
-            onSelectLabel={(labelId) => {
-              setShowLabelModal(false);
-              onLabel(currentEmail.id, labelId);
-            }}
-          />
-          
-          {/* Snooze Modal */}
-          <SnoozeModal 
-            visible={showSnoozeModal}
-            onClose={() => setShowSnoozeModal(false)}
-            onSelectSnoozeTime={(date) => {
-              setShowSnoozeModal(false);
-              onSnooze(currentEmail.id, date);
-            }}
-          />
-        </SafeAreaView>
-      ) : (
-        <SafeAreaView style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
-        </SafeAreaView>
-      )}
-    </Modal>
-  );
-};
-
-// Label selection modal component
-interface LabelModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSelectLabel: (labelId: string) => void;
-}
-
-const LabelModal = ({ visible, onClose, onSelectLabel }: LabelModalProps) => {
-  const { labels, fetchLabels, isLoading } = useGmail();
-  const [newLabelName, setNewLabelName] = useState('');
-  
-  // Temporary dummy function since createLabel is not yet implemented in the API
-  const createLabel = async (name: string) => {
-    Alert.alert('Feature Not Available', 'Creating new labels is not yet implemented');
-    return null;
-  };
-  
-  // Fetch labels when modal opens
-  useEffect(() => {
-    if (visible) {
-      fetchLabels();
-    }
-  }, [visible, fetchLabels]);
-  
-  const handleCreateLabel = async () => {
-    if (!newLabelName.trim()) {
-      Alert.alert('Error', 'Please enter a label name');
-      return;
-    }
-    
-    const createdLabel = await createLabel(newLabelName.trim());
-    
-    if (createdLabel) {
-      setNewLabelName('');
-      Alert.alert('Success', 'Label created successfully');
-    }
-  };
-  
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-            <View style={styles.labelModalContainer}>
-              <View style={styles.labelModalHeader}>
-                <Text style={styles.labelModalTitle}>Select a Label</Text>
-                <TouchableOpacity onPress={onClose}>
-                  <Text style={styles.actionButtonText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {isLoading ? (
-                <ActivityIndicator size="large" color="#0000ff" />
-              ) : (
-                <>
-                  <ScrollView style={styles.labelList}>
-                    {labels.map(label => (
-                      <TouchableOpacity
-                        key={label.id}
-                        style={styles.labelItem}
-                        onPress={() => onSelectLabel(label.id)}
-                      >
-                        <Text style={styles.labelName}>{label.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  
-                  <View style={styles.createLabelContainer}>
-                    <TextInput
-                      style={styles.createLabelInput}
-                      placeholder="New label name"
-                      value={newLabelName}
-                      onChangeText={setNewLabelName}
-                    />
-                    <TouchableOpacity
-                      style={styles.createLabelButton}
-                      onPress={handleCreateLabel}
-                    >
-                      <Text style={styles.createLabelButtonText}>Create</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
-
-// Snooze modal component
-interface SnoozeModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSelectSnoozeTime: (date: Date) => void;
-}
-
-const SnoozeModal = ({ visible, onClose, onSelectSnoozeTime }: SnoozeModalProps) => {
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  
-  const handleDateConfirm = (date: Date) => {
-    setShowDatePicker(false);
-    onSelectSnoozeTime(date);
-  };
-  
-  const presetTimes = [
-    { label: 'Later today', hours: 3 },
-    { label: 'Tomorrow morning', days: 1, hours: 9, minutes: 0 },
-    { label: 'Tomorrow evening', days: 1, hours: 18, minutes: 0 },
-    { label: 'This weekend', days: getNextWeekendDays() },
-    { label: 'Next week', days: 7 },
-  ];
-  
-  function getNextWeekendDays() {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-    
-    // If today is already the weekend, return 7 (next weekend)
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return 7;
-    }
-    
-    // Calculate days until Saturday
-    return 6 - dayOfWeek;
-  }
-  
-  // Add type for preset parameter
-  interface PresetTime {
-    label: string;
-    days?: number;
-    hours?: number;
-    minutes?: number;
-  }
-  
-  const getSnoozeTime = (preset: PresetTime) => {
-    const now = new Date();
-    const snoozeTime = new Date(now);
-    
-    if (preset.days) {
-      snoozeTime.setDate(now.getDate() + preset.days);
-    }
-    
-    if (preset.hours !== undefined) {
-      // For "hours from now", add to current time
-      if (!preset.days) {
-        snoozeTime.setHours(now.getHours() + preset.hours);
-      } 
-      // For specific times (like "Tomorrow morning at 9AM"), set the exact hour
-      else {
-        snoozeTime.setHours(preset.hours);
-      }
-    }
-    
-    if (preset.minutes !== undefined) {
-      snoozeTime.setMinutes(preset.minutes);
-    } else if (preset.days) {
-      // Reset minutes to 0 for day-based presets with specific times
-      snoozeTime.setMinutes(0);
-    }
-    
-    // Reset seconds and milliseconds
-    snoozeTime.setSeconds(0);
-    snoozeTime.setMilliseconds(0);
-    
-    return snoozeTime;
-  };
-  
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-            <View style={styles.snoozeModalContainer}>
-              <View style={styles.snoozeModalHeader}>
-                <Text style={styles.snoozeModalTitle}>Snooze until...</Text>
-                <TouchableOpacity onPress={onClose}>
-                  <Text style={styles.actionButtonText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <ScrollView style={styles.snoozeOptionsList}>
-                {presetTimes.map((preset, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.snoozeOption}
-                    onPress={() => onSelectSnoozeTime(getSnoozeTime(preset))}
-                  >
-                    <Text style={styles.snoozeOptionText}>{preset.label}</Text>
-                    <Text style={styles.snoozeOptionTime}>
-                      {getSnoozeTime(preset).toLocaleString()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                
-                <TouchableOpacity
-                  style={styles.snoozeOption}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={styles.snoozeOptionText}>Pick a date & time</Text>
-                </TouchableOpacity>
-              </ScrollView>
-              
-              {/* <DateTimePickerModal
-                isVisible={showDatePicker}
-                mode="datetime"
-                onConfirm={handleDateConfirm}
-                onCancel={() => setShowDatePicker(false)}
-                minimumDate={new Date()}
-              /> */}
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
+import { useState, useCallback, useEffect } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, View, StyleSheet } from 'react-native';
+import { Text } from 'react-native';
+import { useEmailActions } from './hooks/use-email-actions';
+import { ComposeEmailModal } from './components/compose-modal';
+import { ReadEmailModal } from './components/read-email-modal';
+import { LabelModal } from './components/label-modal';
+import { SnoozeModal } from './components/snooze-modal';
+import { EmailListItem } from './components/email-list-item';
+import type { EmailData } from '../../types/email';
 
 export function EmailScreen() {
-  const navigation = useNavigation();
-  const { user } = useAuthStore();
-  const [refreshing, setRefreshing] = useState(false);
-  const [composingEmail, setComposingEmail] = useState(false);
-  const [readingEmail, setReadingEmail] = useState(false);
-  const [loadAttempts, setLoadAttempts] = useState(0);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
   const {
-    emails,
-    currentEmail,
-    isLoading: gmailIsLoading,
-    error,
-    fetchEmails,
-    fetchEmailById,
-    sendEmail,
-    markAsRead,
-    markAsUnread,
+    isLoading,
+    loadEmails,
+    getEmailDetails,
     archiveEmail,
     deleteEmail,
-    fetchLabels,
+    markAsUnread,
     applyLabel,
     snoozeEmail,
-    checkSnoozedEmails
-  } = useGmail();
+    sendEmail,
+  } = useEmailActions();
 
-  // Load emails when component mounts
+  const [emails, setEmails] = useState<EmailData[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [showReadModal, setShowReadModal] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+
+  // Load emails on mount
   useEffect(() => {
-    console.log('EmailScreen mounted, loading emails');
-    loadEmails();
-    
-    // Check for snoozed emails that need to be returned to inbox
-    checkSnoozedEmails();
-    
-    // Set up interval to check for emails to unsnooze (every minute)
-    const intervalId = setInterval(() => {
-      checkSnoozedEmails();
-    }, 60000);
-    
-    return () => clearInterval(intervalId);
-  }, [checkSnoozedEmails]);
+    handleRefresh();
+  }, []);
 
-  // Refresh emails when the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log('EmailScreen focused, refreshing emails');
-      loadEmails();
-      return () => {
-        // Cleanup when screen loses focus
-        console.log('EmailScreen lost focus');
-      };
-    }, [])
-  );
-
-  // Load emails from Gmail
-  const loadEmails = async () => {
+  const handleRefresh = async () => {
+    setRefreshing(true);
     try {
-      console.log('Starting email fetch operation');
-      setLoadAttempts(prev => prev + 1);
-      await fetchEmails();
-      console.log(`Emails fetched successfully, count: ${emails.length}`);
-      
-      // Pre-fetch labels to have them available
-      await fetchLabels();
-      console.log('Email labels fetched successfully');
-    } catch (err) {
-      console.error('Error loading emails:', err);
-      // Error handling is already managed by the useGmail hook
+      const fetchedEmails = await loadEmails();
+      setEmails(fetchedEmails);
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  // Retry loading with exponential backoff
-  const retryWithBackoff = useCallback(async () => {
-    const delay = Math.min(Math.pow(2, loadAttempts) * 1000, 10000); // Exponential backoff, max 10 seconds
-    console.log(`Retrying email fetch after ${delay}ms delay (attempt ${loadAttempts + 1})`);
-    
-    setRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    try {
-      await fetchEmails();
-      console.log(`Retry successful, fetched ${emails.length} emails`);
-    } catch (err) {
-      console.error('Error during retry:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchEmails, loadAttempts, emails.length]);
-
-  // Refresh emails
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      console.log('Manual refresh triggered by user');
-      await loadEmails();
-    } catch (err) {
-      console.error('Error refreshing emails:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadEmails]);
-
-  // Open email to read
   const handleOpenEmail = async (emailId: string) => {
-    try {
-      const emailData = await fetchEmailById(emailId);
-      if (emailData) {
-        // Mark as read when opening
-        await markAsRead(emailId);
-        setReadingEmail(true);
-      } else {
-        Alert.alert("Error", "Could not load email details. Please try again.");
-      }
-    } catch (err) {
-      console.error('Error opening email:', err);
-      Alert.alert("Error", "Could not open this email. Please try again later.");
+    const emailDetails = await getEmailDetails(emailId);
+    if (emailDetails) {
+      setCurrentEmail(emailDetails);
+      setShowReadModal(true);
     }
   };
 
-  // Handle sending email from ComposeEmailModal
-  const handleSendEmail = async (to: string, subject: string, body: string) => {
-    const success = await sendEmail(to, subject, body, false);
-    setComposingEmail(false);
-    Alert.alert('Success', 'Email sent successfully');
-    return success;
-  };
-
-  // Archive email
   const handleArchiveEmail = async (emailId: string) => {
-    const success = await archiveEmail(emailId);
-    if (success) {
-      Alert.alert('Success', 'Email archived');
-      if (readingEmail) {
-        setReadingEmail(false);
-      }
-    } else {
-      Alert.alert('Error', 'Failed to archive email');
-    }
+    await archiveEmail(emailId);
+    setEmails(prev => prev.filter(email => email.id !== emailId));
   };
 
-  // Delete email
   const handleDeleteEmail = async (emailId: string) => {
-    const success = await deleteEmail(emailId);
-    if (success) {
-      Alert.alert('Success', 'Email moved to trash');
-      if (readingEmail) {
-        setReadingEmail(false);
-      }
-    } else {
-      Alert.alert('Error', 'Failed to delete email');
-    }
+    await deleteEmail(emailId);
+    setEmails(prev => prev.filter(email => email.id !== emailId));
   };
 
-  // Apply label to email
-  const handleApplyLabel = async (emailId: string, labelId: string) => {
-    const success = await applyLabel(emailId, labelId);
-    if (success) {
-      Alert.alert('Success', 'Label applied to email');
-    } else {
-      Alert.alert('Error', 'Failed to apply label');
-    }
-  };
-
-  // Snooze email
-  const handleSnoozeEmail = async (emailId: string, snoozeUntil: Date) => {
-    const success = await snoozeEmail(emailId, snoozeUntil);
-    if (success) {
-      Alert.alert('Success', `Email snoozed until ${snoozeUntil.toLocaleString()}`);
-      if (readingEmail) {
-        setReadingEmail(false);
-      }
-    } else {
-      Alert.alert('Error', 'Failed to snooze email');
-    }
-  };
-
-  // Mark as unread
   const handleMarkAsUnread = async (emailId: string) => {
-    const success = await markAsUnread(emailId);
-    if (success) {
-      Alert.alert('Success', 'Email marked as unread');
-    } else {
-      Alert.alert('Error', 'Failed to mark email as unread');
-    }
-  };
-
-  // New function to handle voice recognition results
-  const handleVoiceResult = (text: string) => {
-    console.log('Voice recognition result:', text);
-    
-    // Implement search functionality based on voice input
-    if (text.toLowerCase().includes('search for')) {
-      // Extract search query from voice text
-      const query = text.toLowerCase().replace('search for', '').trim();
-      setSearchQuery(query);
-      // You could filter emails based on this query
-      
-      Alert.alert('Voice Command', `Searching for: "${query}"`);
-    } 
-    // Add more voice commands as needed
-    else if (text.toLowerCase().includes('compose') || text.toLowerCase().includes('new email')) {
-      setComposingEmail(true);
-    } 
-    else if (text.toLowerCase().includes('refresh')) {
-      onRefresh();
-    }
-    else {
-      // Default to using the text as a search query
-      setSearchQuery(text);
-    }
-  };
-
-  // Render email item with error handling
-  const renderEmailItem = ({ item }: { item: any }) => {
-    // Ensure we have the minimum required data
-    if (!item || !item.id) {
-      console.log('Skipping rendering of invalid email item:', item);
-      return null;
-    }
-  
-    return (
-      <TouchableOpacity 
-        style={[styles.emailItem, item.isUnread ? styles.unreadEmail : styles.readEmail]}
-        onPress={() => handleOpenEmail(item.id)}
-      >
-        <View style={styles.emailContent}>
-          <Text 
-            style={styles.fromText}
-            numberOfLines={1}
-          >
-            {item.from || 'Unknown Sender'}
-          </Text>
-          <Text 
-            style={styles.subjectText}
-            numberOfLines={1}
-          >
-            {item.subject || 'No Subject'}
-          </Text>
-          <Text 
-            style={styles.snippetText}
-            numberOfLines={2}
-          >
-            {item.snippet || 'No preview available'}
-          </Text>
-          <Text style={styles.dateText}>
-            {item.date ? new Date(item.date).toLocaleString() : 'Unknown date'}
-          </Text>
-        </View>
-      </TouchableOpacity>
+    await markAsUnread(emailId);
+    setEmails(prev =>
+      prev.map(email =>
+        email.id === emailId ? { ...email, isUnread: true } : email
+      )
     );
   };
+
+  const handleApplyLabel = async (emailId: string, labelId: string) => {
+    await applyLabel(emailId, labelId);
+    setShowLabelModal(false);
+  };
+
+  const handleSnoozeEmail = async (emailId: string, snoozeUntil: Date) => {
+    await snoozeEmail(emailId, snoozeUntil);
+    setShowSnoozeModal(false);
+    setEmails(prev => prev.filter(email => email.id !== emailId));
+  };
+
+  const handleSendEmail = async (to: string, subject: string, body: string) => {
+    await sendEmail(to, subject, body);
+    setShowComposeModal(false);
+    handleRefresh();
+  };
+
+  const renderEmailItem = useCallback(
+    ({ item }: { item: EmailData }) => (
+      <EmailListItem email={item} onPress={handleOpenEmail} />
+    ),
+    []
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.headerButton}
+        <Text style={styles.title}>Inbox</Text>
+        <Text 
+          style={styles.composeButton}
+          onPress={() => setShowComposeModal(true)}
         >
-          <Text style={styles.actionButtonText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inbox</Text>
-        <View style={styles.headerRightContainer}>
-          {/* <ChatButton /> */}
-          <TouchableOpacity 
-            onPress={() => setShowVoiceModal(true)}
-            style={[styles.headerButton, styles.voiceButton]}
-          >
-            <Text style={styles.actionButtonText}>🎤</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => setComposingEmail(true)}
-            style={styles.headerButton}
-          >
-            <Text style={styles.actionButtonText}>Compose</Text>
-          </TouchableOpacity>
-        </View>
+          Compose
+        </Text>
       </View>
 
-      {/* Search bar that shows when search query exists */}
-      {searchQuery ? (
-        <View style={styles.searchBarContainer}>
-          <Text style={styles.searchText}>
-            Search: "{searchQuery}"
-          </Text>
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearSearchText}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {/* The rest of your component stays largely the same */}
-      {gmailIsLoading && !refreshing ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text style={styles.loadingText}>Loading your emails...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>
-            {error}
-          </Text>
-          <Text style={styles.errorDescription}>
-            There was a problem loading your emails. Please check your connection and try again.
-          </Text>
-          <TouchableOpacity 
-            onPress={retryWithBackoff}
-            style={styles.retryButton}
-          >
-            <Text style={styles.retryButtonText}>
-              {refreshing ? 'Retrying...' : 'Retry'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : emails.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>No emails found</Text>
-          <TouchableOpacity 
-            onPress={onRefresh}
-            style={styles.refreshButton}
-          >
-            <Text style={styles.refreshButtonText}>
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={searchQuery ? 
-            // Filter emails if search query exists
-            emails.filter(email => 
-              email.subject?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              email.from?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              email.snippet?.toLowerCase().includes(searchQuery.toLowerCase())
-            ) : 
-            emails
-          }
-          renderItem={renderEmailItem}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-            />
-          }
-          ListEmptyComponent={() => (
+      <FlatList
+        data={emails}
+        renderItem={renderEmailItem}
+        keyExtractor={item => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centerContainer}>
-              <Text style={styles.emptyText}>
-                {searchQuery ? 'No results found' : 'No emails found'}
-              </Text>
+              <ActivityIndicator size="large" color="#0000ff" />
             </View>
-          )}
-        />
-      )}
+          ) : (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>No emails found</Text>
+            </View>
+          )
+        }
+      />
 
-      {/* Voice recognition modal */}
-
-
-      {/* Existing modals */}
-      <ComposeEmailModal 
-        visible={composingEmail}
-        onClose={() => setComposingEmail(false)}
+      <ComposeEmailModal
+        visible={showComposeModal}
+        onClose={() => setShowComposeModal(false)}
         onSend={handleSendEmail}
       />
-      
-      <ReadEmailModal 
-        visible={readingEmail}
+
+      <ReadEmailModal
+        visible={showReadModal}
         currentEmail={currentEmail}
-        onClose={() => setReadingEmail(false)}
+        onClose={() => {
+          setShowReadModal(false);
+          setCurrentEmail(null);
+        }}
         onArchive={handleArchiveEmail}
         onDelete={handleDeleteEmail}
-        onLabel={handleApplyLabel}
-        onSnooze={handleSnoozeEmail}
+        onLabel={async (emailId) => {
+          setSelectedEmailId(emailId);
+          setShowLabelModal(true);
+        }}
+        onSnooze={async (emailId) => {
+          setSelectedEmailId(emailId);
+          setShowSnoozeModal(true);
+        }}
         onMarkAsUnread={handleMarkAsUnread}
+      />
+
+      <LabelModal
+        visible={showLabelModal}
+        onClose={() => {
+          setShowLabelModal(false);
+          setSelectedEmailId(null);
+        }}
+        onSelectLabel={async (labelId) => {
+          if (selectedEmailId) {
+            await handleApplyLabel(selectedEmailId, labelId);
+          }
+        }}
+      />
+
+      <SnoozeModal
+        visible={showSnoozeModal}
+        onClose={() => {
+          setShowSnoozeModal(false);
+          setSelectedEmailId(null);
+        }}
+        onSelectSnoozeTime={async (date) => {
+          if (selectedEmailId) {
+            await handleSnoozeEmail(selectedEmailId, date);
+          }
+        }}
       />
     </SafeAreaView>
   );
 }
 
-// Extend existing styles with new elements
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1050,14 +198,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
-  headerTitle: {
+  title: {
     fontSize: 20,
     fontWeight: '600',
   },
-  headerButton: {
-    padding: 8,
-  },
-  actionButtonText: {
+  composeButton: {
     color: '#0000ff',
     fontSize: 16,
   },
@@ -1067,290 +212,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
-  emailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  emailContent: {
-    flex: 1,
-  },
-  unreadEmail: {
-    backgroundColor: '#f0f9ff',
-  },
-  readEmail: {
-    backgroundColor: '#ffffff',
-  },
-  fromText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  subjectText: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  snippetText: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  errorText: {
-    color: '#ff0000',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
   emptyText: {
     color: '#666666',
-    textAlign: 'center',
   },
-  retryButton: {
-    backgroundColor: '#0000ff',
-    padding: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  formContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  input: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  messageInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 16,
-    minHeight: 150,
-  },
-  emailDetailsContainer: {
-    padding: 16,
-  },
-  emailDetailTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emailDetailText: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
-  },
-  emailBodyContainer: {
-    flex: 1,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-  },
-  emailBodyText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  loadingText: {
-    color: '#0000ff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledText: {
-    color: '#999999',
-  },
-  actionsMenu: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  actionButton: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  actionButtonLabel: {
-    fontSize: 16,
-    color: '#1976d2',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  labelModalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    width: '80%',
-    maxHeight: '70%',
-    padding: 16,
-  },
-  labelModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  labelModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  labelList: {
-    maxHeight: 300,
-  },
-  labelItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  labelName: {
-    fontSize: 16,
-  },
-  createLabelContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 16,
-  },
-  createLabelInput: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    marginRight: 8,
-    paddingHorizontal: 8,
-  },
-  createLabelButton: {
-    backgroundColor: '#1976d2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  createLabelButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  snoozeModalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    width: '80%',
-    maxHeight: '70%',
-    padding: 16,
-  },
-  snoozeModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  snoozeModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  snoozeOptionsList: {
-    maxHeight: 300,
-  },
-  snoozeOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  snoozeOptionText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  snoozeOptionTime: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  errorDescription: {
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  refreshButton: {
-    backgroundColor: '#0000ff',
-    padding: 12,
-    borderRadius: 8,
-  },
-  refreshButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  headerRightContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  voiceButton: {
-    marginRight: 8,
-  },
-  searchBarContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  searchText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1976d2',
-  },
-  clearSearchText: {
-    color: '#ff0000',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});
+}); 
