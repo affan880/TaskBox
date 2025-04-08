@@ -160,7 +160,7 @@ function MainTabNavigator() {
             fontSize: 12,
           },
           tabBarStyle: {
-            height: 60,
+            height: 80,
             paddingBottom: 5,
           },
         })}
@@ -187,8 +187,6 @@ function MainTabNavigator() {
           }}
         /> */}
       </Tab.Navigator>
-      
-      <VoiceButton />
     </View>
   );
 }
@@ -215,25 +213,7 @@ export function AppNavigator() {
             <Stack.Screen 
               name="Main" 
               component={MainTabNavigator} 
-              options={({ navigation }) => ({
-                title: 'TaskBox',
-                headerRight: () => (
-                  <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity 
-                      onPress={() => navigation.navigate('Chat')}
-                      style={{ marginRight: 16 }}
-                    >
-                      <Icon name="chat" size={24} color="#1976d2" />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => navigation.navigate('Profile')}
-                      style={{ marginRight: 10 }}
-                    >
-                      <Icon name="account-circle" size={30} color="#1976d2" />
-                    </TouchableOpacity>
-                  </View>
-                ),
-              })}
+              options={{ headerShown: false }}
             />
             <Stack.Screen 
               name="Profile" 
