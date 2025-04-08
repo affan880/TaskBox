@@ -53,12 +53,12 @@ export function useGmail() {
       
       setNextPageToken(response.nextPageToken || null);
       console.log('Email fetch completed successfully');
-      return true;
+      return formattedEmails;
     } catch (error: any) {
       console.error('Error fetching emails:', error);
       console.error('Error details:', error.message);
       setError(error.message || 'Failed to load emails');
-      return false;
+      return [];
     } finally {
       setIsLoading(false);
     }

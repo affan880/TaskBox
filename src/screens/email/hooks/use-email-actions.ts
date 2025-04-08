@@ -69,8 +69,8 @@ export function useEmailActions() {
   const loadEmails = async (): Promise<EmailData[]> => {
     setIsLoading(true);
     try {
-      await gmail.fetchEmails();
-      return gmail.emails;
+      const fetchedEmails = await gmail.fetchEmails();
+      return fetchedEmails;
     } finally {
       setIsLoading(false);
     }
