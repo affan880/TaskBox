@@ -398,22 +398,34 @@ export function parseEmailData(message: any): EmailData {
  */
 export async function revokeGmailAccess(): Promise<void> {
   try {
-    const tokens = await GoogleSignin.getTokens();
-    if (tokens && tokens.accessToken) {
-      // Revoke the access token
-      const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to revoke access');
+    // Check if user is signed in first
+    try {
+      const currentUser = await GoogleSignin.getCurrentUser();
+      if (!currentUser) {
+        console.log('User is not signed in, skipping Gmail access revocation');
+        return;
       }
+      
+      const tokens = await GoogleSignin.getTokens();
+      if (tokens && tokens.accessToken) {
+        // Revoke the access token
+        const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to revoke access');
+        }
+      }
+    } catch (error) {
+      console.log('Error getting tokens for revocation, continuing with sign out:', error);
+      // We don't throw here to allow the sign out process to continue
     }
   } catch (error) {
     console.error('Error revoking Gmail access:', error);
-    throw error;
+    // Don't throw so sign out can continue
   }
 } 
