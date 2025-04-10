@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { COLORS } from '../../../theme/colors';
+import { useTheme } from '../../../theme/theme-context';
 import { Screen } from '../../../components/ui/screen';
 
 type ComposeEmailModalProps = {
@@ -29,6 +29,7 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
   const [isSending, setIsSending] = useState(false);
 
   const toInputRef = useRef<TextInput>(null);
+  const { colors } = useTheme();
 
   useEffect(() => {
     if (visible) {
@@ -66,36 +67,55 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
     <Screen>
     <Modal
       visible={visible}
-      animationType="slide"
       transparent={false}
-      onRequestClose={() => {
-        if (!isSending) onClose();
-      }}
+      animationType="slide"
+      onRequestClose={onClose}
     >
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity 
+      <Screen style={[styles.container, { backgroundColor: '#ffffff' }]}>
+        <View style={[
+          styles.header, 
+          { 
+            backgroundColor: '#ffffff',
+            borderBottomColor: 'rgba(120, 139, 255, 0.2)',
+            borderBottomWidth: 1,
+            shadowColor: 'rgba(0,0,0,0.1)', 
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 3,
+            elevation: 2
+          }
+        ]}>
+          <TouchableOpacity
+            style={styles.headerButton}
             onPress={onClose}
             disabled={isSending}
-            style={styles.headerButton}
-          >
-            <Text style={styles.headerButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>New Email</Text>
-          <TouchableOpacity 
-            onPress={handleSend}
-            disabled={isSending}
-            style={styles.headerButton}
           >
             <Text style={[
-              styles.headerButtonText,
+              styles.headerButtonText, 
               isSending && styles.disabledText
             ]}>
-              {isSending ? 'Sending...' : 'Send'}
+              Cancel
+            </Text>
+          </TouchableOpacity>
+          
+          <Text style={styles.headerTitle}>
+            New Message
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={handleSend}
+            disabled={isSending}
+          >
+            <Text style={[
+              styles.headerButtonText, 
+              { 
+                color: '#5c6ac4',
+                fontWeight: '600'
+              },
+              isSending && styles.disabledText
+            ]}>
+              Send
             </Text>
           </TouchableOpacity>
         </View>
@@ -103,7 +123,7 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
         <ScrollView style={styles.content}>
           {isSending && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={COLORS.text.secondary} />
+              <ActivityIndicator size="large" color="#5c6ac4" />
             </View>
           )}
           
@@ -117,7 +137,7 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isSending}
-            placeholderTextColor={COLORS.text.tertiary}
+            placeholderTextColor="#718096"
           />
           
           <TextInput
@@ -126,7 +146,7 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
             value={subject}
             onChangeText={setSubject}
             editable={!isSending}
-            placeholderTextColor={COLORS.text.tertiary}
+            placeholderTextColor="#718096"
           />
           
           <TextInput
@@ -137,10 +157,10 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
             multiline
             textAlignVertical="top"
             editable={!isSending}
-            placeholderTextColor={COLORS.text.tertiary}
+            placeholderTextColor="#718096"
           />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </Screen>
     </Modal>
     </Screen>
   );
@@ -149,7 +169,7 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background.primary,
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
@@ -157,23 +177,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.background.secondary,
+    borderBottomColor: 'rgba(120, 139, 255, 0.2)',
+    backgroundColor: '#ffffff',
   },
   headerButton: {
     padding: 8,
   },
   headerButtonText: {
     fontSize: 16,
-    color: COLORS.text.secondary,
+    color: '#4a5568',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#1a202c',
   },
   disabledText: {
-    color: COLORS.text.tertiary,
+    color: '#718096',
   },
   content: {
     flex: 1,
@@ -181,19 +201,19 @@ const styles = StyleSheet.create({
   },
   input: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: 'rgba(120, 139, 255, 0.2)',
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
-    color: COLORS.text.primary,
+    color: '#1a202c',
   },
   bodyInput: {
     flex: 1,
     height: 200,
     padding: 12,
     fontSize: 16,
-    color: COLORS.text.primary,
-    backgroundColor: COLORS.background.secondary,
+    color: '#1a202c',
+    backgroundColor: '#f1f5ff',
     borderRadius: 8,
     textAlignVertical: 'top',
   },

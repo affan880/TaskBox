@@ -1,4 +1,101 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# TaskBox
+
+A simple task management app built with React Native.
+
+## Setup
+
+### Prerequisites
+
+- Node.js >= 18
+- Yarn or npm
+- iOS: XCode and CocoaPods
+- Android: Android Studio with SDK
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. For iOS, install Pods:
+
+```bash
+cd ios && pod install && cd ..
+```
+
+## Usage
+
+### Running the app
+
+#### iOS
+
+```bash
+npm run ios
+```
+
+#### Android
+
+```bash
+npm run android
+```
+
+### Development
+
+```bash
+npm start
+```
+
+## Stack
+
+- **React Native**: Core framework
+- **TypeScript**: For type safety
+- **React Navigation**: For navigation between screens
+- **Zustand**: State management
+- **MMKV**: Fast storage
+- **Nativewind/TailwindCSS**: For styling
+- **date-fns**: Date manipulation
+- **react-native-blob-util**: For handling file attachments
+- **react-native-document-picker**: For picking document attachments
+- **Jest**: Testing
+
+## Features
+
+### Task Management
+- Create, edit, and delete tasks
+- Set task priorities (low, medium, high)
+- Add due dates and tags
+- Mark tasks as complete
+- Filter tasks by status and priority
+
+### File Attachments
+- Attach files to tasks
+- View attachments with native file viewers
+- Support for multiple file types (documents, images, PDFs, etc.)
+- Delete attachments from tasks
+
+## Folder Structure
+
+```
+src/
+  ├── api/         # API services
+  │   └── task/    # Task-related API services
+  ├── app/         # App screens
+  │   └── tasks-screen.tsx
+  ├── components/  # Reusable components
+  │   ├── task/    # Task-related components
+  │   └── ui/      # UI components like buttons, inputs
+  ├── lib/         # Shared libraries
+  │   ├── auth/    # Authentication utilities
+  │   ├── hooks/   # Custom React hooks
+  │   ├── storage/ # Storage utilities
+  │   ├── store/   # Zustand stores
+  │   └── utils/   # Utility functions
+  ├── translations/ # i18n translations
+  └── types/       # TypeScript type definitions
+```
 
 # Getting Started
 
@@ -66,7 +163,7 @@ This is one way to run your app — you can also build it directly from Android 
 
 Now that you have successfully run the app, let's make changes!
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
 
 When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
 

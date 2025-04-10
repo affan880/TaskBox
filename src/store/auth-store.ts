@@ -24,6 +24,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   initializeAuthListener: () => () => void;
   checkAndRestoreSession: () => Promise<boolean>;
+  refreshAuthentication: () => Promise<boolean>;
 };
 
 // Token cache key
@@ -77,10 +78,11 @@ const debugGoogleSignIn = async () => {
     console.log('Debugging GoogleSignin state...');
     
     try {
-      const isSignedIn = await (GoogleSignin as any).isSignedIn();
-      console.log('GoogleSignin.isSignedIn():', isSignedIn);
+      const currentUser = await GoogleSignin.getCurrentUser();
+      const isSignedIn = currentUser !== null;
+      console.log('GoogleSignin sign-in state:', isSignedIn ? 'Signed in' : 'Not signed in');
     } catch (e) {
-      console.log('Error checking isSignedIn:', e);
+      console.log('Error checking sign in status:', e);
     }
     
     try {
@@ -117,6 +119,80 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user: FirebaseAuthTypes.User | null) => {
     if (JSON.stringify(get().user) !== JSON.stringify(user)) {
       set({ user });
+    }
+  },
+
+  // Add a function to explicitly refresh authentication
+  refreshAuthentication: async () => {
+    try {
+      console.log('Manually refreshing authentication');
+      set({ isLoading: true, error: null });
+      
+      // First, ensure configuration is up to date
+      configureGoogleSignin();
+      
+      // Check if user is already signed in with Google
+      let isSignedIn = false;
+      try {
+        const currentUser = await GoogleSignin.getCurrentUser();
+        isSignedIn = currentUser !== null;
+      } catch (e) {
+        console.log('Error checking sign in status:', e);
+      }
+      console.log(`Current Google Sign-in status: ${isSignedIn ? 'Signed in' : 'Not signed in'}`);
+      
+      if (isSignedIn) {
+        try {
+          // Try to get fresh tokens
+          console.log('Attempting to refresh tokens...');
+          const { accessToken, idToken } = await GoogleSignin.getTokens();
+          
+          if (idToken) {
+            const app = getApp();
+            const auth = getAuth(app);
+            const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
+            
+            // Sign in with Firebase again to refresh tokens
+            const userCredential = await signInWithCredential(auth, googleCredential);
+            set({ user: userCredential.user, error: null });
+            console.log('Authentication refreshed successfully');
+            return true;
+          }
+        } catch (tokenError) {
+          console.error('Failed to refresh tokens:', tokenError);
+          
+          // If token refresh fails, try silent sign in
+          try {
+            console.log('Trying silent sign in...');
+            const userInfo = await GoogleSignin.signInSilently();
+            if (userInfo) {
+              const { accessToken, idToken } = await GoogleSignin.getTokens();
+              if (idToken) {
+                const app = getApp();
+                const auth = getAuth(app);
+                const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
+                const userCredential = await signInWithCredential(auth, googleCredential);
+                set({ user: userCredential.user, error: null });
+                console.log('Silent sign-in successful');
+                return true;
+              }
+            }
+          } catch (silentError) {
+            console.error('Silent sign-in failed:', silentError);
+          }
+        }
+      }
+      
+      // If we reach here, we need a full re-authentication
+      console.log('Need to perform full re-authentication');
+      set({ error: 'Authentication needs to be refreshed. Please sign in again.' });
+      return false;
+    } catch (error) {
+      console.error('Error in refreshAuthentication:', error);
+      set({ error: 'Failed to refresh authentication' });
+      return false;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -161,8 +237,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       try {
         console.log('Checking if user is signed in with Google');
-        const isSignedIn = await (GoogleSignin as any).isSignedIn();
-        console.log('GoogleSignin.isSignedIn() result:', isSignedIn);
+        const currentUser = await GoogleSignin.getCurrentUser();
+        const isSignedIn = currentUser !== null;
+        console.log('Google sign-in status:', isSignedIn ? 'Signed in' : 'Not signed in');
         
         if (isSignedIn) {
           console.log('User is signed in with Google, attempting to get tokens');
@@ -260,22 +337,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      // Revoke Gmail access
-      await revokeGmailAccess();
+      // First try to revoke Gmail access (which is now fail-safe)
+      try {
+        await revokeGmailAccess();
+      } catch (error) {
+        // Already logged in the function, continue with sign out
+      }
       
-      // Sign out from Google
-      await GoogleSignin.signOut();
+      // Sign out from Firebase first
+      try {
+        const app = getApp();
+        const auth = getAuth(app);
+        await auth.signOut();
+      } catch (firebaseError) {
+        console.error('Firebase sign out error:', firebaseError);
+        // Continue with Google sign out even if Firebase fails
+      }
       
-      // Sign out from Firebase
-      const app = getApp();
-      const auth = getAuth(app);
-      await auth.signOut();
+      // Finally sign out from Google
+      try {
+        await GoogleSignin.signOut();
+      } catch (googleError) {
+        console.error('Google sign out error:', googleError);
+        // Continue anyway to update the UI state
+      }
       
       set({ user: null, isLoading: false, error: null });
     } catch (error: any) {
       console.error('Sign out error:', error);
-      set({ error: error.message || 'Failed to sign out', isLoading: false });
-      throw error;
+      // Still set user to null to ensure UI shows logged out state
+      set({ user: null, error: error.message || 'Failed to sign out', isLoading: false });
     }
   },
 })); 

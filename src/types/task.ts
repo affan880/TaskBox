@@ -1,0 +1,57 @@
+/**
+ * Task data type representing a single task in the task list
+ */
+export type TaskData = {
+  id: string;
+  title: string;
+  description?: string;
+  isCompleted: boolean;
+  dueDate?: string;
+  priority: TaskPriority;
+  tags?: string[];
+  attachments?: TaskAttachment[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Task priority enum
+ */
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+/**
+ * Task attachment type
+ */
+export type TaskAttachment = {
+  id: string;
+  name: string;
+  uri: string;
+  type: string;
+  size: number;
+  createdAt: string;
+};
+
+/**
+ * Task list type
+ */
+export type TaskList = {
+  id: string;
+  name: string;
+  tasks: TaskData[];
+  color: string;
+  icon?: string;
+};
+
+/**
+ * Task filter options
+ */
+export type TaskFilter = {
+  showCompleted: boolean;
+  priority?: TaskPriority;
+  searchQuery?: string;
+  tags?: string[];
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+}; 

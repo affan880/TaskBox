@@ -9,6 +9,27 @@ import * as React from 'react';
 import { StatusBar, AppState, AppStateStatus } from 'react-native';
 import { AppNavigator } from './src/navigation/app-navigator';
 import { useAuthStore } from './src/store/auth-store';
+import { ToastProvider } from './src/components/ui/toast';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from './src/theme/theme-context';
+import { ErrorBoundary } from './src/components/ui/error-boundary';
+
+// Patch Error.stack to handle potential issues with the 'err' package
+if (!('stack' in Error.prototype)) {
+  Object.defineProperty(Error.prototype, 'stack', {
+    configurable: true,
+    get() {
+      try {
+        return this._stack || '';
+      } catch (e) {
+        return '';
+      }
+    },
+    set(value) {
+      this._stack = value;
+    }
+  });
+}
 
 /**
  * TaskBox - A simple task management app with Firebase integration
@@ -48,9 +69,15 @@ export default function App() {
   }, []);
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <AppNavigator />
-    </>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <StatusBar barStyle="dark-content" />
+            <AppNavigator />
+          </ToastProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

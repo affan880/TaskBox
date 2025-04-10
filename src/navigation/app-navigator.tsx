@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { 
@@ -9,23 +9,24 @@ import {
   View, 
   StyleSheet, 
   Animated, 
-  Easing, 
   Modal, 
   Dimensions, 
   SafeAreaView,
-  Platform,
   StatusBar
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import { useTheme } from '../theme/theme-context';
 import { useAuthStore } from '../store/auth-store';
 import { AuthNavigator } from './auth-navigator';
 import { ProfileScreen } from '../screens/profile/profile-screen';
-import { ComposeScreen } from '../screens/email/compose-screen';
-import { EmailScreen } from '../screens/email/email-screen';
-import { COLORS } from '../theme/colors';
+import { EmailDrawerNavigator } from './email-drawer-navigator';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { UIShowcaseNavigator } from './ui-showcase-navigator';
+import { TaskScreen } from '../screens/tasks/task-screen';
+import { useUnreadEmailCount } from '../hooks/use-unread-email-count';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -34,8 +35,10 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
-  Inbox: undefined;
+  Email: undefined;
+  Tasks: undefined;
   Profile: undefined;
+  UIShowcase: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -135,55 +138,109 @@ const VoiceButton = () => {
 };
 
 function MainTabNavigator() {
+  const { colors, isDark } = useTheme();
+  const unreadCount = useUnreadEmailCount();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          const iconName = route.name === 'Inbox' 
-            ? focused ? 'mail' : 'mail-outline'
-            : focused ? 'person' : 'person-outline';
-          
+          let iconName: string = 'help-circle-outline'; // Default icon
+
+          if (route.name === 'Email') {
+            iconName = focused ? 'email' : 'email-outline';
+          } else if (route.name === 'Tasks') {
+            iconName = focused ? 'check-circle' : 'check-circle-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'account-circle' : 'account-circle-outline';
+          } else if (route.name === 'UIShowcase') {
+            iconName = focused ? 'palette' : 'palette-outline';
+          }
+
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: COLORS.text.secondary,
-        tabBarInactiveTintColor: COLORS.text.tertiary,
+        tabBarActiveTintColor: colors.brand.primary,
+        tabBarInactiveTintColor: colors.text.tertiary,
         tabBarStyle: {
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 10,
-          backgroundColor: COLORS.background.secondary,
-          borderTopColor: COLORS.border,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
+          backgroundColor: colors.background.primary,
+          borderTopColor: colors.border.light,
         },
         headerShown: false,
       })}
     >
       <Tab.Screen 
-        name="Inbox" 
-        component={EmailScreen}
+        name="Email" 
+        component={EmailDrawerNavigator}
+        options={{
+          tabBarLabel: 'Email',
+          tabBarAccessibilityLabel: 'Email tab',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.status.info,
+          },
+        }}
+      />
+      <Tab.Screen 
+        name="Tasks" 
+        component={TaskScreen}
+        options={{
+          tabBarLabel: 'Tasks',
+          tabBarAccessibilityLabel: 'Tasks tab',
+        }}
       />
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarAccessibilityLabel: 'Profile tab',
+        }}
+      />
+      <Tab.Screen 
+        name="UIShowcase" 
+        component={UIShowcaseNavigator}
+        options={{
+          tabBarLabel: 'UI Components',
+          tabBarAccessibilityLabel: 'UI Components showcase tab',
+        }}
       />
     </Tab.Navigator>
   );
 }
 
-function NavigationRoot() {
-  const { user, isLoading, initialized } = useAuthStore();
+function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
+  const { user, isLoading, initialized, setUser } = useAuthStore();
+  const { colors } = useTheme();
+  const didForceAuth = React.useRef(false);
+
+  // Effect to handle force navigation to Auth screen
+  React.useEffect(() => {
+    // Only run this once per forceAuthScreen=true to prevent loops
+    if (forceAuthScreen && user && !didForceAuth.current && onNavigated) {
+      console.log('Forcing auth screen, setting user to null');
+      didForceAuth.current = true;
+      
+      // Call onNavigated to reset the forceAuthScreen flag
+      onNavigated();
+      
+      // Set user to null in the auth store instead of navigating directly
+      setUser(null);
+    } else if (!forceAuthScreen) {
+      // Reset the ref when forceAuthScreen is set to false
+      didForceAuth.current = false;
+    }
+  }, [forceAuthScreen, user, onNavigated, setUser]);
 
   if (isLoading || !initialized) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.text.secondary} />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background.primary }]}>
+        <ActivityIndicator size="large" color={colors.brand.primary} />
       </View>
     );
   }
 
+  // Simply render appropriate screen based on auth state
+  // We don't need to check forceAuthScreen here anymore since we're handling it in the effect
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
@@ -201,13 +258,13 @@ function NavigationRoot() {
   );
 }
 
-export function AppNavigator() {
+export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
   return (
-    <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
-        <NavigationRoot />
+        <NavigationRoot forceAuthScreen={forceAuthScreen} onNavigated={onNavigated} />
       </NavigationContainer>
-    </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -287,6 +344,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background.primary,
   },
 }); 

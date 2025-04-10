@@ -5,7 +5,9 @@ import {
   Text, 
   ActivityIndicator, 
   View,
-  StyleSheet 
+  StyleSheet,
+  Pressable,
+  Animated 
 } from 'react-native';
 import { classNames } from '../../utils/styling';
 
@@ -19,6 +21,8 @@ type ButtonProps = TouchableOpacityProps & {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   className?: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
 export function Button({
@@ -31,8 +35,31 @@ export function Button({
   className,
   disabled,
   style,
+  accessibilityLabel,
+  accessibilityHint,
   ...props
 }: ButtonProps) {
+  // Scale animation for press feedback
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
   // Create styles based on variant and size
   const getStyles = () => {
     // Define base styles
@@ -89,35 +116,65 @@ export function Button({
   };
 
   const { buttonStyle, textStyle } = getStyles();
+  
+  // Get loading indicator color based on variant
+  const getLoadingColor = () => {
+    if (variant === 'outline' || variant === 'ghost') {
+      return '#3498db'; // primary color
+    }
+    return '#fff';
+  };
+  
+  // Determine the minimum hit slop area based on button size
+  const getHitSlop = () => {
+    if (size === 'sm') {
+      return { top: 8, bottom: 8, left: 8, right: 8 };
+    }
+    return undefined; // default button sizes are already large enough
+  };
 
   return (
-    <TouchableOpacity
-      style={buttonStyle}
-      disabled={disabled || isLoading}
-      {...props}
-    >
-      <View style={styles.contentContainer}>
-        {isLoading ? (
-          <ActivityIndicator 
-            size="small" 
-            color={variant === 'outline' || variant === 'ghost' ? '#3498db' : '#fff'} 
-            style={styles.iconLeft}
-          />
-        ) : leftIcon ? (
-          <View style={styles.iconLeft}>{leftIcon}</View>
-        ) : null}
-        
-        {typeof children === 'string' ? (
-          <Text style={textStyle}>{children}</Text>
-        ) : (
-          children
-        )}
-        
-        {rightIcon && !isLoading ? (
-          <View style={styles.iconRight}>{rightIcon}</View>
-        ) : null}
-      </View>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={buttonStyle}
+        disabled={disabled || isLoading}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        hitSlop={getHitSlop()}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || (typeof children === 'string' ? children : undefined)}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ 
+          disabled: disabled || isLoading,
+          busy: isLoading 
+        }}
+        {...props}
+      >
+        <View style={styles.contentContainer}>
+          {isLoading ? (
+            <ActivityIndicator 
+              size="small" 
+              color={getLoadingColor()} 
+              style={styles.iconLeft}
+            />
+          ) : leftIcon ? (
+            <View style={styles.iconLeft}>{leftIcon}</View>
+          ) : null}
+          
+          {typeof children === 'string' ? (
+            <Text style={textStyle} numberOfLines={1}>
+              {children}
+            </Text>
+          ) : (
+            children
+          )}
+          
+          {rightIcon && !isLoading ? (
+            <View style={styles.iconRight}>{rightIcon}</View>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -125,6 +182,7 @@ const styles = StyleSheet.create({
   button: {
     borderRadius: 8,
     overflow: 'hidden',
+    minHeight: 44, // minimum for accessibility
   },
   primaryButton: {
     backgroundColor: '#3498db', // primary color
@@ -149,14 +207,17 @@ const styles = StyleSheet.create({
   smallButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
+    minHeight: 32,
   },
   mediumButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
+    minHeight: 44,
   },
   largeButton: {
     paddingVertical: 14,
     paddingHorizontal: 20,
+    minHeight: 52,
   },
   contentContainer: {
     flexDirection: 'row',

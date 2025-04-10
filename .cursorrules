@@ -1,6 +1,7 @@
-# React Native/Expo Project
+# React Native cli Project
+Never use expo packages
 
-You are an expert in TypeScript, React Native, Expo, and Mobile UI development with Nativewind.
+You are an expert in TypeScript, React Native, and Mobile UI development with Nativewind.
 
 Every time you choose to apply a rule(s), explicitly state the rule(s) in the output. You can abbreviate the rule description to a single word or phrase.
 
@@ -14,7 +15,7 @@ Every time you choose to apply a rule(s), explicitly state the rule(s) in the ou
 - Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
 - Ensure components are modular, reusable, and maintainable.
 - Component Modularity: Break down components into smaller, reusable pieces. Keep components focused on a single responsibility and shouldn't be more than 80 lines of code.
-- To install new packages use `npx expo install <package-name>`
+- To install new packages use `npm install <package-name>`
 - Structure repository files as follows:
 
 ```
@@ -145,3 +146,26 @@ Rules:
   - Usage ( listing all the commands and how to use them )
   - Stack ( the tech stack used in the project )
   - Folder Structure ( the folder structure of the project only the important ones inside src )
+
+import RNBlobUtil from 'react-native-blob-util';
+
+// To download a file
+RNBlobUtil.config({
+  fileCache: true,
+  appendExt: 'pdf', // Append extension if needed
+})
+  .fetch('GET', 'https://example.com/sample.pdf', {
+    // Optional headers
+  })
+  .then(res => {
+    // File saved to: res.path()
+    console.log('File saved to:', res.path());
+  });
+
+// To upload a file
+RNBlobUtil.fetch('POST', 'https://api.example.com/upload', {
+  'Content-Type': 'multipart/form-data',
+}, [
+  { name: 'file', filename: 'file.jpg', data: RNBlobUtil.wrap(filePath) },
+  { name: 'info', data: JSON.stringify({ userId: 123 }) },
+]);

@@ -1,20 +1,62 @@
 /**
- * Email data type representing a single email in the inbox
+ * Interface for email data
  */
-export type EmailData = {
+export interface EmailData {
+  /**
+   * Unique identifier for the email
+   */
   id: string;
+  
+  /**
+   * ID of the conversation thread this email belongs to
+   */
   threadId: string;
+  
+  /**
+   * Email sender (name and email address)
+   */
   from: string;
+  
+  /**
+   * Email recipient(s)
+   */
   to: string;
+  
+  /**
+   * Email subject line
+   */
   subject: string;
+  
+  /**
+   * Brief preview/snippet of the email body
+   */
   snippet: string;
+  
+  /**
+   * Full HTML body content of the email (optional, typically only loaded when viewing an email)
+   */
   body?: string;
+  
+  /**
+   * ISO-formatted date string for when the email was sent/received
+   */
   date: string;
+  
+  /**
+   * Whether the email has been read by the user
+   */
   isUnread: boolean;
+  
+  /**
+   * Whether the email has file attachments
+   */
   hasAttachments: boolean;
+  
+  /**
+   * List of label IDs associated with this email
+   */
   labelIds: string[];
-  internalDate?: string;
-};
+}
 
 /**
  * Email header type
@@ -84,7 +126,7 @@ export type GmailApiListResponse = {
     id: string;
     threadId: string;
   }>;
-  nextPageToken?: string;
+  nextPageToken?: string | null;
   resultSizeEstimate: number;
 };
 
