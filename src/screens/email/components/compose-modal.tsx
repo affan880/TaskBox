@@ -29,7 +29,6 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
   const [isSending, setIsSending] = useState(false);
 
   const toInputRef = useRef<TextInput>(null);
-  const { colors } = useTheme();
 
   useEffect(() => {
     if (visible) {

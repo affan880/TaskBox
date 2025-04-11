@@ -12,7 +12,6 @@ export function AutoHeightWebView({ html, baseUrl }: AutoHeightWebViewProps) {
   const { colors, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [webViewHeight, setWebViewHeight] = useState(300);
-  const { width } = Dimensions.get('window');
   const webViewRef = useRef<WebView>(null);
 
   if (!html) {

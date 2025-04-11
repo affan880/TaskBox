@@ -56,6 +56,11 @@ export interface EmailData {
    * List of label IDs associated with this email
    */
   labelIds: string[];
+
+  /**
+   * Internal date of the email
+   */
+  internalDate: string;
 }
 
 /**
@@ -136,4 +141,82 @@ export type GmailApiListResponse = {
 export type SnoozeData = {
   emailId: string;
   snoozeUntil: string;
+};
+
+// Define the basic structure of an email based on previous usage
+export type ExtendedEmailData = {
+  id: string;
+  from: string;
+  to?: string; // Optional
+  cc?: string; // Optional
+  subject: string;
+  body?: string; // Optional (might be HTML or plain text)
+  date: string; // ISO 8601 date string typically
+  hasAttachments?: boolean;
+  isImportant?: boolean;
+  isStarred?: boolean;
+  attachments?: Attachment[]; // Use the Attachment type below
+  // Add any other relevant fields like snippet, threadId, etc.
+};
+
+// Define the Attachment type used across components
+export type Attachment = {
+  id: string; // Unique ID for the attachment within the email context
+  name: string; // Filename
+  type: string; // File extension (e.g., 'pdf', 'jpg') or MIME subtype
+  size: number; // Size in bytes
+  sizeDisplay: string; // User-friendly size string (e.g., "1.2 MB")
+  contentType: string; // Full MIME type (e.g., 'application/pdf')
+  contentId?: string; // For inline images (CID)
+  url?: string; // Direct download URL if available
+  data?: string; // Base64 encoded data if embedded
+  attachmentId?: string; // Gmail API attachment ID for fetching attachment content
+  // messageId?: string; // Redundant if part of EmailData context
+};
+
+// Define the EmailLabel type
+export type EmailLabel =
+  | 'important'
+  | 'inbox'
+  | 'sent'
+  | 'draft'
+  | 'starred'
+  | 'spam'
+  | 'trash'
+  | 'snoozed'
+  | 'forum'
+  | 'updates'
+  | 'promotions'
+  | 'social'
+  | string; // Allow for custom labels as strings
+
+// TODO: Define a stricter type for the GMAIL_COLORS theme object if needed elsewhere
+export type GmailTheme = {
+    primary: string;
+    primaryDark: string;
+    secondary: string;
+    surface: string;
+    background: string;
+    backgroundSecondary: string;
+    border: string;
+    text: {
+      primary: string;
+      secondary: string;
+      tertiary: string;
+      inverse: string;
+    };
+    chip: {
+      background: string;
+      text: string;
+    };
+    label: {
+      inbox: string;
+      important: string;
+      flagged: string;
+      draft: string;
+    };
+    attachment: {
+      background: string;
+      icon: string;
+    };
 }; 

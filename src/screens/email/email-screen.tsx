@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { 
   ActivityIndicator, 
   FlatList, 
@@ -9,13 +9,12 @@ import {
   TouchableOpacity,
   Text,
   Animated,
-  Dimensions,
-  Image,
   Platform,
   Alert,
-  useWindowDimensions
+  Image,
 } from 'react-native';
 import { useEmailActions } from './hooks/use-email-actions';
+import { useEmailAttachments, EmailWithAttachments } from './hooks/use-email-attachments';
 import { ComposeEmailModal } from './components/compose-modal';
 import { LabelModal } from './components/label-modal';
 import { SnoozeModal } from './components/snooze-modal';
@@ -23,15 +22,16 @@ import { EmailListItem } from './components/email-list-item';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '../../theme/theme-context';
-import type { EmailData } from '../../types/email';
+import type { EmailData, Attachment } from '../../types/email';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SPACING, SHADOWS, TYPOGRAPHY, BORDER_RADIUS } from '../../theme/theme';
-import { useAuthStore } from '../../store/auth-store';
+import { getCurrentScreenTitle } from '../../utils/utils';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Define RootStackParamList for type safety
 type RootStackParamList = {
-  ReadEmail: { email: EmailData };
+  ReadEmail: { email: EmailData | EmailWithAttachments };
   Profile: undefined;
   // Add other screens as needed
 };
@@ -56,6 +56,7 @@ type EmailListProps = {
   isMultiSelectMode: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
+  initialLoadComplete: boolean;
   handleLoadMore: () => void;
   colors: any;
 };
@@ -71,202 +72,151 @@ export function EmailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const { colors } = useTheme();
-  const { width, height } = useWindowDimensions();
-  const isTablet = width > 768;
-  
-  // Get auth state from the auth store
-  const { initialized: authInitialized } = useAuthStore();
-  
+
+  // Use email hooks
   const {
+    emails, 
     isLoading,
-    loadEmails,
-    getEmailDetails,
+    isRefreshing,
+    isLoadingMore,
+    hasAuthFailed,
+    initialLoadComplete,
+    gmailError,
+    handleRefresh,
+    handleLoadMore,
+    getEmailDetails, 
     archiveEmail,
     deleteEmail,
     markAsUnread,
+    markAsRead, 
     applyLabel,
+    removeLabel, 
     snoozeEmail,
     sendEmail,
+    fetchAttachment,
   } = useEmailActions();
 
-  const [emails, setEmails] = useState<EmailData[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
+  // Debug log for emails and loading states
+  useEffect(() => {
+    console.log(`EmailScreen: emails=${emails.length}, isLoading=${isLoading}, initialLoadComplete=${initialLoadComplete}`);
+  }, [emails, isLoading, initialLoadComplete]);
+
+  // Use the email attachments hook
+  const { 
+    loadEmailWithAttachments,
+    isLoadingAttachments,
+    attachmentError
+  } = useEmailAttachments();
+
+  // Screen state for UI elements
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState(false);
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [selectedEmailIdForModal, setSelectedEmailIdForModal] = useState<string | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [page, setPage] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreEmails, setHasMoreEmails] = useState(true);
 
+  // Animation for FAB
   const fabAnim = useRef(new Animated.Value(1)).current;
-  const loadMoreTimeoutRef = useRef<number>(0);
   const composeTranslateY = fabAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [100, 0],
+    outputRange: [100, 0], 
   });
 
+  // Get screen title using the utility
   const currentScreenName = route.name;
+  const screenTitle = useMemo(() => getCurrentScreenTitle(currentScreenName), [currentScreenName]);
 
-  // Get current screen title
-  const getCurrentScreenTitle = useCallback(() => {
-    switch (currentScreenName) {
-      case 'AllInbox': return 'All inbox';
-      case 'Primary': return 'Primary';
-      case 'Social': return 'Social';
-      case 'Promotions': return 'Promotions';
-      case 'Starred': return 'Starred';
-      case 'Snoozed': return 'Snoozed';
-      case 'Important': return 'Important';
-      case 'Sent': return 'Sent';
-      case 'Scheduled': return 'Scheduled';
-      case 'Drafts': return 'Drafts';
-      case 'Spam': return 'Spam';
-      case 'Trash': return 'Trash';
-      default: return 'Inbox';
-    }
-  }, [currentScreenName]);
+  // Define toggleEmailSelection first
+  const toggleEmailSelection = useCallback((emailId: string) => {
+    setSelectedEmails(prev => {
+      const newSelection = prev.includes(emailId)
+        ? prev.filter(id => id !== emailId)
+        : [...prev, emailId];
 
-  // Load emails after auth is initialized
-  useEffect(() => {
-    if (authInitialized) {
-      console.log('Auth initialized, refreshing emails');
-      handleRefresh();
-    } else {
-      console.log('Waiting for auth initialization before loading emails');
-    }
-  }, [authInitialized, currentScreenName]);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    setPage(1);
-    try {
-      // We could filter emails by category based on the route name
-      const fetchedEmails = await loadEmails();
-      setEmails(fetchedEmails);
-      setHasMoreEmails(fetchedEmails.length > 0);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadEmails]);
-
-  const handleLoadMore = useCallback(async () => {
-    if (isLoadingMore || refreshing || !hasMoreEmails) return;
-    
-    // Add a small debounce to prevent multiple calls
-    const now = Date.now();
-    if (loadMoreTimeoutRef.current && now - loadMoreTimeoutRef.current < 500) {
-      return;
-    }
-    loadMoreTimeoutRef.current = now;
-    
-    setIsLoadingMore(true);
-    try {
-      const nextPage = page + 1;
-      console.log('Loading more emails, page:', nextPage);
-      const moreEmails = await loadEmails(nextPage);
-      
-      if (moreEmails.length === 0) {
-        setHasMoreEmails(false);
-      } else {
-        setEmails(prev => [...prev, ...moreEmails]);
-        setPage(nextPage);
+      if (newSelection.length === 0) {
+        setIsMultiSelectMode(false);
       }
-    } catch (error) {
-      console.error('Error loading more emails:', error);
-    } finally {
-      setIsLoadingMore(false);
-      // Reset timeout after 1 second
-      setTimeout(() => {
-        loadMoreTimeoutRef.current = 0;
-      }, 1000);
-    }
-  }, [isLoadingMore, refreshing, hasMoreEmails, page, loadEmails]);
+      return newSelection;
+    });
+  }, []); // No external dependencies, safe to define early
 
+  // Updated handleOpenEmail using the custom hook
   const handleOpenEmail = useCallback(async (emailId: string) => {
     if (isMultiSelectMode) {
       toggleEmailSelection(emailId);
       return;
     }
-
+    
+    console.log(`EmailScreen: Opening email ${emailId}`);
+    
     try {
-      // Create a loading state for this specific operation
-      const loadingOpStarted = Date.now();
-      setIsLoadingMore(true);
-      
-      // Get the email details
+      // Get basic email details
       const emailDetails = await getEmailDetails(emailId);
       
-      // Only navigate if we actually have email details
       if (emailDetails) {
-        // Set the current email (keeping this for backward compatibility)
-        setCurrentEmail(emailDetails);
-        
-        // Navigate to the ReadEmail screen instead of showing modal
-        navigation.navigate('ReadEmail', { email: emailDetails });
+        // If email has attachments, load them
+        if (emailDetails.hasAttachments) {
+          try {
+            // Show loading indicator if needed
+            const emailWithAttachments = await loadEmailWithAttachments(emailId, emailDetails);
+            navigation.navigate('ReadEmail', { email: emailWithAttachments });
+          } catch (error) {
+            navigation.navigate('ReadEmail', { email: emailDetails });
+          }
+        } else {
+          // No attachments, navigate with original email details
+          navigation.navigate('ReadEmail', { email: emailDetails });
+        }
       } else {
-        // Handle case where email details are null
-        console.error('Failed to load email details. Email ID:', emailId);
-        Alert.alert(
-          'Error',
-          'Could not load this email. Please try again.'
-        );
+        Alert.alert('Error', 'Could not load this email. Please try again.');
       }
     } catch (error) {
-      // Handle any errors that occurred
-      console.error('Error opening email:', error);
-      Alert.alert(
-        'Error',
-        'An error occurred while trying to open this email.'
-      );
-    } finally {
-      // Always hide loading indicator with a slight delay to prevent flashing
-      setTimeout(() => {
-        setIsLoadingMore(false);
-      }, 300);
+      Alert.alert('Error', 'An error occurred while trying to open this email.');
     }
-  }, [isMultiSelectMode, getEmailDetails, navigation]);
-  
-  const handleApplyLabel = useCallback(async (emailId: string, labelId: string) => {
-    await applyLabel(emailId, labelId);
+  }, [isMultiSelectMode, navigation, getEmailDetails, toggleEmailSelection, loadEmailWithAttachments]);
+
+  // Simplified Apply Label handler
+  const handleApplyLabel = useCallback(async (labelId: string) => {
+    if (!selectedEmailIdForModal) return; 
+    await applyLabel(selectedEmailIdForModal, [labelId]); 
     setShowLabelModal(false);
-  }, [applyLabel]);
+    setSelectedEmailIdForModal(null); // Reset selected ID
+  }, [applyLabel, selectedEmailIdForModal]);
 
-  const handleSnoozeEmail = useCallback(async (emailId: string, snoozeUntil: Date) => {
-    await snoozeEmail(emailId, snoozeUntil);
+  // Simplified Snooze handler - Make async to match Promise<void> expectation
+  const handleSnoozeEmail = useCallback(async (emailId: string, snoozeUntil: Date): Promise<void> => {
+    if (!selectedEmailIdForModal || emailId !== selectedEmailIdForModal) return; // Check correct ID is being snoozed
+    await snoozeEmail(emailId, snoozeUntil); // Delegate to hook
     setShowSnoozeModal(false);
-    setEmails(prev => prev.filter(email => email.id !== emailId));
-  }, [snoozeEmail]);
+    setSelectedEmailIdForModal(null); // Reset selected ID
+  }, [snoozeEmail, selectedEmailIdForModal]);
 
+  // Simplified Send handler
   const handleSendEmail = useCallback(async (to: string, subject: string, body: string) => {
-    await sendEmail(to, subject, body);
-    setShowComposeModal(false);
-    handleRefresh();
-  }, [sendEmail, handleRefresh]);
+    const success = await sendEmail(to, subject, body);
+    if (success) {
+      setShowComposeModal(false);
+    } else {
+      Alert.alert('Error', 'Failed to send email. Please try again.');
+    }
+  }, [sendEmail]);
 
-  // Handle long press to start multi-select mode
+  // Multi-select handlers
   const handleLongPress = useCallback((emailId: string) => {
     setIsMultiSelectMode(true);
     setSelectedEmails([emailId]);
   }, []);
 
-  // Toggle email selection in multi-select mode
-  const toggleEmailSelection = useCallback((emailId: string) => {
-    setSelectedEmails(prev => {
-      if (prev.includes(emailId)) {
-        const newSelection = prev.filter(id => id !== emailId);
-        if (newSelection.length === 0) {
-          setIsMultiSelectMode(false);
-        }
-        return newSelection;
-      } else {
-        return [...prev, emailId];
-      }
-    });
-  }, []);
+  // Handle auth failure display
+  useEffect(() => {
+    if (hasAuthFailed) {
+      Alert.alert(
+        'Authentication Error',
+        gmailError || 'Authentication failed. Please try again later.'
+      );
+    }
+  }, [hasAuthFailed, gmailError]);
 
   const handleProfilePress = useCallback(() => {
     // @ts-ignore - navigation types may not be correctly set
@@ -277,14 +227,14 @@ export function EmailScreen() {
     <View style={styles.container}>
       <EmailHeader 
         insets={insets} 
-        getCurrentScreenTitle={getCurrentScreenTitle} 
+        getCurrentScreenTitle={() => screenTitle} 
         onProfilePress={handleProfilePress}
         colors={colors}
       />
       
       <EmailList
         emails={emails}
-        refreshing={refreshing}
+        refreshing={isRefreshing}
         handleRefresh={handleRefresh}
         handleOpenEmail={handleOpenEmail}
         handleLongPress={handleLongPress}
@@ -292,6 +242,7 @@ export function EmailScreen() {
         isMultiSelectMode={isMultiSelectMode}
         isLoading={isLoading}
         isLoadingMore={isLoadingMore}
+        initialLoadComplete={initialLoadComplete}
         handleLoadMore={handleLoadMore}
         colors={colors}
       />
@@ -313,17 +264,18 @@ export function EmailScreen() {
         visible={showLabelModal}
         onClose={() => setShowLabelModal(false)}
         onSelectLabel={(labelId: string) => {
-          if (selectedEmailId) return handleApplyLabel(selectedEmailId, labelId);
+          if (selectedEmailIdForModal) return handleApplyLabel(labelId);
           return Promise.resolve();
         }}
       />
       
       <SnoozeModal
         visible={showSnoozeModal}
-        onClose={() => setShowSnoozeModal(false)}
-        onSelectSnoozeTime={(date: Date) => {
-          if (selectedEmailId) return handleSnoozeEmail(selectedEmailId, date);
-          return Promise.resolve();
+        onClose={() => { setShowSnoozeModal(false); setSelectedEmailIdForModal(null); }}
+        onSelectSnoozeTime={(date: Date) => { // Pass the async handler
+          if (selectedEmailIdForModal) return handleSnoozeEmail(selectedEmailIdForModal, date);
+          // Return a resolved promise if no ID selected to match type
+          return Promise.resolve(); 
         }}
       />
     </View>
@@ -403,9 +355,13 @@ const EmailList = React.memo(({
   isMultiSelectMode,
   isLoading,
   isLoadingMore,
+  initialLoadComplete,
   handleLoadMore,
   colors
 }: EmailListProps) => {
+
+  // Add debug logging for emails state
+  console.log(`EmailList: Rendering with ${emails.length} emails, isLoading=${isLoading}, initialLoadComplete=${initialLoadComplete}`);
 
   const renderFooter = () => {
     if (!isLoadingMore) return null;
@@ -420,8 +376,12 @@ const EmailList = React.memo(({
     );
   };
 
-  // Check if we're still in initial loading state
-  if (isLoading && emails.length === 0) {
+  // Modified loading condition - emails.length is checked as a fallback
+  // Show loader when either: 
+  // 1. We're loading and haven't completed initial load
+  // 2. We're loading and have no emails yet
+  if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0)) {
+    console.log('EmailList: Displaying loading indicator');
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={colors.brand.primary} />
@@ -432,19 +392,25 @@ const EmailList = React.memo(({
     );
   }
 
+  // Debug output for when we're rendering the actual list
+  console.log(`EmailList: Rendering FlatList with ${emails.length} emails`);
+
   return (
     <FlatList
       contentContainerStyle={styles.listContent}
       data={emails}
-      renderItem={({ item }) => (
-        <EmailListItem
-          email={item}
-          onPress={() => handleOpenEmail(item.id)}
-          onLongPress={() => handleLongPress(item.id)}
-          isSelected={selectedEmails.includes(item.id)}
-          isSelectMode={isMultiSelectMode}
-        />
-      )}
+      renderItem={({ item }) => {
+        console.log(`EmailList: Rendering item ${item.id}`);
+        return (
+          <EmailListItem
+            email={item}
+            onPress={() => handleOpenEmail(item.id)}
+            onLongPress={() => handleLongPress(item.id)}
+            isSelected={selectedEmails.includes(item.id)}
+            isSelectMode={isMultiSelectMode}
+          />
+        );
+      }}
       keyExtractor={(item) => item.id}
       refreshControl={
         <RefreshControl
@@ -454,14 +420,25 @@ const EmailList = React.memo(({
           tintColor={colors.brand.primary}
         />
       }
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Icon name="inbox" size={64} color={colors.text.tertiary} />
-          <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-            No emails found
-          </Text>
-        </View>
-      }
+      ListEmptyComponent={() => {
+        console.log(`EmailList: Rendering empty component. isLoading=${isLoading}, initialLoadComplete=${initialLoadComplete}`);
+        return (
+          <View style={styles.emptyContainer}>
+            <Icon name="inbox" size={64} color={colors.text.tertiary} />
+            <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+              {isLoading ? 'Loading emails...' : 'No emails found'}
+            </Text>
+            {initialLoadComplete && !isLoading && (
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={handleRefresh}
+              >
+                <Text style={{ color: colors.brand.primary }}>Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      }}
       ListFooterComponent={renderFooter()}
       onEndReached={handleLoadMore}
       onEndReachedThreshold={0.3}
@@ -620,5 +597,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
     marginTop: SPACING.md,
+  },
+  refreshButton: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    borderWidth: 1,
+    borderColor: '#1A73E8', // Use hardcoded color instead of referencing colors
+    borderRadius: BORDER_RADIUS.md,
   },
 }); 

@@ -40,13 +40,10 @@ export default function App() {
 
   // Initialize Auth Listener directly
   React.useEffect(() => {
-    console.log('Initializing auth listener');
-    // Initialize the auth listener and get the cleanup function
     const unsubscribe = initializeAuthListener();
     
     // Clean up the listener when the component unmounts
     return () => {
-      console.log('Cleaning up auth listener');
       unsubscribe();
     };
   }, [initializeAuthListener]);
