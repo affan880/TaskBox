@@ -1,233 +1,269 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useGmail } from '../../../hooks/use-gmail';
 import { EmailData } from '../../../types/email';
-import React from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin'; // Needed for auth check
 
 /**
- * Hook for email actions that can be performed in the email screen
+ * Hook for email actions specific to the EmailScreen.
+ * Manages screen-level loading states, caching, and delegates actions to useGmail.
  */
 export function useEmailActions() {
-  const [isLoading, setIsLoading] = useState(false);
+  // --- State from useGmail ---
+  const {
+    // Data
+    emails: coreEmails, // Renamed to avoid conflict
+    currentEmail,
+    labels,
+    nextPageToken,
+    // Core Loading/Error states (may not be needed directly here)
+    isLoading: isGmailLoading,
+    error: gmailError,
+    // Actions
+    fetchEmails: coreFetchEmails,
+    loadMoreEmails: coreLoadMore, 
+    fetchEmailById,
+    sendEmail: coreSendEmail,
+    markAsRead: coreMarkAsRead,
+    markAsUnread: coreMarkAsUnread,
+    archiveEmail: coreArchiveEmail,
+    deleteEmail: coreDeleteEmail,
+    fetchLabels: coreFetchLabels,
+    applyLabel: coreApplyLabel,
+    removeLabel: coreRemoveLabel,
+    snoozeEmail: coreSnoozeEmail,
+    checkSnoozedEmails,
+    fetchAttachment: coreFetchAttachment,
+  } = useGmail();
+
+  // --- Screen-Specific State ---
+  const [screenEmails, setScreenEmails] = useState<EmailData[]>(coreEmails);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasAuthFailed, setHasAuthFailed] = useState(false);
-  const [hasAttemptedRealFetch, setHasAttemptedRealFetch] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [initialLoadAttempted, setInitialLoadAttempted] = useState(false);
+  const initialLoadComplete = !isGmailLoading && initialLoadAttempted;
+  const isHandlingMore = useRef(false);
 
-  const gmailApi = useGmail();
+  // --- Refs for screen logic ---
+  const currentPageToken = useRef<string | null>(null);
+  const isFetching = useRef(false); // Debounce flag
 
-  const emailCache = useRef<Record<string, EmailData>>({});
-  const cachedEmailsRef = useRef<Record<string, { data: EmailData[]; timestamp: number }>>({});
-  const fetchedEmailIds = useRef<Set<string>>(new Set());
-  const pageTokensRef = useRef<Record<string, string>>({});
-  const lastLoadTimestamp = useRef<number>(0);
-  const isLoadingRef = useRef<boolean>(false);
-
-  const ensureAuthenticated = async (): Promise<boolean> => {
+  // --- Authentication Check ---
+  const ensureAuthenticated = useCallback(async (): Promise<boolean> => {
     try {
-      const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
       const currentUser = await GoogleSignin.getCurrentUser();
-
       if (!currentUser) {
         await GoogleSignin.hasPlayServices();
-        await GoogleSignin.signInSilently();
+        const userInfo = await GoogleSignin.signInSilently();
+        console.log('useEmailActions: Signed in silently', userInfo);
         return true;
       }
-
       return true;
     } catch (err) {
-      console.error('Authentication failed:', err);
+      console.error('useEmailActions: Authentication failed:', err);
+      setHasAuthFailed(true); // Set auth failed state here
       return false;
     }
-  };
-
-  const getCachedEmails = (key: string): EmailData[] | null => {
-    const cache = cachedEmailsRef.current[key];
-    if (cache && Date.now() - cache.timestamp < 60000) {
-      return cache.data;
-    }
-    return null;
-  };
-
-  const getPageToken = (
-    page: number,
-    pageSize: number,
-    nextPageToken: string | undefined
-  ): string | undefined => {
-    if (page === 1) return undefined;
-    const prevKey = `${page - 1}-${pageSize}`;
-    return nextPageToken || pageTokensRef.current[prevKey];
-  };
-
-  const sortEmailsByDate = useCallback((emails: EmailData[]): EmailData[] => {
-    return [...emails].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, []);
 
-  const archiveEmail = async (emailId: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      await gmailApi.archiveEmail(emailId);
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error archiving email:', error);
-    } finally {
-      setIsLoading(false);
+  // --- Data Loading Logic ---
+
+  /**
+   * Loads the initial set of emails or performs a full refresh.
+   * Checks auth, calls coreFetchEmails, and updates screen state.
+   */
+  const loadInitialEmails = useCallback(async (isRefresh = false) => {
+    if (isGmailLoading && !isRefresh) {
+      console.log('useEmailActions: loadInitialEmails skipped - already loading');
+      return;
     }
-  };
+    console.log(`useEmailActions: Triggering ${isRefresh ? 'refresh' : 'initial load'}`);
+    setInitialLoadAttempted(true);
+    setHasAuthFailed(false);
 
-  const deleteEmail = async (emailId: string): Promise<void> => {
-    setIsLoading(true);
     try {
-      await gmailApi.deleteEmail(emailId);
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error deleting email:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const markAsUnread = async (emailId: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      await gmailApi.markAsUnread(emailId);
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error marking email as unread:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const applyLabel = async (emailId: string, labelId: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement label application once the API is available
-      console.warn('Label application not implemented yet');
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error applying label:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const snoozeEmail = async (emailId: string, snoozeUntil: Date): Promise<void> => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement snoozing logic
-      console.warn('Email snoozing not implemented yet');
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error snoozing email:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const sendEmail = async (to: string, subject: string, body: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      await gmailApi.sendEmail(to, subject, body);
-    } catch (error) {
-      setHasAuthFailed(true);
-      console.error('Error sending email:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadEmails = useCallback(
-    async (page = 1, pageSize = 10, forceRefresh = false): Promise<EmailData[]> => {
-      const cacheKey = `${page}-${pageSize}`;
-      const now = Date.now();
-
-      if (!forceRefresh) {
-        const cached = getCachedEmails(cacheKey);
-        if (cached) {
-          console.log(`Using cached emails for ${cacheKey}`);
-          return cached;
-        }
+      if (!(await ensureAuthenticated())) {
+        console.log('useEmailActions: Authentication failed');
+        return;
       }
-
-      if (isLoadingRef.current || now - lastLoadTimestamp.current < 500) {
-        console.log(`Debounced load for ${cacheKey}`);
-        return cachedEmailsRef.current[cacheKey]?.data || [];
+      await coreFetchEmails();
+      console.log('useEmailActions: coreFetchEmails triggered');
+    } catch (error) {
+      console.error('useEmailActions: Error triggering initial email fetch:', error);
+    } finally {
+      if (isRefresh) {
+        console.log('useEmailActions: Resetting isRefreshing after refresh attempt');
+        setIsRefreshing(false);
       }
+    }
+  }, [isGmailLoading, coreFetchEmails, ensureAuthenticated]);
 
-      lastLoadTimestamp.current = now;
-      isLoadingRef.current = true;
-      setIsLoading(true);
+  /**
+   * Handles pull-to-refresh action.
+   */
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    console.log('useEmailActions: handleRefresh triggered');
+    setIsRefreshing(true);
+    currentPageToken.current = null;
+    await loadInitialEmails(true);
+  }, [loadInitialEmails, isRefreshing]);
 
-      try {
-        if (!(await ensureAuthenticated())) {
-          setHasAuthFailed(true);
-          return [];
-        }
+  /**
+   * Loads the next page of emails.
+   */
+  const handleLoadMore = useCallback(async () => {
+    if (isGmailLoading || isHandlingMore.current || !nextPageToken) {
+      console.log('useEmailActions: Load more skipped', { isGmailLoading, isHandlingMore: isHandlingMore.current, hasNextPage: !!nextPageToken });
+      return;
+    }
+    console.log('useEmailActions: handleLoadMore triggered');
+    isHandlingMore.current = true;
 
-        const token = getPageToken(page, pageSize, gmailApi.nextPageToken ?? undefined);
-        const fetchedEmails = await gmailApi.fetchEmails(pageSize, token);
-        const sorted = sortEmailsByDate(fetchedEmails);
-
-        if (gmailApi.nextPageToken) {
-          pageTokensRef.current[cacheKey] = gmailApi.nextPageToken;
-        } else {
-          delete pageTokensRef.current[cacheKey];
-        }
-
-        cachedEmailsRef.current[cacheKey] = { data: sorted, timestamp: now };
-        sorted.forEach(email => fetchedEmailIds.current.add(email.id));
-
-        return sorted;
-      } catch (err) {
-        console.error('Failed to load emails:', err);
-        setHasAuthFailed(true);
-        return [];
-      } finally {
-        setTimeout(() => {
-          isLoadingRef.current = false;
-          setIsLoading(false);
-        }, 100);
+    try {
+      if (!(await ensureAuthenticated())) {
+        console.log('useEmailActions: Authentication failed during load more');
+        return;
       }
-    },
-    [gmailApi, sortEmailsByDate]
-  );
+      await coreLoadMore();
+      console.log('useEmailActions: coreLoadMore triggered');
+    } catch (error) {
+      console.error('useEmailActions: Error triggering load more emails:', error);
+    } finally {
+      isHandlingMore.current = false;
+      console.log('useEmailActions: handleLoadMore finished');
+    }
+  }, [isGmailLoading, nextPageToken, coreLoadMore, ensureAuthenticated]);
 
-  const getEmailDetails = useCallback(
-    async (emailId: string): Promise<EmailData | null> => {
-      setIsLoading(true);
-      try {
-        console.log('Fetching email details for ID:', emailId);
-        setHasAttemptedRealFetch(true);
-        const email = await gmailApi.fetchEmailById(emailId);
-        return email ?? null;
-      } catch (error) {
-        console.error('Error fetching email details:', error);
-        setHasAuthFailed(true);
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [gmailApi]
-  );
+  // --- Delegated Actions ---
+  // These functions mostly delegate to useGmail, potentially adding screen-specific logic or loading states if needed.
 
-  const resetEmailCache = useCallback(() => {
-    cachedEmailsRef.current = {};
-    fetchedEmailIds.current.clear();
-    console.log('Email cache reset');
-  }, []);
+  const getEmailDetails = useCallback(async (emailId: string): Promise<EmailData | null> => {
+    console.log(`useEmailActions: Delegating getEmailDetails for ${emailId}`);
+    return fetchEmailById(emailId); 
+  }, [fetchEmailById]);
 
+  const archiveEmail = useCallback(async (emailId: string): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating archiveEmail for ${emailId}`);
+    const success = await coreArchiveEmail(emailId);
+    if (success) {
+      setScreenEmails(prev => prev.filter(email => email.id !== emailId));
+    }
+    return success;
+  }, [coreArchiveEmail]);
+
+  const deleteEmail = useCallback(async (emailId: string): Promise<boolean> => {
+     console.log(`useEmailActions: Delegating deleteEmail for ${emailId}`);
+     const success = await coreDeleteEmail(emailId);
+     if (success) {
+        setScreenEmails(prev => prev.filter(email => email.id !== emailId));
+     }
+     return success;
+  }, [coreDeleteEmail]);
+
+  const markAsUnread = useCallback(async (emailId: string): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating markAsUnread for ${emailId}`);
+    const success = await coreMarkAsUnread(emailId);
+    if(success) {
+        setScreenEmails(prev => 
+            prev.map(email => 
+                email.id === emailId ? { ...email, isUnread: true } : email
+            )
+        );
+    }
+    return success;
+  }, [coreMarkAsUnread]);
+
+  const markAsRead = useCallback(async (emailId: string): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating markAsRead for ${emailId}`);
+    const success = await coreMarkAsRead(emailId);
+     if(success) {
+        setScreenEmails(prev => 
+            prev.map(email => 
+                email.id === emailId ? { ...email, isUnread: false } : email
+            )
+        );
+    }
+    return success;
+  }, [coreMarkAsRead]);
+
+  const applyLabel = useCallback(async (emailId: string, labelIds: string[]): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating applyLabel for ${emailId}`);
+    return coreApplyLabel(emailId, labelIds);
+  }, [coreApplyLabel]);
+
+  const removeLabel = useCallback(async (emailId: string, labelIds: string[]): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating removeLabel for ${emailId}`);
+    return coreRemoveLabel(emailId, labelIds);
+  }, [coreRemoveLabel]);
+
+  const snoozeEmail = useCallback(async (emailId: string, snoozeUntil: Date): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating snoozeEmail for ${emailId}`);
+    const success = await coreSnoozeEmail(emailId, snoozeUntil);
+    if(success) {
+        setScreenEmails(prev => prev.filter(email => email.id !== emailId));
+    }
+    return success;
+  }, [coreSnoozeEmail]);
+
+  const sendEmail = useCallback(async (to: string, subject: string, body: string): Promise<boolean> => {
+    console.log(`useEmailActions: Delegating sendEmail`);
+    const success = await coreSendEmail(to, subject, body);
+    return success;
+  }, [coreSendEmail]);
+
+  /**
+   * Fetches an attachment from an email.
+   * @param messageId The ID of the email
+   * @param attachmentId The ID of the attachment
+   * @returns The attachment data and MIME type if successful, null otherwise
+   */
+  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string) => {
+    console.log(`useEmailActions: Delegating fetchAttachment for message ${messageId}, attachment ${attachmentId}`);
+    return coreFetchAttachment(messageId, attachmentId);
+  }, [coreFetchAttachment]);
+
+  // --- Effects ---
+  useEffect(() => {
+    console.log('useEmailActions: Initial mount effect, calling loadInitialEmails');
+    if (coreEmails.length === 0 && !isGmailLoading) {
+        loadInitialEmails();
+    }
+    checkSnoozedEmails();
+  }, [loadInitialEmails, checkSnoozedEmails, coreEmails.length, isGmailLoading]);
+
+  useEffect(() => {
+    setScreenEmails(coreEmails);
+    console.log(`useEmailActions: Synced screenEmails with coreEmails (${coreEmails.length} items)`);
+  }, [coreEmails]);
+
+  // --- Return Values ---
   return {
-    isLoading,
-    hasAttemptedRealFetch,
+    // Screen State
+    emails: screenEmails,
+    isLoading: isGmailLoading && !initialLoadComplete,
+    isRefreshing,
+    isLoadingMore: isGmailLoading && initialLoadComplete && !!nextPageToken,
+    hasAuthFailed,
+    initialLoadComplete,
+    currentEmail,
+    labels,
+    gmailError,
+    
+    // Screen Actions
+    loadInitialEmails,
+    handleRefresh,
+    handleLoadMore,
+
+    // Delegated Actions (renamed for clarity)
+    getEmailDetails,
     archiveEmail,
     deleteEmail,
     markAsUnread,
+    markAsRead,
     applyLabel,
+    removeLabel,
     snoozeEmail,
     sendEmail,
-    loadEmails,
-    getEmailDetails,
-    resetEmailCache,
-    hasAuthFailed,
+    fetchAttachment,
   };
 }

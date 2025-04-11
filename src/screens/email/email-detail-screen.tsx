@@ -20,18 +20,19 @@ import {
   Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Animatable from 'react-native-animatable';
-import { parseHtmlContent } from './utils/html-parser';
 import { useTheme } from '../../theme/theme-context';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import MCI from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { EmailData } from '../../types/email';
 import RNBlobUtil from 'react-native-blob-util';
 import FileViewer from 'react-native-file-viewer';
 import { ErrorBoundary } from '../../components/ui/error-boundary';
-import { HtmlEmailRenderer } from './components/html-email-renderer';
 import { AutoHeightWebView } from './components/auto-height-webview';
+import { EmailDetailHeader } from './components/email-detail-header';
+import { EmailSenderInfo } from './components/email-sender-info';
+import { EmailSubject } from './components/email-subject';
+import { EmailLabelChip } from './components/email-label-chip';
+import { EmailReplyActions } from './components/email-reply-actions';
+import { EmailAttachments } from './components/email-attachments';
 
 // Define an interface for email attachments
 interface Attachment {
@@ -374,215 +375,15 @@ export function EmailDetailScreen() {
       );
     };
 
-    // Function to render an attachment item
-    const renderAttachmentItem = (attachment: Attachment, index: number) => {
-      // Determine the icon to use based on file type
-      const getFileIcon = () => {
-        const type = attachment.type.toLowerCase();
-        
-        if (type === 'pdf') return 'picture-as-pdf';
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(type)) return 'image';
-        if (['doc', 'docx'].includes(type)) return 'description';
-        if (['xls', 'xlsx', 'csv'].includes(type)) return 'table-chart';
-        if (['ppt', 'pptx'].includes(type)) return 'slideshow';
-        if (['zip', 'rar', '7z'].includes(type)) return 'folder-zip';
-        if (['mp3', 'wav', 'ogg'].includes(type)) return 'audio-file';
-        if (['mp4', 'mov', 'avi'].includes(type)) return 'video-file';
-        
-        return 'insert-drive-file';
-      };
-      
-      const icon = getFileIcon();
-      const progress = downloadProgress[attachment.id] || 0;
-      const isDownloading = progress > 0 && progress < 100;
-      
-      // Check if this is an image that can be previewed
-      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(attachment.type.toLowerCase());
-      const isPdf = attachment.type.toLowerCase() === 'pdf';
-      const isPreviewable = isImage || isPdf;
-      
-      return (
-        <Animatable.View
-          animation="fadeIn"
-          duration={300}
-          delay={index * 50}
-          style={[
-            styles.attachmentCard,
-            {
-              backgroundColor: gmailTheme.attachment.background,
-              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-            }
-          ]}
-        >
-          <View style={styles.attachmentIconContainer}>
-            <Icon name={icon} size={24} color={gmailTheme.primary} />
-          </View>
-          
-          <TouchableOpacity
-            style={styles.attachmentDetails}
-            onPress={() => downloadAttachment(attachment)}
-            disabled={isDownloading}
-          >
-            <Text style={[styles.attachmentName, { color: gmailTheme.text.primary }]} numberOfLines={1}>
-              {attachment.name}
-            </Text>
-            
-            <View style={styles.attachmentInfoRow}>
-              <Text style={[styles.attachmentInfo, { color: gmailTheme.text.secondary }]}>
-                {attachment.type.toUpperCase()} • {attachment.sizeDisplay}
-              </Text>
-              
-              {isDownloading && (
-                <Text style={[styles.downloadProgressText, { color: gmailTheme.primary }]}>
-                  {progress}%
-                </Text>
-              )}
-            </View>
-            
-            {isDownloading && (
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      backgroundColor: gmailTheme.primary,
-                      width: `${progress}%`
-                    }
-                  ]}
-                />
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.attachmentActionButton,
-              {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-              }
-            ]}
-            onPress={() => downloadAttachment(attachment)}
-            disabled={isDownloading}
-          >
-            <Icon 
-              name={isDownloading ? "close" : "download"} 
-              size={20} 
-              color={isDownloading ? "#F44336" : gmailTheme.primary} 
-            />
-          </TouchableOpacity>
-        </Animatable.View>
-      );
-    };
-
-    // Render a label chip for the email
-    const renderLabelChip = (label: EmailLabel) => {
-      const getLabelColor = () => {
-        switch(label) {
-          case 'important': return gmailTheme.label.important;
-          case 'starred': return gmailTheme.label.flagged;
-          case 'draft': return gmailTheme.label.draft;
-          default: return gmailTheme.label.inbox;
-        }
-      };
-      
-      const getLabelName = (label: EmailLabel) => {
-        switch(label) {
-          case 'important': return 'Important';
-          case 'inbox': return 'Inbox';
-          case 'sent': return 'Sent';
-          case 'draft': return 'Draft';
-          case 'starred': return 'Starred';
-          case 'spam': return 'Spam';
-          case 'trash': return 'Trash';
-          case 'snoozed': return 'Snoozed';
-          case 'forum': return 'Forums';
-          case 'updates': return 'Updates';
-          case 'promotions': return 'Promotions';
-          case 'social': return 'Social';
-          default: {
-            // Cast to string to ensure we can use string methods
-            const labelStr = label as string;
-            return labelStr.charAt(0).toUpperCase() + labelStr.slice(1);
-          }
-        }
-      };
-      
-      return (
-        <View 
-          style={[
-            styles.labelChip, 
-            {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-              borderLeftColor: getLabelColor(),
-            }
-          ]}
-        >
-          <Text style={[styles.labelText, {color: isDark ? gmailTheme.text.primary : gmailTheme.text.secondary}]}>
-            {getLabelName(label)}
-          </Text>
-        </View>
-      );
-    };
-
     return (
       <ErrorBoundary>
         <View style={[styles.safeArea, { backgroundColor: gmailTheme.background }]}>
-          {/* Gmail-style Header */}
-          <RNAnimated.View style={[
-            styles.gmailHeader,
-            { 
-              marginTop:40,
-              // opacity: headerOpacity,
-              // paddingTop: insets.top > 0 ? 0 : Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-              backgroundColor: gmailTheme.surface,
-              borderBottomColor: gmailTheme.border,
-            }
-          ]}>
-            <View style={styles.headerContent}>
-              <TouchableOpacity 
-                style={styles.backButton} 
-                onPress={() => navigation.goBack()}
-                disabled={isActionLoading}
-                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-              >
-                <Icon name="arrow-back" size={24} color={gmailTheme.text.secondary} />
-              </TouchableOpacity>
-              
-              <View style={styles.headerActions}>
-                <TouchableOpacity 
-                  style={styles.headerIconButton}
-                  disabled={isActionLoading}
-                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                >
-                  <Icon name="archive" size={22} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerIconButton}
-                  disabled={isActionLoading}
-                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                >
-                  <Icon name="delete" size={22} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerIconButton}
-                  disabled={isActionLoading}
-                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                >
-                  <Icon name="mail-outline" size={22} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerIconButton}
-                  disabled={isActionLoading}
-                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                >
-                  <Icon name="more-vert" size={22} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </RNAnimated.View>
+          {/* Use EmailDetailHeader component */}
+          <EmailDetailHeader
+            gmailTheme={gmailTheme}
+            isActionLoading={isActionLoading}
+            onGoBack={() => navigation.goBack()}
+          />
           
           {/* Main Content */}
           <ScrollView
@@ -629,127 +430,41 @@ export function EmailDetailScreen() {
                   })
                 }
               ]}>
-                {/* Email Labels */}
+                {/* Email Labels - Replace with EmailLabelChip component */}
                 {emailLabels.length > 0 && (
                   <View style={styles.labelContainer}>
                     {emailLabels.map((label, index) => (
                       <Fragment key={`label-${index}`}>
-                        {renderLabelChip(label)}
+                        <EmailLabelChip 
+                          label={label}
+                          gmailTheme={gmailTheme}
+                        />
                       </Fragment>
                     ))}
                   </View>
                 )}
                 
                 {/* Subject Line */}
-                <View style={styles.subjectContainer}>
-                  <Text style={[styles.emailSubject, {color: gmailTheme.text.primary}]}>
-                    {currentEmail.subject}
-                  </Text>
-                  
-                  {/* Star button */}
-                  <TouchableOpacity
-                    style={styles.starButton}
-                    onPress={handleStarToggle}
-                    hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                  >
-                    <Icon 
-                      name={isStarred ? "star" : "star-outline"} 
-                      size={22} 
-                      color={isStarred ? gmailTheme.label.flagged : gmailTheme.text.secondary} 
-                    />
-                  </TouchableOpacity>
-                  
-                  {/* Demo label if needed */}
-                  {isDemoEmail(currentEmail) && (
-                    <View style={[styles.demoChip, {backgroundColor: isDark ? '#454A64' : '#DADCE0'}]}>
-                      <Text style={[styles.demoChipText, {color: isDark ? '#ffffff' : '#5F6368'}]}>DEMO</Text>
-                    </View>
-                  )}
-                </View>
+                <EmailSubject
+                  subject={currentEmail?.subject || ''}
+                  isStarred={isStarred}
+                  isDemo={isDemoEmail(currentEmail)}
+                  gmailTheme={gmailTheme}
+                  onStarToggle={handleStarToggle}
+                />
                 
                 {/* Sender Info - Gmail Style */}
-                <View style={styles.senderContainer}>
-                  <View style={[styles.avatarCircle, {backgroundColor: isDark ? '#5E81AC' : gmailTheme.primary}]}>
-                    <Text style={styles.avatarText}>{senderInitial}</Text>
-                  </View>
-                  
-                  <View style={styles.senderDetails}>
-                    <View style={styles.senderRow}>
-                      <Text style={[styles.senderName, {color: gmailTheme.text.primary}]}>
-                        {senderName}
-                      </Text>
-                      <Text style={[styles.dateText, {color: gmailTheme.text.secondary}]}>
-                        {formattedDate}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.recipientRow}>
-                      <Text 
-                        style={[styles.recipientText, {color: gmailTheme.text.secondary}]} 
-                        numberOfLines={1}
-                      >
-                        to me
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => setShowFullHeader(!showFullHeader)}
-                        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                      >
-                        <Icon 
-                          name={showFullHeader ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-                          size={18} 
-                          color={gmailTheme.text.secondary} 
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    
-                    {/* Expanded Header Details */}
-                    {showFullHeader && (
-                      <Animatable.View 
-                        animation="fadeIn" 
-                        duration={200} 
-                        style={[styles.expandedHeader, {borderTopColor: gmailTheme.border}]}
-                      >
-                        <View style={styles.headerDetailRow}>
-                          <Text style={[styles.headerLabel, {color: gmailTheme.text.secondary}]}>
-                            From:
-                          </Text>
-                          <Text style={[styles.headerValue, {color: gmailTheme.text.primary}]}>
-                            {senderName} &lt;{senderEmail}&gt;
-                          </Text>
-                        </View>
-                        
-                        <View style={styles.headerDetailRow}>
-                          <Text style={[styles.headerLabel, {color: gmailTheme.text.secondary}]}>
-                            To:
-                          </Text>
-                          <Text style={[styles.headerValue, {color: gmailTheme.text.primary}]}>
-                            {currentEmail.to || 'me'}
-                          </Text>
-                        </View>
-                        
-                        {currentEmail.hasOwnProperty('cc') && (
-                          <View style={styles.headerDetailRow}>
-                            <Text style={[styles.headerLabel, {color: gmailTheme.text.secondary}]}>
-                              Cc:
-                            </Text>
-                            <Text style={[styles.headerValue, {color: gmailTheme.text.primary}]}>
-                              {(currentEmail as any).cc}
-                            </Text>
-                          </View>
-                        )}
-                        
-                        <View style={styles.headerDetailRow}>
-                          <Text style={[styles.headerLabel, {color: gmailTheme.text.secondary}]}>
-                            Date:
-                          </Text>
-                          <Text style={[styles.headerValue, {color: gmailTheme.text.primary}]}>
-                            {formattedDate}
-                          </Text>
-                        </View>
-                      </Animatable.View>
-                    )}
-                  </View>
-                </View>
+                <EmailSenderInfo
+                  senderInitial={senderInitial}
+                  senderName={senderName}
+                  senderEmail={senderEmail}
+                  formattedDate={formattedDate}
+                  toRecipient={currentEmail?.to || 'me'}
+                  ccRecipients={currentEmail?.hasOwnProperty('cc') ? (currentEmail as any).cc : undefined}
+                  isExpanded={showFullHeader}
+                  onToggleExpand={() => setShowFullHeader(!showFullHeader)}
+                  gmailTheme={gmailTheme}
+                />
                 
                 {/* Email Body - Gmail Style */}
                 <View style={[{
@@ -762,61 +477,35 @@ export function EmailDetailScreen() {
                   <AutoHeightWebView html={emailBody} />
                 </View>
                 
-                {/* Attachments - if any and not a demo email */}
+                {/* Replace attachment section with EmailAttachments component */}
                 {!isDemoEmail(currentEmail) && currentEmail.hasAttachments && currentEmail.attachments && currentEmail.attachments.length > 0 && (
-                  <View style={[styles.attachmentsSection, {borderTopColor: gmailTheme.border}]}>
-                    <Text style={[styles.attachmentsHeading, {color: gmailTheme.text.primary}]}>
-                      Attachments ({currentEmail.attachments.length})
-                    </Text>
-                    
-                    {/* Render each attachment */}
-                    {currentEmail.attachments.map((attachment, index) => (
-                      <Fragment key={`attachment-${attachment.id}`}>
-                        {renderAttachmentItem(attachment, index)}
-                      </Fragment>
-                    ))}
-                  </View>
+                  <EmailAttachments
+                    attachments={currentEmail.attachments}
+                    messageId={currentEmail.id}
+                    downloadProgress={downloadProgress}
+                    onDownloadPress={(messageId, attachment) => downloadAttachment(attachment)}
+                    gmailTheme={gmailTheme}
+                  />
                 )}
               </RNAnimated.View>
               
-              {/* Gmail-style Reply Section */}
-              <View style={[
-                styles.replySection, 
-                {
-                  backgroundColor: gmailTheme.surface,
-                  shadowColor: isDark ? '#000000' : '#00000030',
-                }
-              ]}>
-                <TouchableOpacity
-                  style={styles.replyButton}
-                  disabled={isActionLoading}
-                >
-                  <Text style={[styles.replyText, {color: gmailTheme.text.secondary}]}>
-                    Reply
-                  </Text>
-                  <Icon name="reply" size={20} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.replyButton}
-                  disabled={isActionLoading}
-                >
-                  <Text style={[styles.replyText, {color: gmailTheme.text.secondary}]}>
-                    Reply all
-                  </Text>
-                  <Icon name="reply-all" size={20} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.replyButton}
-                  disabled={isActionLoading}
-                >
-                  <Text style={[styles.replyText, {color: gmailTheme.text.secondary}]}>
-                    Forward
-                  </Text>
-                  <Icon name="forward" size={20} color={gmailTheme.text.secondary} />
-                </TouchableOpacity>
-              </View>
+              {/* Replace Gmail-style Reply Section with EmailReplyActions component */}
+              <EmailReplyActions
+                isActionLoading={isActionLoading}
+                gmailTheme={gmailTheme}
+                onReply={() => {
+                  // TODO: Implement reply functionality
+                  console.log('Reply pressed');
+                }}
+                onReplyAll={() => {
+                  // TODO: Implement reply all functionality
+                  console.log('Reply all pressed');
+                }}
+                onForward={() => {
+                  // TODO: Implement forward functionality
+                  console.log('Forward pressed');
+                }}
+              />
               
               {/* Bottom spacer */}
               <View style={styles.bottomSpacer} />
@@ -886,11 +575,9 @@ const styles = StyleSheet.create({
   },
   emailCard: {
     margin: 8,
-    // borderRadius: 8,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    // shadowRadius: 3,
     elevation: 2,
   },
   labelContainer: {
@@ -898,105 +585,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     padding: 16,
     paddingBottom: 0,
-  },
-  labelChip: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginRight: 8,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-  },
-  labelText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  subjectContainer: {
-    padding: 16, 
-    paddingTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  emailSubject: {
-    fontSize: 20,
-    fontWeight: '400',
-    flex: 1,
-    paddingRight: 8,
-  },
-  starButton: {
-    padding: 8,
-    marginRight: 4,
-  },
-  demoChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 4,
-  },
-  demoChipText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  senderContainer: {
-    padding: 16,
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: 'white',
-  },
-  senderDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  senderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  senderName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  dateText: {
-    fontSize: 14,
-  },
-  recipientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  recipientText: {
-    fontSize: 14,
-    marginRight: 8,
-  },
-  expandedHeader: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  headerDetailRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  headerLabel: {
-    fontSize: 14,
-    width: 50,
-  },
-  headerValue: {
-    fontSize: 14,
-    flex: 1,
   },
   emailTextContent: {
     paddingVertical: 8,
@@ -1017,39 +605,6 @@ const styles = StyleSheet.create({
   paragraph: {
     marginBottom: 16,
   },
-  attachmentsSection: {
-    padding: 16,
-    paddingBottom: 8,
-    borderTopWidth: 1,
-  },
-  attachmentsHeading: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 12,
-  },
-  replySection: {
-    margin: 8,
-    marginTop: 16,
-    marginBottom: 0,
-    borderRadius: 8,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-  },
-  replyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-  },
-  replyText: {
-    fontSize: 14,
-    marginRight: 8,
-  },
   bottomSpacer: {
     height: 1,
   },
@@ -1066,65 +621,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   hyperlink: {
-    color: GMAIL_COLORS.light.primary,
     fontWeight: 'bold',
-  },
-  attachmentCard: {
-    flexDirection: 'row',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  attachmentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
-  attachmentDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  attachmentName: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  attachmentInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  attachmentInfo: {
-    fontSize: 12,
-    color: '#666',
-  },
-  downloadProgressText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  progressBarContainer: {
-    height: 4,
-    width: '100%',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  attachmentActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
 });

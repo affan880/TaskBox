@@ -1,32 +1,26 @@
 import * as React from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+// import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // No longer needed
+import PagerView from 'react-native-pager-view';
 import { 
-  TouchableOpacity, 
-  Text, 
   ActivityIndicator, 
   View, 
   StyleSheet, 
-  Animated, 
-  Modal, 
   Dimensions, 
-  SafeAreaView,
-  StatusBar
+  TouchableOpacity,
+  Text,
+  Platform
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import LinearGradient from 'react-native-linear-gradient';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use MaterialCommunityIcons for more variety
 import { useTheme } from '../theme/theme-context';
 import { useAuthStore } from '../store/auth-store';
 import { AuthNavigator } from './auth-navigator';
 import { ProfileScreen } from '../screens/profile/profile-screen';
 import { EmailDrawerNavigator } from './email-drawer-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { UIShowcaseNavigator } from './ui-showcase-navigator';
 import { TaskScreen } from '../screens/tasks/task-screen';
-import { useUnreadEmailCount } from '../hooks/use-unread-email-count';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Needed for positioning
 
 // Define navigator types
 export type RootStackParamList = {
@@ -34,199 +28,186 @@ export type RootStackParamList = {
   Auth: undefined;
 };
 
+// Updated Tab Param List for the new design
 export type MainTabParamList = {
-  Email: undefined;
-  Tasks: undefined;
-  Profile: undefined;
-  UIShowcase: undefined;
+  Email: undefined; // Will represent the left (menu) icon
+  Home: undefined;  // Will represent the center (home) icon - Map Tasks here for now
+  Following: undefined; // Will represent the right (people) icon - Map Profile here for now
 };
+
+// Add specific screen props if needed, otherwise keep simple
+// Example: export type ProfileScreenProps = NativeStackScreenProps<MainTabParamList, 'Following'>;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<MainTabParamList>();
+// const Tab = createBottomTabNavigator<MainTabParamList>(); // No longer using Tab Navigator
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// Remove unused dimensions
+// const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Voice Recognition Button component
-const VoiceButton = () => {
-  const [isListening, setIsListening] = React.useState(false);
-  const [modalVisible, setModalVisible] = React.useState(false);
-  const [recognizedText, setRecognizedText] = React.useState('');
-  const animationValues = React.useRef<Animated.Value[]>([]);
-  const numBars = 5;
-
-  // Initialize animation values for each bar
-  React.useEffect(() => {
-    animationValues.current = Array(numBars).fill(0).map(() => new Animated.Value(0));
-  }, []);
-
-
-  return (
-    <>
-      <View style={styles.voiceContainer}>
-        <TouchableOpacity
-          style={[
-            styles.voiceButton,
-            { backgroundColor: isListening ? '#e74c3c' : '#1976d2' }
-          ]}
-          // onPressIn={handlePressIn}
-          // onPressOut={handlePressOut}
-          activeOpacity={0.8}
-        >
-          <Icon 
-            name="mic" 
-            size={24} 
-            color="#fff" 
-          />
-        </TouchableOpacity>
-      </View>
-
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="fade"
-        // onRequestClose={handleCancelPress}
-      >
-        <StatusBar backgroundColor="rgba(94, 53, 177, 0.9)" barStyle="light-content" />
-        <LinearGradient
-          colors={['#9c27b0', '#673ab7', '#3f51b5']}
-          start={{x: 0, y: 0}}
-          end={{x: 0, y: 1}}
-          style={styles.modalBackground}
-        >
-          <SafeAreaView style={styles.modalContent}>
-            <View style={styles.waveContainer}>
-              {animationValues.current.map((anim, index) => (
-                <Animated.View
-                  key={`bar-${index}`}
-                  style={[
-                    styles.waveBar,
-                    {
-                      transform: [
-                        {
-                          scaleY: anim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.2, 1]
-                          })
-                        }
-                      ],
-                      opacity: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.4, 1]
-                      }),
-                      marginHorizontal: 3
-                    }
-                  ]}
-                />
-              ))}
-            </View>
-            
-            <Text style={styles.listeningText}>{recognizedText}</Text>
-            
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity 
-                style={styles.modalButton}
-                activeOpacity={0.7}
-              >
-                <View style={styles.innerModalButton} />
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-      </Modal>
-    </>
-  );
+// --- Reusable Tab Item Component (Simplified) ---
+type TabItemProps = {
+  isFocused: boolean;
+  config: { focusedIcon: string; unfocusedIcon: string; label?: string };
+  colors: ReturnType<typeof useTheme>['colors'];
+  onPress: () => void;
+  onLongPress: () => void;
+  accessibilityLabel?: string;
+  testID?: string;
 };
 
-function MainTabNavigator() {
-  const { colors, isDark } = useTheme();
-  const unreadCount = useUnreadEmailCount();
-  
+// Renamed component
+function TabItem({ 
+  isFocused, 
+  config, 
+  colors, 
+  onPress, 
+  onLongPress, 
+  accessibilityLabel, 
+  testID
+}: TabItemProps) {
+  const label = config.label;
+
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: string = 'help-circle-outline'; // Default icon
-
-          if (route.name === 'Email') {
-            iconName = focused ? 'email' : 'email-outline';
-          } else if (route.name === 'Tasks') {
-            iconName = focused ? 'check-circle' : 'check-circle-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'account-circle' : 'account-circle-outline';
-          } else if (route.name === 'UIShowcase') {
-            iconName = focused ? 'palette' : 'palette-outline';
-          }
-
-          return <Icon name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.brand.primary,
-        tabBarInactiveTintColor: colors.text.tertiary,
-        tabBarStyle: {
-          backgroundColor: colors.background.primary,
-          borderTopColor: colors.border.light,
-        },
-        headerShown: false,
-      })}
+    <TouchableOpacity
+      key={config.focusedIcon}
+      accessibilityRole="button"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={styles.tabItem} // Basic style with padding
     >
-      <Tab.Screen 
-        name="Email" 
-        component={EmailDrawerNavigator}
-        options={{
-          tabBarLabel: 'Email',
-          tabBarAccessibilityLabel: 'Email tab',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.status.info,
-          },
-        }}
-      />
-      <Tab.Screen 
-        name="Tasks" 
-        component={TaskScreen}
-        options={{
-          tabBarLabel: 'Tasks',
-          tabBarAccessibilityLabel: 'Tasks tab',
-        }}
-      />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarAccessibilityLabel: 'Profile tab',
-        }}
-      />
-      <Tab.Screen 
-        name="UIShowcase" 
-        component={UIShowcaseNavigator}
-        options={{
-          tabBarLabel: 'UI Components',
-          tabBarAccessibilityLabel: 'UI Components showcase tab',
-        }}
-      />
-    </Tab.Navigator>
+      {isFocused ? (
+        // Use standard View
+        <View style={styles.activeTabPill}>
+          <Icon 
+            name={config.focusedIcon} 
+            size={label ? 20 : 24}
+            color="#FFFFFF"
+          />
+          {label && (
+            <Text style={styles.activeTabText}>{label}</Text>
+          )}
+        </View>
+      ) : (
+        // Use standard View
+        <View style={styles.inactiveIconContainer}> 
+          <Icon 
+            name={config.unfocusedIcon} 
+            size={24} 
+            color={colors.text.secondary} 
+          />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 
+// --- Custom Tab Bar (Using Simplified TabItem) ---
+type CustomTabBarProps = {
+  activeIndex: number;
+  routes: { name: string; key: string }[];
+  onTabPress: (index: number) => void;
+};
+
+function CustomTabBar({ activeIndex, routes, onTabPress }: CustomTabBarProps) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const tabConfig: { [key: string]: { focusedIcon: string; unfocusedIcon: string; label?: string } } = {
+    Email: { focusedIcon: 'menu', unfocusedIcon: 'menu' },
+    Home: { focusedIcon: 'home', unfocusedIcon: 'home-outline', label: 'Home' },
+    Following: { focusedIcon: 'account-group', unfocusedIcon: 'account-group', label: 'Following' },
+  };
+
+  return (
+    <View style={[
+      styles.tabBarContainer, 
+      { 
+        backgroundColor: colors.background.primary, 
+        shadowColor: colors.text.secondary, 
+        paddingBottom: insets.bottom || 8 
+      }
+    ]}>
+      {routes.map((route, index) => {
+        const config = tabConfig[route.name] || { focusedIcon: 'help-circle', unfocusedIcon: 'help-circle-outline' };
+        const isFocused = activeIndex === index;
+
+        return (
+          <TabItem // Use simplified component
+            key={route.key}
+            isFocused={isFocused}
+            config={config}
+            colors={colors}
+            onPress={() => onTabPress(index)}
+            onLongPress={() => { /* Implement if needed */ }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+// --- Main Swipeable Tab Navigator ---
+function MainTabNavigator() {
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const pagerRef = React.useRef<PagerView>(null);
+
+  // Define the order and components for the pager
+  const routes = [
+    { key: 'email', name: 'Email', component: EmailDrawerNavigator },
+    { key: 'home', name: 'Home', component: TaskScreen },
+    { key: 'following', name: 'Following', component: ProfileScreen as React.FC },
+  ];
+
+  // Navigate PagerView when a tab is pressed
+  const handleTabPress = React.useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+  }, []);
+
+  // Update the active index when the page changes
+  const handlePageSelected = React.useCallback((event: { nativeEvent: { position: number } }) => {
+    setActiveIndex(event.nativeEvent.position);
+  }, []);
+
+  return (
+    <View style={styles.pagerContainer}> 
+      <PagerView
+        ref={pagerRef}
+        style={styles.pagerView}
+        initialPage={0}
+        onPageSelected={handlePageSelected}
+      >
+        {routes.map((route) => (
+          // Each child of PagerView is a page
+          <View key={route.key} style={styles.page}>
+            <route.component />
+          </View>
+        ))}
+      </PagerView>
+      {/* Render CustomTabBar below PagerView */}
+      <CustomTabBar 
+        activeIndex={activeIndex}
+        routes={routes.map(r => ({ key: r.key, name: r.name }))} // Pass route names/keys
+        onTabPress={handleTabPress}
+      />
+    </View>
+  );
+}
+
+// --- Navigation Root (Authentication Logic) ---
 function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
   const { user, isLoading, initialized, setUser } = useAuthStore();
   const { colors } = useTheme();
   const didForceAuth = React.useRef(false);
 
-  // Effect to handle force navigation to Auth screen
   React.useEffect(() => {
-    // Only run this once per forceAuthScreen=true to prevent loops
     if (forceAuthScreen && user && !didForceAuth.current && onNavigated) {
-      console.log('Forcing auth screen, setting user to null');
       didForceAuth.current = true;
-      
-      // Call onNavigated to reset the forceAuthScreen flag
       onNavigated();
-      
-      // Set user to null in the auth store instead of navigating directly
       setUser(null);
     } else if (!forceAuthScreen) {
-      // Reset the ref when forceAuthScreen is set to false
       didForceAuth.current = false;
     }
   }, [forceAuthScreen, user, onNavigated, setUser]);
@@ -239,8 +220,6 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
     );
   }
 
-  // Simply render appropriate screen based on auth state
-  // We don't need to check forceAuthScreen here anymore since we're handling it in the effect
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
@@ -258,6 +237,7 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
   );
 }
 
+// --- App Navigator Export ---
 export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -268,77 +248,59 @@ export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen
   );
 }
 
+// --- Styles ---
 const styles = StyleSheet.create({
-  voiceContainer: {
-    position: 'absolute',
-    bottom: 65, // Position above the tab bar
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
+  pagerContainer: {
+    flex: 1,
+    backgroundColor: 'transparent', // Or your app's background color
   },
-  voiceButton: {
-    width: 56,
+  pagerView: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+  },
+  tabBarContainer: {
+    position: 'absolute', 
+    bottom: 20,
+    alignSelf: 'center', 
+    flexDirection: 'row',
+    justifyContent: 'center',
     height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
+    borderRadius: 5,
+    paddingVertical: 8,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    elevation: 4,
+    paddingHorizontal: 5,
+    // backgroundColor set dynamically
   },
-  modalBackground: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  modalContent: {
-    flex: 1,
-    justifyContent: 'space-between',
+  tabItem: {
     alignItems: 'center',
-    paddingTop: 100,
-    paddingBottom: 50,
+    justifyContent: 'center',
+    height: 40,        // Fill height of tab bar
   },
-  waveContainer: {
+  inactiveIconContainer: { 
+    alignItems: 'center',    
+    justifyContent: 'center',
+    paddingHorizontal: 12, // <-- Add padding here for inactive spacing
+    height: '100%', // Ensure vertical alignment within tabItem space
+  },
+  activeTabPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 30,
+    backgroundColor: '#1D9BF0',
+    paddingVertical: 8,      
+    paddingHorizontal: 12,   // Padding inside the pill
+    borderRadius: 5,        
+    height: '100%',          
   },
-  waveBar: {
-    width: 6,
-    height: 30,
-    backgroundColor: '#fff',
-    borderRadius: 3,
-  },
-  listeningText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '500',
-    marginTop: 30,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  modalButtonContainer: {
-    position: 'absolute',
-    bottom: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  innerModalButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#1e0a36',
+  activeTabText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 6,
   },
   loadingContainer: {
     flex: 1,

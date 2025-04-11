@@ -14,7 +14,6 @@ export type EmailData = {
   isUnread?: boolean;
 };
 
-
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
@@ -67,7 +66,27 @@ async function makeGmailApiRequest(
 }
 
 /**
- * Get a list of emails from the user's inbox
+ * Get a list of email message IDs and thread IDs from the user's inbox
+ * @param maxResults Maximum number of messages to return
+ * @param pageToken Token for the next page of results
+ * @param labelIds Array of label IDs to filter by (e.g., 'INBOX', 'UNREAD')
+ */
+export async function listMessages(maxResults: number = 20, pageToken?: string, labelIds: string[] = ['INBOX']): Promise<any> {
+  const queryParams = new URLSearchParams({
+    maxResults: maxResults.toString(),
+    labelIds: labelIds.join(','),
+  });
+  if (pageToken) {
+    queryParams.append('pageToken', pageToken);
+  }
+  
+  // Fetches only message IDs and thread IDs, along with nextPageToken
+  return makeGmailApiRequest(`/messages?${queryParams.toString()}&fields=messages(id,threadId),nextPageToken,resultSizeEstimate`);
+}
+
+/**
+ * Get a list of emails from the user's inbox - SIMPLIFIED: Now just gets message list.
+ * The hook (`useGmail`) will be responsible for fetching full details.
  * @param maxResults Maximum number of emails to return
  * @param labelIds Array of label IDs to filter by (e.g., 'INBOX', 'UNREAD')
  */
@@ -427,5 +446,33 @@ export async function revokeGmailAccess(): Promise<void> {
   } catch (error) {
     console.error('Error revoking Gmail access:', error);
     // Don't throw so sign out can continue
+  }
+}
+
+/**
+ * Get an attachment from an email
+ * @param messageId The ID of the message containing the attachment
+ * @param attachmentId The ID of the attachment to retrieve
+ * @returns The attachment data (base64) and MIME type
+ */
+export async function getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; mimeType: string }> {
+  try {
+    const response = await makeGmailApiRequest(`/messages/${messageId}/attachments/${attachmentId}`);
+    
+    if (!response || !response.data) {
+      throw new Error('No attachment data received');
+    }
+    
+    // Gmail API returns attachments in base64url format
+    // Convert to regular base64 if needed
+    const data = response.data.replace(/-/g, '+').replace(/_/g, '/');
+    
+    return { 
+      data, 
+      mimeType: response.mimeType || 'application/octet-stream' 
+    };
+  } catch (error) {
+    console.error(`Error fetching attachment ${attachmentId} from message ${messageId}:`, error);
+    throw error;
   }
 } 

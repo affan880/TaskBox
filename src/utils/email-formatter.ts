@@ -10,6 +10,7 @@ import {
  * Formats the response from the Gmail API listing emails
  */
 export function formatEmailsResponse(response: GmailApiListResponse): EmailData[] {
+  console.log("Real Response:::::::::::::::::", response)
   if (!response.messages || !Array.isArray(response.messages)) {
     console.log('email-formatter: No messages in response or invalid format');
     return [];
@@ -30,6 +31,7 @@ export function formatEmailsResponse(response: GmailApiListResponse): EmailData[
         isUnread: message.labelIds?.includes('UNREAD') || false,
         hasAttachments: false,
         labelIds: message.labelIds || [],
+        internalDate: message.internalDate || String(Date.now())
       };
     }
     
@@ -57,6 +59,7 @@ export function formatEmailsResponse(response: GmailApiListResponse): EmailData[
         isUnread: message.labelIds?.includes('UNREAD') || false,
         hasAttachments: false,
         labelIds: message.labelIds || [],
+        internalDate: message.internalDate || String(Date.now())
       };
     }
   });
@@ -95,8 +98,7 @@ export function formatEmailDetails(email: GmailApiEmailResponse): EmailData {
   };
 }
 
-/**
- * Find a specific header by name from the headers array
+/** * Find a specific header by name from the headers array
  */
 function findHeader(headers: EmailHeader[], name: string): string | undefined {
   const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase());

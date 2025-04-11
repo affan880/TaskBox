@@ -8,10 +8,18 @@ import type { EmailData } from '../types/email';
  */
 export function useUnreadEmailCount(): number {
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const { loadEmails } = useEmailActions();
+  const { loadInitialEmails, emails } = useEmailActions();
   const lastUpdateTime = useRef<number>(0);
   const initialLoadDone = useRef<boolean>(false);
   const emailsCache = useRef<EmailData[]>([]);
+
+  useEffect(() => {
+    if (emails && emails.length > 0) {
+      emailsCache.current = emails;
+      const count = emails.filter(email => email.isUnread).length;
+      setUnreadCount(count);
+    }
+  }, [emails]);
 
   useEffect(() => {
     // Function to fetch and count unread emails
@@ -39,14 +47,10 @@ export function useUnreadEmailCount(): number {
           }
         }
         
-        // Use page 1 parameter to avoid errors
-        const emails = await loadEmails(1);
-        if (emails && emails.length > 0) {
-          emailsCache.current = emails;
-          const count = emails.filter(email => email.isUnread).length;
-          setUnreadCount(count);
-          lastUpdateTime.current = now;
-        }
+        // Fix: Use loadInitialEmails to fetch emails instead of the non-existent loadEmails
+        await loadInitialEmails();
+        // The emails will be updated via the effect above that watches the emails state
+        lastUpdateTime.current = now;
       } catch (error) {
         console.error('Error fetching unread count:', error);
       }
@@ -65,7 +69,7 @@ export function useUnreadEmailCount(): number {
       clearTimeout(initialFetchTimeout);
       clearInterval(intervalId);
     };
-  }, [loadEmails]);
+  }, [loadInitialEmails]);
 
   return unreadCount;
 } 
