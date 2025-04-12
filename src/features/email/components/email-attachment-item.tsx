@@ -1,43 +1,62 @@
 import * as React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Attachment } from '../../../types/email'; // Assuming type moved
+import { Attachment } from 'src/types/email'; // Assuming type moved
 
 type EmailAttachmentItemProps = {
   attachment: Attachment;
   messageId: string; // Needed for the download function context
-  downloadProgress: number; // Progress for this specific item (0-100)
-  isDownloading: boolean; // Whether this specific item is downloading
+  downloadProgress: number; // Progress: 0 (idle), >0 & <100 (downloading), 100 (complete), -1 (error)
   onDownloadPress: (messageId: string, attachment: Attachment) => void; // Function to trigger download
   gmailTheme: any; // TODO: Define stricter theme type
 };
 
+// Helper function to get file extension from MIME type
+function getFileExtensionFromMime(mimeType: string | undefined): string {
+  if (!mimeType) return '';
+  return mimeType.split('/').pop()?.split('.').pop() || '';
+}
+
 // Helper function to get file icon
-function getFileIconName(type: string | undefined): string {
+function getFileIconName(mimeType: string | undefined): string {
+  const extension = getFileExtensionFromMime(mimeType).toLowerCase();
   // Rule: Function Purity
-  const lowerType = type?.toLowerCase() || '';
-  if (lowerType === 'pdf') return 'picture-as-pdf';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(lowerType)) return 'image';
-  if (['doc', 'docx'].includes(lowerType)) return 'description'; // Word icon
-  if (['xls', 'xlsx', 'csv'].includes(lowerType)) return 'table-chart'; // Excel icon
-  if (['ppt', 'pptx'].includes(lowerType)) return 'slideshow'; // PowerPoint icon
-  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(lowerType)) return 'folder-zip'; // Archive icon
-  if (['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(lowerType)) return 'audio-file'; // Audio icon
-  if (['mp4', 'mov', 'avi', 'wmv', 'mkv'].includes(lowerType)) return 'video-file'; // Video icon
-  if (['txt', 'log', 'md'].includes(lowerType)) return 'article'; // Text file icon
+  if (extension === 'pdf') return 'picture-as-pdf';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) return 'image';
+  if (['doc', 'docx'].includes(extension)) return 'description';
+  if (['xls', 'xlsx', 'csv'].includes(extension)) return 'table-chart';
+  if (['ppt', 'pptx'].includes(extension)) return 'slideshow';
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return 'folder-zip';
+  if (['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(extension)) return 'audio-file';
+  if (['mp4', 'mov', 'avi', 'wmv', 'mkv'].includes(extension)) return 'video-file';
+  if (['txt', 'log', 'md'].includes(extension)) return 'article';
   return 'insert-drive-file'; // Generic file icon
+}
+
+// Helper function to format bytes into KB/MB/GB
+function formatBytes(bytes: number, decimals = 1): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 export function EmailAttachmentItem({
   attachment,
   messageId,
   downloadProgress,
-  isDownloading,
   onDownloadPress,
   gmailTheme,
 }: EmailAttachmentItemProps): React.ReactElement {
   // Rule: Functional Component
-  const iconName = getFileIconName(attachment.type);
+  const iconName = getFileIconName(attachment.mimeType);
+  const fileSizeDisplay = formatBytes(attachment.size);
+  const isDownloading = downloadProgress > 0 && downloadProgress < 100;
+  const isComplete = downloadProgress === 100;
+  const hasError = downloadProgress === -1;
+
   const isDark = gmailTheme?.text?.primary === '#E8EAED'; // Example check
 
   return (
@@ -47,26 +66,40 @@ export function EmailAttachmentItem({
         { backgroundColor: gmailTheme.attachment.background, borderColor: gmailTheme.border }
       ]}
       onPress={() => onDownloadPress(messageId, attachment)}
-      disabled={isDownloading} // Disable button while downloading this item
+      disabled={isDownloading} // Only disable while actively downloading
       activeOpacity={0.7}
     >
       {/* Icon */}
       <View style={[styles.attachmentIconContainer, { backgroundColor: isDark ? 'rgba(138, 180, 248, 0.2)' : 'rgba(26, 115, 232, 0.1)' }]}>
-        <Icon name={iconName} size={24} color={gmailTheme.primary} />
+        <Icon 
+          name={isComplete ? 'check-circle' : hasError ? 'error' : iconName} 
+          size={24} 
+          color={isComplete ? 'green' : hasError ? 'red' : gmailTheme.primary} 
+        />
       </View>
 
       {/* Details */}
       <View style={styles.attachmentDetails}>
         <Text style={[styles.attachmentName, { color: gmailTheme.text.primary }]} numberOfLines={1}>
-          {attachment.name || 'Unnamed Attachment'}
+          {attachment.filename || 'Unnamed Attachment'}
         </Text>
         <Text style={[styles.attachmentInfo, { color: gmailTheme.text.secondary }]}>
-          {(attachment.type || 'Unknown Type').toUpperCase()} • {attachment.sizeDisplay || 'Unknown Size'}
+          {(getFileExtensionFromMime(attachment.mimeType) || 'Unknown Type').toUpperCase()} • {fileSizeDisplay}
         </Text>
         {/* Rule: Conditional Rendering */}
         {isDownloading && (
           <Text style={[styles.downloadProgressText, { color: gmailTheme.primary }]}>
-             {downloadProgress < 100 ? `Downloading ${downloadProgress}%...` : 'Processing...'}
+            {`Downloading ${downloadProgress}%...`}
+          </Text>
+        )}
+        {isComplete && (
+          <Text style={[styles.downloadProgressText, { color: 'green' }]}>
+            Downloaded
+          </Text>
+        )}
+        {hasError && (
+          <Text style={[styles.downloadProgressText, { color: 'red' }]}>
+            Download Failed
           </Text>
         )}
          {/* TODO: Add indicator for already downloaded/cached files */}

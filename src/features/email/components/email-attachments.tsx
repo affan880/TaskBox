@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Attachment } from '../../../types/email';
+import { Attachment } from 'src/types/email';
 import { EmailAttachmentItem } from './email-attachment-item';
 
 type EmailAttachmentsProps = {

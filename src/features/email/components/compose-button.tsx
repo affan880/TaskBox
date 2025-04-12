@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { TouchableOpacity, Animated, StyleSheet, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SHADOWS, BORDER_RADIUS, SPACING } from '../../../theme/theme';
+import { SHADOWS, BORDER_RADIUS, SPACING } from 'src/theme/theme';
 
 type ComposeButtonProps = {
   composeTranslateY: Animated.AnimatedInterpolation<string | number>;

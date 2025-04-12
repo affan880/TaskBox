@@ -9,11 +9,12 @@ import {
 } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { FIREBASE_WEB_CLIENT_ID, FIREBASE_IOS_CLIENT_ID } from '@env';
-import { revokeGmailAccess } from '../utils/gmail-api';
+import { revokeGmailAccess } from 'src/api/gmail-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-type AuthState = {
+// Export the type
+export type AuthState = {
   user: FirebaseAuthTypes.User | null;
   isLoading: boolean;
   error: string | null;

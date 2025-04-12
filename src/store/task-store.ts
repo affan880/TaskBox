@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { TaskData, TaskPriority } from '../types/task';
-import { setItem, getItem } from '../utils/storage';
+import { setItem, getItem } from 'src/lib/storage/storage';
 
 const TASKS_STORAGE_KEY = 'tasks';
 

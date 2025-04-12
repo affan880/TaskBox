@@ -3,8 +3,9 @@ import {
   GmailApiEmailResponse, 
   GmailApiListResponse, 
   EmailHeader,
-  EmailPart 
-} from '../types/email';
+  EmailPart,
+  Attachment
+} from 'src/types/email';
 
 /**
  * Formats the response from the Gmail API listing emails
@@ -30,6 +31,7 @@ export function formatEmailsResponse(response: GmailApiListResponse): EmailData[
         date: new Date().toISOString(),
         isUnread: message.labelIds?.includes('UNREAD') || false,
         hasAttachments: false,
+        attachments: [],
         labelIds: message.labelIds || [],
         internalDate: message.internalDate || String(Date.now())
       };
@@ -58,6 +60,7 @@ export function formatEmailsResponse(response: GmailApiListResponse): EmailData[
         date: formatDate(date),
         isUnread: message.labelIds?.includes('UNREAD') || false,
         hasAttachments: false,
+        attachments: [],
         labelIds: message.labelIds || [],
         internalDate: message.internalDate || String(Date.now())
       };
@@ -79,8 +82,9 @@ export function formatEmailDetails(email: GmailApiEmailResponse): EmailData {
   // Extract body
   const body = extractBody(email.payload);
   
-  // Check for attachments
-  const hasAttachments = checkForAttachments(email.payload);
+  // Extract attachment metadata
+  const attachments = extractAttachmentsMetadata(email.payload);
+  const hasAttachments = attachments.length > 0;
   
   return {
     id: email.id,
@@ -93,6 +97,7 @@ export function formatEmailDetails(email: GmailApiEmailResponse): EmailData {
     date: formatDate(date),
     isUnread: email.labelIds?.includes('UNREAD') || false,
     hasAttachments,
+    attachments,
     labelIds: email.labelIds || [],
     internalDate: email.internalDate,
   };
@@ -182,6 +187,32 @@ function findPart(parts: EmailPart[], mimeType: string): EmailPart | undefined {
   }
   
   return part;
+}
+
+/**
+ * Recursively extracts metadata for all attachments within an email payload.
+ */
+function extractAttachmentsMetadata(payload: EmailPart): Attachment[] {
+  let attachments: Attachment[] = [];
+
+  // Check if the current part is an attachment with the necessary info
+  if (payload.filename && payload.body?.attachmentId && payload.body?.size) {
+    attachments.push({
+      id: payload.body.attachmentId,
+      filename: payload.filename,
+      mimeType: payload.mimeType,
+      size: payload.body.size,
+    });
+  }
+
+  // Recursively check nested parts
+  if (payload.parts && payload.parts.length > 0) {
+    for (const part of payload.parts) {
+      attachments = attachments.concat(extractAttachmentsMetadata(part));
+    }
+  }
+
+  return attachments;
 }
 
 /**

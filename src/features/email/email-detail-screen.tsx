@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Fragment, useState, useRef, useEffect } from 'react';
+import { Fragment, useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/theme-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { EmailData } from '../../types/email';
+import { EmailData, Attachment } from 'src/types/email';
 import RNBlobUtil from 'react-native-blob-util';
 import FileViewer from 'react-native-file-viewer';
 import { ErrorBoundary } from '../../components/ui/error-boundary';
@@ -33,21 +33,7 @@ import { EmailSubject } from './components/email-subject';
 import { EmailLabelChip } from './components/email-label-chip';
 import { EmailReplyActions } from './components/email-reply-actions';
 import { EmailAttachments } from './components/email-attachments';
-
-// Define an interface for email attachments
-interface Attachment {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  sizeDisplay: string;
-  contentId?: string;
-  contentType: string;
-  url?: string;
-  data?: string;
-  messageId?: string;
-  attachmentId?: string;
-}
+import { useGmail } from 'src/hooks/use-gmail';
 
 // Gmail-specific colors
 const GMAIL_COLORS = {
@@ -144,12 +130,8 @@ function getEmailLabels(email: EmailData & {
 }
 
 type EmailDetailParams = {
-  EmailDetail: { 
-    email: EmailData & {
-      isImportant?: boolean;
-      isStarred?: boolean;
-      attachments?: Attachment[];
-    } 
+  ReadEmail: { 
+    email: EmailData // Expect full EmailData with attachments array
   };
 };
 
@@ -165,10 +147,22 @@ const safelyLogError = (error: any) => {
 export function EmailDetailScreen() {
   try {
     const navigation = useNavigation();
-    const route = useRoute<RouteProp<EmailDetailParams, 'EmailDetail'>>();
+    const route = useRoute<RouteProp<EmailDetailParams, 'ReadEmail'>>();
     const currentEmail = route.params?.email;
     const insets = useSafeAreaInsets();
     
+    // Show loading indicator if email data is not yet available
+    if (!currentEmail) {
+      return (
+        <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={GMAIL_COLORS.light.primary} />
+          <Text style={{ marginTop: 10, color: GMAIL_COLORS.light.text.secondary }}>
+            Loading Email...
+          </Text>
+        </View>
+      );
+    }
+
     // Access theme and device info
     const { isDark } = useTheme();
     const scrollViewRef = useRef<ScrollView>(null);
@@ -209,8 +203,12 @@ export function EmailDetailScreen() {
     // Email body
     const emailBody = currentEmail ? currentEmail.body || '' : '';
 
-    // Email labels
+    // Use attachments directly from props
     const emailLabels = currentEmail ? getEmailLabels(currentEmail) : [];
+    const attachments = currentEmail?.attachments || [];
+
+    // Get download function from useGmail
+    const { downloadAttachmentData } = useGmail();
 
     // Handle scroll events
     const handleScroll = (event: any) => {
@@ -258,112 +256,106 @@ export function EmailDetailScreen() {
     };
     
     // Function to open a file using the FileViewer
-    const openFile = (filePath: string, contentType: string) => {
-      FileViewer.open(filePath, { showOpenWithDialog: true })
+    const openFile = useCallback((filePath: string) => {
+      const pathWithPrefix = Platform.OS === 'ios' ? `file://${filePath}` : filePath;
+      console.log(`[EmailDetailScreen] Attempting to open file with path: ${pathWithPrefix}`);
+      FileViewer.open(pathWithPrefix, { showOpenWithDialog: true })
         .then(() => {
-          console.log('File opened successfully');
+          console.log('[EmailDetailScreen] File opened successfully');
         })
         .catch(error => {
-          console.error('Error opening file:', error);
+          console.error('[EmailDetailScreen] Error opening file:', error);
           Alert.alert(
             'Error',
             'Could not open the file. The file format might not be supported on your device.',
             [{ text: 'OK' }]
           );
         });
-    };
+    }, []);
     
-    // Function to download an attachment
-    const downloadAttachment = async (attachment: Attachment) => {
-      setIsActionLoading(true);
-      setDownloadProgress(prev => ({ ...prev, [attachment.id]: 0 }));
-      
-      try {
-        // Ensure directory exists
-        const cacheDir = RNBlobUtil.fs.dirs.DocumentDir;
-        const filePath = `${cacheDir}/${attachment.name}`;
-        
-        // Download the file if we have a URL
-        if (attachment.url) {
-          RNBlobUtil.config({
-            fileCache: true,
-            path: filePath,
-            addAndroidDownloads: {
-              useDownloadManager: true,
-              notification: true,
-              title: attachment.name,
-              description: 'Downloading email attachment',
-              mime: attachment.contentType,
-            }
-          })
-          .fetch('GET', attachment.url)
-          .progress((received, total) => {
-            const percentage = Math.floor((Number(received) / Number(total)) * 100);
-            setDownloadProgress(prev => ({ ...prev, [attachment.id]: percentage }));
-          })
-          .then(res => {
-            console.log('File saved to:', res.path());
-            setIsActionLoading(false);
-            setDownloadProgress(prev => ({ ...prev, [attachment.id]: 100 }));
-            
-            Alert.alert(
-              'Download Complete',
-              'Would you like to open the downloaded file?',
-              [
-                { text: 'No', style: 'cancel' },
-                { text: 'Yes', onPress: () => openFile(res.path(), attachment.contentType) }
-              ]
-            );
-          })
-          .catch(error => {
-            console.error('Download error:', error);
-            setIsActionLoading(false);
-            setDownloadProgress(prev => ({ ...prev, [attachment.id]: 0 }));
-            
-            Alert.alert(
-              'Download Failed',
-              'Could not download the file. Please try again later.',
-              [{ text: 'OK' }]
-            );
-          });
+    // Updated function to handle download and saving
+    const handleAttachmentDownload = useCallback(
+      async (messageId: string, attachment: Attachment) => {
+        const attachmentId = attachment.id;
+        const filename = attachment.filename;
+        const mimeType = attachment.mimeType;
+
+        if (!attachmentId || !filename || !mimeType) {
+          console.error('[EmailDetailScreen] Invalid attachment metadata:', attachment);
+          Alert.alert('Error', 'Attachment information is incomplete.');
+          return;
         }
-        // Use embedded data if available
-        else if (attachment.data) {
-          await RNBlobUtil.fs.writeFile(filePath, attachment.data, 'base64');
+
+        // Construct the target file path first
+        const cacheDir = RNBlobUtil.fs.dirs.DocumentDir;
+        const sanitizedFilename = filename.replace(/[\/\\?%*:|\"<>]/g, '_');
+        const filePath = `${cacheDir}/${sanitizedFilename}`;
+
+        try {
+          // Check if the file already exists
+          const exists = await RNBlobUtil.fs.exists(filePath);
+
+          if (exists) {
+            console.log(`[EmailDetailScreen] File already exists: ${filePath}. Opening directly.`);
+            // Ensure progress state is marked as complete for UI consistency
+            setDownloadProgress(prev => ({ ...prev, [attachmentId]: 100 })); 
+            openFile(filePath); // Attempt to open the existing file
+            return; // Don't proceed to download
+          }
+
+          // --- File does not exist, proceed with download ---
+          console.log(`[EmailDetailScreen] File not found locally. Starting download for: ${filename}`);
+          // Set loading/progress state for this specific attachment
+          setDownloadProgress(prev => ({ ...prev, [attachmentId]: 0 })); // Indicate start
+
+          // 1. Fetch the attachment data using the new hook function
+          console.log(`[EmailDetailScreen] Calling downloadAttachmentData for msg=${messageId}, att=${attachmentId}`);
+          const attachmentResult = await downloadAttachmentData(messageId, attachmentId);
+
+          if (!attachmentResult?.data) {
+            console.error(`[EmailDetailScreen] Failed to download data for attachment ${attachmentId}.`);
+            setDownloadProgress(prev => ({ ...prev, [attachmentId]: -1 })); // Indicate error
+            Alert.alert('Download Failed', 'Could not retrieve attachment data.');
+            return;
+          }
+
+          // 2. Save the base64 data to a file
+          console.log(`[EmailDetailScreen] Saving attachment data to: ${filePath} (Original filename: ${filename})`);
           
-          setIsActionLoading(false);
-          setDownloadProgress(prev => ({ ...prev, [attachment.id]: 100 }));
+          // Convert base64url to standard base64
+          let base64Data = attachmentResult.data.replace(/-/g, '+').replace(/_/g, '/');
+          // Add padding if necessary
+          while (base64Data.length % 4) {
+            base64Data += '=';
+          }
+
+          console.log(`[EmailDetailScreen] Writing standard base64 data (start): ${base64Data.substring(0, 50)}...`);
+          await RNBlobUtil.fs.writeFile(filePath, base64Data, 'base64');
           
+          // Update progress to complete
+          setDownloadProgress(prev => ({ ...prev, [attachmentId]: 100 }));
+          console.log(`[EmailDetailScreen] Attachment saved successfully: ${filename}`);
+
+          // 3. Ask to open the file
           Alert.alert(
-            'File Ready',
-            'Would you like to open the file?',
+            'Download Complete',
+            `Saved "${sanitizedFilename}" (${(attachment.size / 1024 / 1024).toFixed(2)} MB). Open it?`, // Use sanitized filename
             [
               { text: 'No', style: 'cancel' },
-              { text: 'Yes', onPress: () => openFile(filePath, attachment.contentType) }
+              // Pass the original filePath (without prefix) to the callback
+              { text: 'Yes', onPress: () => openFile(filePath) } 
             ]
           );
+
+        } catch (error) {
+          console.error('[EmailDetailScreen] Error during attachment download/save:', error);
+          setDownloadProgress(prev => ({ ...prev, [attachmentId]: -1 })); // Indicate error
+          Alert.alert('Error', 'An error occurred while downloading or saving the attachment.');
         }
-        else {
-          setIsActionLoading(false);
-          Alert.alert(
-            'Download Failed',
-            'No file data available for download.',
-            [{ text: 'OK' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error handling attachment:', error);
-        setIsActionLoading(false);
-        setDownloadProgress(prev => ({ ...prev, [attachment.id]: 0 }));
-        
-        Alert.alert(
-          'Error',
-          'An error occurred while processing the attachment.',
-          [{ text: 'OK' }]
-        );
-      }
-    };
-    
+      },
+      [downloadAttachmentData, openFile] // Dependencies
+    );
+
     // Function to render a clickable hyperlink
     const renderHyperlink = (text: string, url: string, key: string) => {
       return (
@@ -478,12 +470,12 @@ export function EmailDetailScreen() {
                 </View>
                 
                 {/* Replace attachment section with EmailAttachments component */}
-                {!isDemoEmail(currentEmail) && currentEmail.hasAttachments && currentEmail.attachments && currentEmail.attachments.length > 0 && (
+                {attachments.length > 0 && (
                   <EmailAttachments
-                    attachments={currentEmail.attachments}
-                    messageId={currentEmail.id}
+                    attachments={attachments}
+                    messageId={currentEmail?.id || ''}
                     downloadProgress={downloadProgress}
-                    onDownloadPress={(messageId, attachment) => downloadAttachment(attachment)}
+                    onDownloadPress={handleAttachmentDownload}
                     gmailTheme={gmailTheme}
                   />
                 )}
@@ -579,6 +571,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     elevation: 2,
+    backgroundColor: '#FFFFFF',
   },
   labelContainer: {
     flexDirection: 'row',

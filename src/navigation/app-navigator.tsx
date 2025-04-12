@@ -13,13 +13,13 @@ import {
   Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use MaterialCommunityIcons for more variety
-import { useTheme } from '../theme/theme-context';
-import { useAuthStore } from '../store/auth-store';
+import { useTheme } from 'src/theme/theme-context';
+import { useAuthStore } from 'src/store/auth-store';
 import { AuthNavigator } from './auth-navigator';
-import { ProfileScreen } from '../screens/profile/profile-screen';
+import { ProfileScreen } from 'src/features/profile/profile-screen';
 import { EmailDrawerNavigator } from './email-drawer-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { TaskScreen } from '../screens/tasks/task-screen';
+import { TaskScreen } from 'src/features/tasks/task-screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Needed for positioning
 
 // Define navigator types

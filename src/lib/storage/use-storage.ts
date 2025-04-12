@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import storage from '@react-native-firebase/storage';
-import { useAuthStore } from '../store/auth-store';
+import { useAuthStore } from 'src/store/auth-store';
 
 type StorageHookResult = {
   uploadFile: (filePath: string, storagePath: string) => Promise<string | null>;

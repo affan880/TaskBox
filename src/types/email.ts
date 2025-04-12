@@ -61,6 +61,21 @@ export interface EmailData {
    * Internal date of the email
    */
   internalDate: string;
+
+  /**
+   * List of email attachments
+   */
+  attachments: Attachment[];
+
+  /**
+   * Whether the email is important
+   */
+  isImportant?: boolean;
+
+  /**
+   * Whether the email is starred
+   */
+  isStarred?: boolean;
 }
 
 /**
@@ -161,17 +176,10 @@ export type ExtendedEmailData = {
 
 // Define the Attachment type used across components
 export type Attachment = {
-  id: string; // Unique ID for the attachment within the email context
-  name: string; // Filename
-  type: string; // File extension (e.g., 'pdf', 'jpg') or MIME subtype
-  size: number; // Size in bytes
-  sizeDisplay: string; // User-friendly size string (e.g., "1.2 MB")
-  contentType: string; // Full MIME type (e.g., 'application/pdf')
-  contentId?: string; // For inline images (CID)
-  url?: string; // Direct download URL if available
-  data?: string; // Base64 encoded data if embedded
-  attachmentId?: string; // Gmail API attachment ID for fetching attachment content
-  // messageId?: string; // Redundant if part of EmailData context
+  id: string; // This is the API's attachmentId (body.attachmentId)
+  filename: string;
+  mimeType: string;
+  size: number; 
 };
 
 // Define the EmailLabel type

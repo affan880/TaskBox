@@ -11,7 +11,7 @@ import {
   DrawerItemList,
   DrawerContentComponentProps
 } from '@react-navigation/drawer';
-import { COLORS } from '../../theme/colors';
+import { COLORS } from 'src/theme/colors';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Animated, { 
   useAnimatedStyle, 
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.border.medium,
   },
   logoContainer: {
     width: 40,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.border.medium,
     paddingBottom: 12,
   },
   sectionHeader: {
