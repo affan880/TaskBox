@@ -151,8 +151,10 @@ export function useEmailActions() {
   // These functions mostly delegate to useGmail, potentially adding screen-specific logic or loading states if needed.
 
   const getEmailDetails = useCallback(async (emailId: string): Promise<EmailData | null> => {
-    // console.log(`useEmailActions: Delegating getEmailDetails for ${emailId}`); // Less important
-    return fetchEmailById(emailId); 
+    console.log(`[useEmailActions:Delegate] Calling fetchEmailById for ${emailId}`);
+    const result = await fetchEmailById(emailId); 
+    console.log(`[useEmailActions:Delegate] fetchEmailById for ${emailId} returned: ${result ? 'Success' : 'Null'}`);
+    return result;
   }, [fetchEmailById]);
 
   const archiveEmail = useCallback(async (emailId: string): Promise<boolean> => {
@@ -230,9 +232,9 @@ export function useEmailActions() {
    * @param attachmentId The ID of the attachment
    * @returns The attachment data and MIME type if successful, null otherwise
    */
-  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string) => {
+  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string,filename:string, mimeType: string) => {
     console.log(`[useEmailActions:Action] Fetching attachment ${attachmentId} for message ${messageId}`);
-    return coreFetchAttachment(messageId, attachmentId);
+    return coreFetchAttachment(messageId, attachmentId, filename, mimeType); 
   }, [coreFetchAttachment]);
 
   // --- Effects ---

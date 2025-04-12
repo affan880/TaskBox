@@ -1,4 +1,4 @@
-import { Attachment } from '../types/email';
+import { Attachment } from 'src/types/email';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 /**
@@ -30,7 +30,7 @@ export const fetchFullEmailDetails = async (emailId: string): Promise<any> => {
     const response = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${emailId}?format=full`, 
       {
-        headers: {
+        headers: {  
           'Authorization': `Bearer ${accessToken}`
         }
       }
@@ -114,13 +114,14 @@ export const extractAttachmentsFromPayload = (payload: any): Attachment[] => {
  * @param fetchAttachmentFn The function to fetch an individual attachment's data
  * @returns Full email details with attachment data
  */
-export const fetchEmailAttachments = async (
+export const fetchEmailAttachments = async  (
   emailId: string, 
-  fetchAttachmentFn: (messageId: string, attachmentId: string) => Promise<{ data: string; mimeType: string } | null>
+  fetchAttachmentFn: (messageId: string, attachmentId: string, filename: string, type: string) => Promise<{ data: string; mimeType: string } | null>
 ): Promise<{ attachments: Attachment[], success: boolean }> => {
   try {
     // Fetch full message with all parts
     const fullMessageDetails = await fetchFullEmailDetails(emailId);
+    console.log("Full Details#######", fullMessageDetails)
     
     if (!fullMessageDetails || !fullMessageDetails.payload) {
       console.log('Could not get full message details with payload');
@@ -134,6 +135,8 @@ export const fetchEmailAttachments = async (
     if (extractedAttachments.length === 0) {
       return { attachments: [], success: false };
     }
+
+    console.log("Here I'M###############",extractedAttachments)
     
     // Fetch the actual attachment data
     const attachmentsWithData = await Promise.all(
@@ -142,8 +145,10 @@ export const fetchEmailAttachments = async (
           try {
             console.log(`Fetching attachment ${attachment.attachmentId}`);
             const attachmentId = String(attachment.attachmentId);
-            const attachmentData = await fetchAttachmentFn(emailId, attachmentId);
-            
+            const filename = String(attachment.name)
+            const type = String(attachment.type)
+            const attachmentData = await fetchAttachmentFn(emailId, attachmentId, filename, type);
+             
             if (attachmentData) {
               return {
                 ...attachment,

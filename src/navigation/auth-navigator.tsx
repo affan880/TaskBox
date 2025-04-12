@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
-
-import { LoginScreen } from '../screens/auth/login-screen';
-import { OnboardingScreen } from '../screens/auth/onboarding-screen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { LoginScreen } from 'src/features/auth/login-screen';
+import { OnboardingScreen } from 'src/features/auth/onboarding-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AuthStackParamList = {
@@ -10,7 +9,7 @@ export type AuthStackParamList = {
   Login: undefined;
 };
 
-const Stack = createStackNavigator<AuthStackParamList>();
+const Stack = createNativeStackNavigator<AuthStackParamList>();
 const ONBOARDING_COMPLETE = 'onboarding_complete';
 
 export function AuthNavigator() {

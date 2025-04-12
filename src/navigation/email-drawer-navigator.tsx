@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { EmailScreen } from '../screens/email/email-screen';
-import { EmailDetailScreen } from '../screens/email/email-detail-screen';
+import { EmailScreen } from 'src/features/email/email-screen';
+import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { EmailDrawerContent } from '../components/email/email-drawer-content';
-import { useTheme } from '../theme/theme-context';
+import { EmailDrawerContent } from 'src/features/email/components/email-drawer-content';
+import { useTheme } from 'src/theme/theme-context';
 
 // Define types for the drawer navigator
 export type EmailDrawerParamList = { 

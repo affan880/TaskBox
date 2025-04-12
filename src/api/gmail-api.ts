@@ -422,24 +422,35 @@ export async function revokeGmailAccess(): Promise<void> {
  * @param attachmentId The ID of the attachment to retrieve
  * @returns The attachment data (base64) and MIME type
  */
-export async function getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; mimeType: string }> {
+export async function getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; size: number } | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+
   try {
-    const response = await makeGmailApiRequest(`/messages/${messageId}/attachments/${attachmentId}`);
+    const response = await fetch(`${GMAIL_API_BASE_URL}/messages/${messageId}/attachments/${attachmentId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     
-    if (!response || !response.data) {
-      throw new Error('No attachment data received');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gmail API error (${response.status}): ${errorText}`);
     }
     
-    // Gmail API returns attachments in base64url format
-    // Convert to regular base64 if needed
-    const data = response.data.replace(/-/g, '+').replace(/_/g, '/');
-    
-    return { 
-      data, 
-      mimeType: response.mimeType || 'application/octet-stream' 
+    const data = await response.json();
+    return {
+      data: data.data,
+      size: data.size,
     };
   } catch (error) {
-    console.error(`Error fetching attachment ${attachmentId} from message ${messageId}:`, error);
-    throw error;
+    console.error(`[gmailApi] Error fetching attachment ${attachmentId} for message ${messageId}:`, error);
+    // Handle specific errors like 401 Unauthorized
+    if ((error as any)?.response?.status === 401) {
+      // Potentially trigger sign-out or token refresh mechanism here
+      throw new Error('Unauthorized (401)');
+    }
+    return null;
   }
 } 

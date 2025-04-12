@@ -1,16 +1,44 @@
-import { useState, useCallback } from 'react';
-import * as gmailApi from '../services/gmail-api';
-import { formatEmailDetails } from '../utils/email-formatter';
-import { EmailData, SnoozeData } from '../types/email';
+import { useState, useCallback, useEffect } from 'react';
+import * as gmailApi from 'src/api/gmail-api';
+import { formatEmailDetails } from 'src/lib/utils/email-formatter';
+import { EmailData, SnoozeData } from 'src/types/email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from 'src/lib/auth/auth-provider';
+import { Alert } from 'react-native';
 
 // Keys for AsyncStorage
 const SNOOZED_EMAILS_KEY = '@snoozed_emails';
+
+// --- Types ---
+// Basic structure for Gmail API Message Part
+type GmailMessagePartBody = {
+  attachmentId?: string;
+  size: number;
+  data?: string; // Base64 encoded data
+};
+
+type GmailMessagePart = {
+  partId: string;
+  mimeType: string;
+  filename: string;
+  headers: Array<{ name: string; value: string }>;
+  body?: GmailMessagePartBody;
+  parts?: GmailMessagePart[];
+};
+
+// Type for the attachment data we expect back from our fetch function
+export type FetchedAttachmentData = {
+  data: string; // Base64 encoded data
+  filename: string;
+  mimeType: string;
+  size: number;
+};
 
 /**
  * Core hook for interacting with the Gmail API and managing email state.
  */
 export function useGmail() {
+  const { isLoggedIn, isTokenExpired, handleTokenRefresh, signOut, accessToken } = useAuth();
   const [emails, setEmails] = useState<EmailData[]>([]);
   const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +46,8 @@ export function useGmail() {
   const [labels, setLabels] = useState<any[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadingAttachment, setLoadingAttachment] = useState<Record<string, boolean>>({});
+  const [errorAttachment, setErrorAttachment] = useState<Record<string, string | null>>({});
   
   // --- Core Data Fetching ---
 
@@ -121,6 +151,7 @@ export function useGmail() {
    * and sets it as the current email.
    */
   const fetchEmailById = useCallback(async (emailId: string): Promise<EmailData | null> => {
+    console.log(`[useGmail:Fetch:Start] fetchEmailById for ${emailId}`); // Log Start
     setIsLoading(true); // Use main loading state for fetching details
     setError(null);
     setCurrentEmail(null); // Clear previous email while loading
@@ -130,18 +161,21 @@ export function useGmail() {
       const response = await gmailApi.getEmailById(emailId); // Use the correct API function
       // console.log(`[useGmail:Fetch] Raw details received for ${emailId}`); // Too verbose
 
-      const formattedEmail = formatEmailDetails(response);
+      const formattedEmail = formatEmailDetails(response); 
       // console.log(`[useGmail:Fetch] Details formatted for ${emailId}`); // Too verbose
 
       setCurrentEmail(formattedEmail);
+      console.log(`[useGmail:Fetch:Success] fetchEmailById for ${emailId}`); // Log Success
       return formattedEmail;
 
     } catch (err: any) {
       console.error(`[useGmail:Error] Failed fetching details for email ${emailId}:`, err);
       setError(err.message || 'Failed to load email details');
+      console.log(`[useGmail:Fetch:Error] fetchEmailById for ${emailId}`); // Log Error
       return null;
     } finally {
       setIsLoading(false);
+      console.log(`[useGmail:Fetch:Finally] fetchEmailById for ${emailId}`); // Log Finally
     }
   }, []); // Dependencies: formatEmailDetails implicitly used
 
@@ -438,40 +472,63 @@ export function useGmail() {
   }, [fetchEmails]); // Dependency: fetchEmails to refresh list
 
   /**
-   * Fetches an email attachment.
+   * Fetches only the base64 data for a specific attachment.
    */
-  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string): Promise<string | null> => {
-    try {
-      console.log(`[useGmail:Fetch] Getting email ${messageId} to fetch attachment ${attachmentId}`);
-      // First, fetch the full email details
-      const emailDetails = await gmailApi.getEmailById(messageId); 
+  const downloadAttachmentData = useCallback(
+    async (
+      messageId: string,
+      attachmentId: string
+    ): Promise<{ data: string; size: number } | null> => {
+      console.log(
+        `[useGmail:Download] Fetching data for attachment ${attachmentId} in message ${messageId}`
+      );
+      // --- Token Check/Refresh Logic --- 
+      let currentToken = accessToken; 
+      if (!currentToken) {
+        console.warn('[useGmail:Download] Token missing. Attempting refresh.');
+        const refreshed = await handleTokenRefresh();
+        if (!refreshed) {
+          console.error('[useGmail:Download] Token refresh failed.');
+          Alert.alert('Error', 'Session expired. Please sign in again.');
+          return null;
+        }
+        currentToken = refreshed; 
+        console.log('[useGmail:Download] Token refreshed successfully.');
+      } else {
+        // console.log('[useGmail:Download] Valid token found.'); // Optional log
+      }
 
-      // Find the specific part corresponding to the attachment
-      const part = findAttachmentPart(emailDetails?.payload, attachmentId);
-
-      if (!part?.body?.attachmentId) {
-        console.warn(`[useGmail:Fetch] Attachment part ${attachmentId} not found in email ${messageId}`);
+      // Ensure we have a token after potential refresh
+      if (!currentToken) {
+        console.error('[useGmail:Download] No valid token available after check/refresh.');
+        Alert.alert('Error', 'Authentication token is missing.');
         return null;
       }
-
-      // Now fetch the attachment data using the attachment ID from the part
-      console.log(`[useGmail:Fetch] Fetching attachment data for ID ${part.body.attachmentId}`);
-      const attachmentData = await gmailApi.getAttachment(messageId, part.body.attachmentId);
+      // --- End Token Check ---
       
-      if (!attachmentData?.data) {
-         console.warn(`[useGmail:Fetch] Attachment data not found for attachment ID ${part.body.attachmentId}`);
-         return null;
+      try {
+        // Use currentToken for the API call (assuming gmailApi.getAttachment uses the latest token implicitly or needs it passed)
+        // Note: The current gmailApi.getAttachment doesn't take token, relying on the internal makeGmailApiRequest
+        // which calls getAccessToken(). This structure should be fine.
+        const attachmentData = await gmailApi.getAttachment(messageId, attachmentId);
+        if (!attachmentData?.data) {
+          console.warn(`[useGmail:Download] No data returned for attachment ${attachmentId}`);
+          return null;
+        }
+        console.log(
+          `[useGmail:Download] Successfully fetched attachment data for ${attachmentId}. Size: ${attachmentData.size}`
+        );
+        return { data: attachmentData.data, size: attachmentData.size };
+      } catch (error: any) {
+        console.error(
+          `[useGmail:Download] Error fetching attachment data for ${attachmentId}:`, error
+        );
+        Alert.alert('Error', `Failed to fetch attachment data: ${error.message || 'Unknown error'}`);
+        return null;
       }
-      
-      // Return the base64 encoded data (caller can decide how to handle/decode)
-      return attachmentData.data; 
-
-    } catch (err: any) {
-      console.error(`[useGmail:Error] Failed fetching attachment ${attachmentId} for message ${messageId}:`, err);
-      setError(err.message || 'Failed to fetch attachment');
-      return null;
-    }
-  }, []);
+    },
+    [accessToken, handleTokenRefresh] // Add handleTokenRefresh dependency
+  );
 
   return {
     // State
@@ -482,6 +539,8 @@ export function useGmail() {
     labels,
     nextPageToken,
     isLoadingMore,
+    loadingAttachment,
+    errorAttachment,
     
     // Actions
     fetchEmails,
@@ -497,30 +556,53 @@ export function useGmail() {
     removeLabel,
     snoozeEmail,
     checkSnoozedEmails,
-    fetchAttachment,
+    fetchAttachment: async (
+      _messageId: string, // Placeholder
+      _attachmentId: string, // Placeholder
+      _filename: string, // Placeholder
+      _mimeType: string // Placeholder
+    ): Promise<FetchedAttachmentData | null> => { 
+      console.warn("Attempted to call deprecated fetchAttachment"); 
+      return null; 
+    },
+    downloadAttachmentData, // Expose the new function
   };
 } 
 
-// --- Helper function to find attachment part (needs refinement based on actual payload structure) ---
-// Placeholder implementation
-function findAttachmentPart(payload: any, attachmentId: string): any | null {
-  if (!payload) return null;
+// Function to find the specific attachment part within the email payload by filename
+function findAttachmentPartByFilename(
+  payload: GmailMessagePart | null | undefined,
+  filenameToFind: string
+): GmailMessagePart | null {
+  if (!payload) {
+    return null;
+  }
 
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      // Check if the part itself is the attachment
-      if (part.body?.attachmentId === attachmentId) {
-        return part;
-      }
-      // Recursively search in nested parts
-      const found = findAttachmentPart(part, attachmentId);
-      if (found) return found;
+  // Check if the current part's filename matches
+  if (payload.filename === filenameToFind) {
+    console.log(
+      `[findAttachmentPartByFilename] Found matching filename: ${filenameToFind} in partId: ${
+        payload.partId || 'root'
+      }`
+    );
+    // Ensure the found part has a body with an attachmentId
+    if (payload.body?.attachmentId) {
+       return payload;
+    } else {
+       console.warn(`[findAttachmentPartByFilename] Part with matching filename ${filenameToFind} found, but missing body.attachmentId.`);
+       // Continue searching in case of duplicates or nested structures where only one has the ID
     }
   }
-  // Check the main body if no parts or not found in parts
-  if (payload.body?.attachmentId === attachmentId) {
-    return payload;
+
+  // If the current part has nested parts, recursively search them
+  if (payload.parts && payload.parts.length > 0) {
+    for (const part of payload.parts) {
+      const foundPart = findAttachmentPartByFilename(part, filenameToFind);
+      if (foundPart) {
+        return foundPart; // Return the found part up the recursion chain
+      }
+    }
   }
-  
-  return null; // Not found
+
+  return null; // Not found in this branch
 } 

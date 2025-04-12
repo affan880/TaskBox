@@ -1,7 +1,7 @@
 // src/screens/email/components/email-label-chip.tsx
 import * as React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { EmailLabel } from '../../../types/email'; // Assuming EmailLabel type is moved
+import { EmailLabel } from 'src/types/email'; // Assuming EmailLabel type is moved
 
 type EmailLabelChipProps = {
   label: EmailLabel;

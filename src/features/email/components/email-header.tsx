@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SPACING, BORDER_RADIUS, TYPOGRAPHY } from '../../../theme/theme';
+import { SPACING, BORDER_RADIUS, TYPOGRAPHY } from 'src/theme/theme';
 
 type EmailHeaderProps = {
   insets: { top: number; bottom: number; left: number; right: number };

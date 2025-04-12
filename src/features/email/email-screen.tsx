@@ -14,25 +14,25 @@ import {
   Image,
 } from 'react-native';
 import { useEmailActions } from './hooks/use-email-actions';
-import { useEmailAttachments, EmailWithAttachments } from './hooks/use-email-attachments';
 import { ComposeEmailModal } from './components/compose-modal';
 import { LabelModal } from './components/label-modal';
 import { SnoozeModal } from './components/snooze-modal';
 import { EmailListItem } from './components/email-list-item';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useTheme } from '../../theme/theme-context';
-import type { EmailData, Attachment } from '../../types/email';
+import { useTheme } from 'src/theme/theme-context';
+import type { EmailData, Attachment } from 'src/types/email';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SPACING, SHADOWS, TYPOGRAPHY, BORDER_RADIUS } from '../../theme/theme';
-import { getCurrentScreenTitle } from '../../utils/utils';
+import { getCurrentScreenTitle } from 'src/lib/utils/utils';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Define RootStackParamList for type safety
 type RootStackParamList = {
-  ReadEmail: { email: EmailData | EmailWithAttachments };
+  ReadEmail: { email: EmailData };
   Profile: undefined;
+  MainTabs: { screen: string };
   // Add other screens as needed
 };
 
@@ -96,18 +96,6 @@ export function EmailScreen() {
     fetchAttachment,
   } = useEmailActions();
 
-  // Debug log for emails and loading states
-  useEffect(() => {
-    console.log(`EmailScreen: emails=${emails.length}, isLoading=${isLoading}, initialLoadComplete=${initialLoadComplete}`);
-  }, [emails, isLoading, initialLoadComplete]);
-
-  // Use the email attachments hook
-  const { 
-    loadEmailWithAttachments,
-    isLoadingAttachments,
-    attachmentError
-  } = useEmailAttachments();
-
   // Screen state for UI elements
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [showLabelModal, setShowLabelModal] = useState(false);
@@ -146,35 +134,26 @@ export function EmailScreen() {
     if (isMultiSelectMode) {
       toggleEmailSelection(emailId);
       return;
-    }
+    } 
     
-    console.log(`EmailScreen: Opening email ${emailId}`);
-    
+    console.log(`EmailScreen: Fetching details for email ${emailId} before navigating...`);
+    // Add a loading indicator maybe?
     try {
-      // Get basic email details
+      // Fetch full email details (now includes attachments metadata)
       const emailDetails = await getEmailDetails(emailId);
       
       if (emailDetails) {
-        // If email has attachments, load them
-        if (emailDetails.hasAttachments) {
-          try {
-            // Show loading indicator if needed
-            const emailWithAttachments = await loadEmailWithAttachments(emailId, emailDetails);
-            navigation.navigate('ReadEmail', { email: emailWithAttachments });
-          } catch (error) {
-            navigation.navigate('ReadEmail', { email: emailDetails });
-          }
-        } else {
-          // No attachments, navigate with original email details
-          navigation.navigate('ReadEmail', { email: emailDetails });
-        }
+        console.log(`EmailScreen: Navigating to ReadEmail with email ${emailId}`);
+        navigation.navigate('ReadEmail', { email: emailDetails });
       } else {
-        Alert.alert('Error', 'Could not load this email. Please try again.');
+        console.log(`EmailScreen: getEmailDetails returned null for ${emailId}. Cannot navigate.`);
+        Alert.alert('Error', 'Could not load email details. Please try again.');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while trying to open this email.');
+      console.error("Error fetching email details:", error)
+      Alert.alert('Error', 'An error occurred while loading the email.');
     }
-  }, [isMultiSelectMode, navigation, getEmailDetails, toggleEmailSelection, loadEmailWithAttachments]);
+  }, [isMultiSelectMode, navigation, getEmailDetails, toggleEmailSelection]);
 
   // Simplified Apply Label handler
   const handleApplyLabel = useCallback(async (labelId: string) => {
@@ -219,8 +198,9 @@ export function EmailScreen() {
   }, [hasAuthFailed, gmailError]);
 
   const handleProfilePress = useCallback(() => {
-    // @ts-ignore - navigation types may not be correctly set
-    navigation.navigate('Profile');
+    // Navigate to the 'MainTabs' navigator first, then specify the 'Following' screen
+    // which renders the ProfileScreen
+    navigation.navigate('MainTabs', { screen: 'Following' });
   }, [navigation]);
 
   return (

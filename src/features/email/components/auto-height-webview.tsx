@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StyleSheet, View, ActivityIndicator, Text, Dimensions, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useTheme } from '../../../theme/theme-context';
+import { useTheme } from 'src/theme/theme-context';
 
 type AutoHeightWebViewProps = {
   html: string;

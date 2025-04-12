@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { COLORS, DARK_COLORS, ColorTheme } from './colors';
-import { getItem, setItem } from '../utils/storage';
+import { getItem, setItem } from 'src/lib/storage/storage';
 
 type ThemeType = 'light' | 'dark' | 'system';
 

@@ -9,9 +9,9 @@ import Animated, {
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
-import { EmailData } from '../../../types/email';
-import { useTheme } from '../../../theme/theme-context';
-import { PaperclipIcon } from '../../../components/icons';
+import { EmailData } from 'src/types/email';
+import { useTheme } from 'src/theme/theme-context';
+import { PaperclipIcon } from 'src/components/icons';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

@@ -13,8 +13,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useTheme } from '../../../theme/theme-context';
-import { Screen } from '../../../components/ui/screen';
+import { useTheme } from 'src/theme/theme-context';
+import { Screen } from 'src/components/ui/screen';
 
 type ComposeEmailModalProps = {
   visible: boolean;
