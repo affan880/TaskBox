@@ -20,7 +20,7 @@ import { useState, useEffect } from 'react';
 import { TaskData, TaskPriority, TaskAttachment } from '../../../types/task';
 import DateTimePicker from '../../../components/ui/date-time-picker';
 import RNBlobUtil from 'react-native-blob-util';
-import * as DocumentPicker from 'react-native-document-picker';
+import * as DocumentPicker from '@react-native-documents/picker';
 
 type TaskFormModalProps = {
   visible: boolean;

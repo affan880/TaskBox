@@ -1,16 +1,11 @@
 import { useState, useCallback } from 'react';
 import * as gmailApi from '../services/gmail-api';
 import { formatEmailDetails } from '../utils/email-formatter';
-import { EmailData } from '../types/email';
+import { EmailData, SnoozeData } from '../types/email';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Keys for AsyncStorage
 const SNOOZED_EMAILS_KEY = '@snoozed_emails';
-
-type SnoozeData = {
-  emailId: string;
-  snoozeUntil: string;
-};
 
 /**
  * Core hook for interacting with the Gmail API and managing email state.
@@ -39,24 +34,23 @@ export function useGmail() {
     let nextToken: string | null = null;
 
     try {
-      console.log('useGmail: Calling gmailApi.listMessages', { maxResults, pageToken });
+      // console.log('useGmail: Calling gmailApi.listMessages', { maxResults, pageToken }); // Redundant, logged by action hook
       // Step 1: Fetch list of message IDs and next page token
       const listResponse = await gmailApi.listMessages(maxResults, pageToken); 
       nextToken = listResponse.nextPageToken || null;
       const messageRefs = listResponse.messages || [];
-      console.log('useGmail: listMessages response received', { 
+      console.log('[useGmail:Fetch] listMessages response received', { 
         messageCount: messageRefs.length,
         hasNextPageToken: !!nextToken 
       });
 
       if (messageRefs.length > 0) {
         // Step 2: Fetch full details for each message ID
-        // Use Promise.allSettled to fetch details in parallel and handle potential errors for individual emails
-        console.log(`useGmail: Fetching details for ${messageRefs.length} message IDs...`);
+        console.log(`[useGmail:Fetch] Fetching details for ${messageRefs.length} message IDs...`);
         const detailResults = await Promise.allSettled(
           messageRefs.map((ref: { id: string }) => gmailApi.getEmailById(ref.id))
         );
-        console.log(`useGmail: Details fetched for ${messageRefs.length} message IDs.`);
+        console.log(`[useGmail:Fetch] Details fetched for ${messageRefs.length} message IDs.`);
 
         // Step 3: Format successful responses
         fetchedEmails = detailResults
@@ -66,24 +60,24 @@ export function useGmail() {
                 // Formatting happens here
                 return formatEmailDetails(result.value);
               } catch (formatError) {
-                console.error(`useGmail: Error formatting email ${messageRefs[index].id}:`, formatError);
+                console.error(`[useGmail:Error] Error formatting email ${messageRefs[index].id}:`, formatError);
                 return null; // Skip emails that fail formatting
               }
             } else {
-              console.error(`useGmail: Error fetching details for email ${messageRefs[index].id}:`, result.reason);
+              console.error(`[useGmail:Error] Failed fetching details for email ${messageRefs[index].id}:`, result.reason);
               return null; // Skip emails that failed to fetch
             }
           })
           .filter((email): email is EmailData => email !== null); // Filter out nulls (errors)
         
-        console.log(`useGmail: Successfully formatted ${fetchedEmails.length} emails.`);
+        console.log(`[useGmail:Fetch] Successfully formatted ${fetchedEmails.length} emails.`);
 
         // Update state based on pagination
         if (!pageToken) {
-          console.log('useGmail: Setting emails (first page)');
+          // console.log('useGmail: Setting emails (first page)'); // Less important
           setEmails(fetchedEmails);
         } else {
-          console.log('useGmail: Appending emails to existing list');
+          // console.log('useGmail: Appending emails to existing list'); // Less important
           setEmails(prev => {
             const existingIds = new Set(prev.map(e => e.id));
             const newEmails = fetchedEmails.filter(e => !existingIds.has(e.id));
@@ -96,11 +90,11 @@ export function useGmail() {
       }
       
       setNextPageToken(nextToken);
-      console.log('useGmail: Email fetch process completed successfully');
+      // console.log('useGmail: Email fetch process completed successfully'); // Can be inferred
       return { emails: fetchedEmails, nextPageToken: nextToken };
 
     } catch (err: any) {
-      console.error('useGmail: Error during email fetch process:', err);
+      console.error('[useGmail:Error] Email fetch process failed:', err);
       setError(err.message || 'Failed to load emails');
       if (!pageToken) setEmails([]); // Clear emails on error for the first page
       return { emails: [], nextPageToken: null }; // Return empty state on error
@@ -114,10 +108,10 @@ export function useGmail() {
    */
   const loadMoreEmails = useCallback(async (): Promise<boolean> => {
     if (isLoadingMore || !nextPageToken || isLoading) {
-      console.log('useGmail: Load more skipped', { isLoadingMore, nextPageToken, isLoading });
+      // console.log('useGmail: Load more skipped', { isLoadingMore, nextPageToken, isLoading }); // Too noisy
       return false;
     }
-    console.log('useGmail: Loading more emails...');
+    console.log('[useGmail:Load] Loading more emails...');
     const { emails: newEmails } = await fetchEmails(20, nextPageToken);
     return newEmails.length > 0; // Indicate success if new emails were loaded
   }, [nextPageToken, isLoadingMore, isLoading, fetchEmails]); // Dependency: fetchEmails
@@ -132,18 +126,18 @@ export function useGmail() {
     setCurrentEmail(null); // Clear previous email while loading
     
     try {
-      console.log(`useGmail: Fetching details for email ${emailId}`);
+      console.log(`[useGmail:Fetch] Fetching details for single email ${emailId}`);
       const response = await gmailApi.getEmailById(emailId); // Use the correct API function
-      console.log(`useGmail: Raw details received for ${emailId}`);
+      // console.log(`[useGmail:Fetch] Raw details received for ${emailId}`); // Too verbose
 
       const formattedEmail = formatEmailDetails(response);
-      console.log(`useGmail: Details formatted for ${emailId}`);
+      // console.log(`[useGmail:Fetch] Details formatted for ${emailId}`); // Too verbose
 
       setCurrentEmail(formattedEmail);
       return formattedEmail;
 
     } catch (err: any) {
-      console.error(`useGmail: Error fetching email details for ${emailId}:`, err);
+      console.error(`[useGmail:Error] Failed fetching details for email ${emailId}:`, err);
       setError(err.message || 'Failed to load email details');
       return null;
     } finally {
@@ -161,13 +155,13 @@ export function useGmail() {
     setError(null);
     
     try {
-      console.log('useGmail: Sending email...');
+      // console.log('useGmail: Sending email...'); // Redundant
       // Pass isHtml = false for now, can be parameterized if needed
       await gmailApi.sendEmail(to, subject, body, false); 
-      console.log('useGmail: Email sent successfully');
+      // console.log('useGmail: Email sent successfully'); // Logged by API layer
       return true;
     } catch (err: any) {
-      console.error('useGmail: Error sending email:', err);
+      console.error('[useGmail:Error] Failed sending email:', err);
       setError(err.message || 'Failed to send email');
       return false;
     } finally {
@@ -190,12 +184,12 @@ export function useGmail() {
     }
 
     try {
-      console.log(`useGmail: Marking email ${emailId} as read`);
+      // console.log(`useGmail: Marking email ${emailId} as read`); // Redundant
       await gmailApi.markAsRead(emailId);
-      console.log(`useGmail: Email ${emailId} marked as read successfully`);
+      // console.log(`useGmail: Email ${emailId} marked as read successfully`); // Logged by action hook
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error marking email ${emailId} as read:`, err);
+      console.error(`[useGmail:Error] Failed marking email ${emailId} as read:`, err);
       // Revert optimistic update on failure
       setEmails(prevEmails => 
         prevEmails.map(email => 
@@ -225,12 +219,12 @@ export function useGmail() {
     }
 
     try {
-      console.log(`useGmail: Marking email ${emailId} as unread`);
+      // console.log(`useGmail: Marking email ${emailId} as unread`); // Redundant
       await gmailApi.markAsUnread(emailId);
-      console.log(`useGmail: Email ${emailId} marked as unread successfully`);
+      // console.log(`useGmail: Email ${emailId} marked as unread successfully`); // Logged by action hook
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error marking email ${emailId} as unread:`, err);
+      console.error(`[useGmail:Error] Failed marking email ${emailId} as unread:`, err);
       // Revert optimistic update on failure
       setEmails(prevEmails => 
         prevEmails.map(email => 
@@ -254,14 +248,14 @@ export function useGmail() {
     setEmails(prevEmails => prevEmails.filter(email => email.id !== emailId));
 
     try {
-      console.log(`useGmail: Archiving email ${emailId}`);
+      // console.log(`useGmail: Archiving email ${emailId}`); // Redundant
       await gmailApi.archiveEmail(emailId);
-      console.log(`useGmail: Email ${emailId} archived successfully`);
+      // Remove locally after successful API call
+      setEmails(prevEmails => prevEmails.filter(email => email.id !== emailId));
+      // console.log(`useGmail: Email ${emailId} archived successfully`); // Logged by action hook
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error archiving email ${emailId}:`, err);
-      // Revert optimistic update on failure
-      setEmails(originalEmails);
+      console.error(`[useGmail:Error] Failed archiving email ${emailId}:`, err);
       setError(err.message || 'Failed to archive email');
       return false;
     }
@@ -276,14 +270,14 @@ export function useGmail() {
     setEmails(prevEmails => prevEmails.filter(email => email.id !== emailId));
 
     try {
-      console.log(`useGmail: Deleting email ${emailId}`);
-      await gmailApi.deleteEmail(emailId); // Assumes this moves to trash
-      console.log(`useGmail: Email ${emailId} deleted successfully`);
+      // console.log(`useGmail: Deleting email ${emailId}`); // Redundant
+      await gmailApi.deleteEmail(emailId);
+      // Remove locally after successful API call
+      setEmails(prevEmails => prevEmails.filter(email => email.id !== emailId));
+      // console.log(`useGmail: Email ${emailId} deleted successfully`); // Logged by action hook
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error deleting email ${emailId}:`, err);
-      // Revert optimistic update on failure
-      setEmails(originalEmails);
+      console.error(`[useGmail:Error] Failed deleting email ${emailId}:`, err);
       setError(err.message || 'Failed to delete email');
       return false;
     }
@@ -318,13 +312,11 @@ export function useGmail() {
   const applyLabel = useCallback(async (emailId: string, labelIds: string[]): Promise<boolean> => {
     // API function expects labelIds array
     try {
-      console.log(`useGmail: Applying labels ${labelIds.join(', ')} to email ${emailId}`);
-      await gmailApi.addLabels(emailId, labelIds); // Use addLabels
-      console.log(`useGmail: Labels applied successfully to ${emailId}`);
-      // Optionally, update local state if labels are displayed/used
+      // console.log(`[useGmail] Applying labels ${labelIds.join(', ')} to email ${emailId}`); // Redundant
+      await gmailApi.addLabels(emailId, labelIds);
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error applying labels to ${emailId}:`, err);
+      console.error(`[useGmail:Error] Failed applying labels to email ${emailId}:`, err);
       setError(err.message || 'Failed to apply labels');
       return false;
     }
@@ -335,13 +327,11 @@ export function useGmail() {
    */
   const removeLabel = useCallback(async (emailId: string, labelIds: string[]): Promise<boolean> => {
     try {
-      console.log(`useGmail: Removing labels ${labelIds.join(', ')} from email ${emailId}`);
-      await gmailApi.removeLabels(emailId, labelIds); // Use removeLabels
-      console.log(`useGmail: Labels removed successfully from ${emailId}`);
-      // Optionally, update local state
+      // console.log(`[useGmail] Removing labels ${labelIds.join(', ')} from email ${emailId}`); // Redundant
+      await gmailApi.removeLabels(emailId, labelIds);
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error removing labels from ${emailId}:`, err);
+      console.error(`[useGmail:Error] Failed removing labels from email ${emailId}:`, err);
       setError(err.message || 'Failed to remove labels');
       return false;
     }
@@ -359,32 +349,28 @@ export function useGmail() {
     setEmails(prevEmails => prevEmails.filter(email => email.id !== emailId));
 
     try {
-      console.log(`useGmail: Snoozing email ${emailId} until ${snoozeUntil.toISOString()}`);
-      // Step 1: Archive the email via API
-      await gmailApi.archiveEmail(emailId); 
-      console.log(`useGmail: Email ${emailId} archived as part of snooze`);
-
-      // Step 2: Store snooze data locally
-      const snoozeDataString = await AsyncStorage.getItem(SNOOZED_EMAILS_KEY);
-      let snoozeData: SnoozeData[] = snoozeDataString ? JSON.parse(snoozeDataString) : [];
+      // console.log(`[useGmail] Snoozing email ${emailId} until ${snoozeUntil}`); // Redundant
+      await gmailApi.snoozeEmail(emailId, snoozeUntil);
+      // Store snooze info locally
+      console.log(`[useGmail:Action] Storing snooze info locally for ${emailId}`);
+      const snoozedEmails = await AsyncStorage.getItem(SNOOZED_EMAILS_KEY);
+      const currentSnoozed: SnoozeData[] = snoozedEmails ? JSON.parse(snoozedEmails) : [];
       
-      const existingIndex = snoozeData.findIndex(item => item.emailId === emailId);
+      const existingIndex = currentSnoozed.findIndex((item: SnoozeData) => item.emailId === emailId);
       const newSnoozeEntry = { emailId, snoozeUntil: snoozeUntil.toISOString() };
 
       if (existingIndex >= 0) {
-        snoozeData[existingIndex] = newSnoozeEntry;
+        currentSnoozed[existingIndex] = newSnoozeEntry;
       } else {
-        snoozeData.push(newSnoozeEntry);
+        currentSnoozed.push(newSnoozeEntry);
       }
       
-      await AsyncStorage.setItem(SNOOZED_EMAILS_KEY, JSON.stringify(snoozeData));
-      console.log(`useGmail: Snooze data saved locally for ${emailId}`);
+      await AsyncStorage.setItem(SNOOZED_EMAILS_KEY, JSON.stringify(currentSnoozed));
+      console.log(`[useGmail:Action] Snooze data saved locally for ${emailId}`);
       
       return true;
     } catch (err: any) {
-      console.error(`useGmail: Error snoozing email ${emailId}:`, err);
-      // Revert optimistic UI update on failure
-      setEmails(originalEmails);
+      console.error(`[useGmail:Error] Failed snoozing email ${emailId}:`, err);
       setError(err.message || 'Failed to snooze email');
       return false;
     }
@@ -396,18 +382,18 @@ export function useGmail() {
   const checkSnoozedEmails = useCallback(async (): Promise<void> => {
     console.log('useGmail: Checking for snoozed emails...');
     try {
-      const snoozeDataString = await AsyncStorage.getItem(SNOOZED_EMAILS_KEY);
-      if (!snoozeDataString) {
-        console.log('useGmail: No snoozed emails found in storage.');
+      const snoozedJson = await AsyncStorage.getItem(SNOOZED_EMAILS_KEY);
+      if (!snoozedJson) {
+        // console.log('[useGmail:Snooze] No snoozed emails found in storage.'); // Too noisy
         return;
       }
       
-      const snoozeData: SnoozeData[] = JSON.parse(snoozeDataString);
+      const snoozedData: SnoozeData[] = JSON.parse(snoozedJson);
       const now = new Date();
       const emailsToUnsnooze: string[] = [];
       const updatedSnoozeData: SnoozeData[] = [];
       
-      snoozeData.forEach(item => {
+      snoozedData.forEach((item: SnoozeData) => {
         const snoozeUntil = new Date(item.snoozeUntil);
         if (snoozeUntil <= now) {
           emailsToUnsnooze.push(item.emailId);
@@ -452,23 +438,38 @@ export function useGmail() {
   }, [fetchEmails]); // Dependency: fetchEmails to refresh list
 
   /**
-   * Fetches a specific attachment from an email.
+   * Fetches an email attachment.
    */
-  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string): Promise<{ data: string; mimeType: string } | null> => {
-    setIsLoading(true);
-    setError(null);
-    
+  const fetchAttachment = useCallback(async (messageId: string, attachmentId: string): Promise<string | null> => {
     try {
-      console.log(`useGmail: Fetching attachment ${attachmentId} from email ${messageId}`);
-      const response = await gmailApi.getAttachment(messageId, attachmentId);
-      console.log(`useGmail: Attachment fetched successfully`);
-      return response;
+      console.log(`[useGmail:Fetch] Getting email ${messageId} to fetch attachment ${attachmentId}`);
+      // First, fetch the full email details
+      const emailDetails = await gmailApi.getEmailById(messageId); 
+
+      // Find the specific part corresponding to the attachment
+      const part = findAttachmentPart(emailDetails?.payload, attachmentId);
+
+      if (!part?.body?.attachmentId) {
+        console.warn(`[useGmail:Fetch] Attachment part ${attachmentId} not found in email ${messageId}`);
+        return null;
+      }
+
+      // Now fetch the attachment data using the attachment ID from the part
+      console.log(`[useGmail:Fetch] Fetching attachment data for ID ${part.body.attachmentId}`);
+      const attachmentData = await gmailApi.getAttachment(messageId, part.body.attachmentId);
+      
+      if (!attachmentData?.data) {
+         console.warn(`[useGmail:Fetch] Attachment data not found for attachment ID ${part.body.attachmentId}`);
+         return null;
+      }
+      
+      // Return the base64 encoded data (caller can decide how to handle/decode)
+      return attachmentData.data; 
+
     } catch (err: any) {
-      console.error(`useGmail: Error fetching attachment ${attachmentId} from email ${messageId}:`, err);
+      console.error(`[useGmail:Error] Failed fetching attachment ${attachmentId} for message ${messageId}:`, err);
       setError(err.message || 'Failed to fetch attachment');
       return null;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -498,4 +499,28 @@ export function useGmail() {
     checkSnoozedEmails,
     fetchAttachment,
   };
+} 
+
+// --- Helper function to find attachment part (needs refinement based on actual payload structure) ---
+// Placeholder implementation
+function findAttachmentPart(payload: any, attachmentId: string): any | null {
+  if (!payload) return null;
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      // Check if the part itself is the attachment
+      if (part.body?.attachmentId === attachmentId) {
+        return part;
+      }
+      // Recursively search in nested parts
+      const found = findAttachmentPart(part, attachmentId);
+      if (found) return found;
+    }
+  }
+  // Check the main body if no parts or not found in parts
+  if (payload.body?.attachmentId === attachmentId) {
+    return payload;
+  }
+  
+  return null; // Not found
 } 
