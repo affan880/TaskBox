@@ -17,20 +17,67 @@ export type EmailData = {
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
+// --- Token Refresh Synchronization ---
+let tokenRetrievalPromise: Promise<string> | null = null;
+
 /**
- * Helper function to get a fresh access token
+ * Helper function to get a fresh access token, ensuring only one retrieval/refresh happens at a time.
  */
 async function getAccessToken(): Promise<string> {
-  try {
-    const { accessToken } = await GoogleSignin.getTokens();
-    if (!accessToken) {
-      throw new Error('No access token available');
+  // If a retrieval/refresh is already in progress, wait for it
+  if (tokenRetrievalPromise) {
+    console.log('[gmailApi:Auth] Token retrieval/refresh in progress, waiting...');
+    try {
+      return await tokenRetrievalPromise;
+    } catch (waitError) {
+      console.error('[gmailApi:Auth] Waiting for token retrieval/refresh failed:', waitError);
+      // Rethrow so the caller knows the token fetch failed
+      throw new Error('Failed to get access token while waiting for ongoing retrieval.'); 
     }
-    return accessToken;
-  } catch (error) {
-    console.log('Error getting access token:', error);
-    throw error;
   }
+
+  // --- Critical Section: Start Token Retrieval/Refresh ---
+  // console.log('[gmailApi:Auth] Initiating token retrieval/refresh process...'); // Less noisy
+  tokenRetrievalPromise = (async (): Promise<string> => {
+    try {
+      // Attempt to get tokens silently first
+      let tokens = await GoogleSignin.getTokens();
+      if (tokens.accessToken) {
+        // console.log('[gmailApi:Auth] Got valid token silently.'); // Removed for less noise
+        return tokens.accessToken;
+      }
+      // If silent fails, initiate sign-in/refresh
+      console.log('[gmailApi:Auth] Silent token retrieval failed or token missing, attempting sign-in/refresh...');
+      await GoogleSignin.signInSilently(); // Or potentially signIn() if needed
+      tokens = await GoogleSignin.getTokens();
+      if (!tokens.accessToken) {
+        throw new Error('Token refresh failed to produce an access token.');
+      }
+      console.log('[gmailApi:Auth] Token refresh successful.');
+      return tokens.accessToken;
+    } catch (error: any) {
+       // Check for the specific Android native error and provide a clearer message
+      if (error.message?.includes('Callback.invoke') && error.message?.includes('null object reference')) {
+         console.error('[gmailApi:Auth:Error] Caught Android Native Callback Error during getTokens/signInSilently:', error);
+         throw new Error('Native Google Sign-In error (Android Callback). Please try again or restart the app.');
+      } else if (error.code === 'SIGN_IN_REQUIRED') {
+        console.warn('[gmailApi:Auth] Google Sign-In required.');
+        // Depending on app flow, you might trigger a full interactive sign-in here
+        // For now, just rethrow a specific error
+        throw new Error('User sign-in required.');
+      } else {
+        console.error('[gmailApi:Auth:Error] Error during token retrieval/refresh process:', error);
+        throw error; // Propagate other errors
+      }
+    } finally {
+      // --- End Critical Section ---
+      tokenRetrievalPromise = null; // Clear the promise once settled
+      // console.log('[gmailApi:Auth] Token retrieval/refresh lock released.'); // Less noisy
+    }
+  })();
+
+  return tokenRetrievalPromise;
+  // --- End Critical Section ---
 }
 
 /**
@@ -60,7 +107,7 @@ async function makeGmailApiRequest(
     
     return response.json();
   } catch (error) {
-    console.error(`Error in Gmail API request to ${endpoint}:`, error);
+    console.error(`[gmailApi:Error] API request failed for ${method} ${endpoint}:`, error);
     throw error;
   }
 }
@@ -82,34 +129,6 @@ export async function listMessages(maxResults: number = 20, pageToken?: string, 
   
   // Fetches only message IDs and thread IDs, along with nextPageToken
   return makeGmailApiRequest(`/messages?${queryParams.toString()}&fields=messages(id,threadId),nextPageToken,resultSizeEstimate`);
-}
-
-/**
- * Get a list of emails from the user's inbox - SIMPLIFIED: Now just gets message list.
- * The hook (`useGmail`) will be responsible for fetching full details.
- * @param maxResults Maximum number of emails to return
- * @param labelIds Array of label IDs to filter by (e.g., 'INBOX', 'UNREAD')
- */
-export async function getEmails(maxResults: number = 10, labelIds: string[] = ['INBOX']): Promise<any> {
-  const queryParams = new URLSearchParams({
-    maxResults: maxResults.toString(),
-    labelIds: labelIds.join(','),
-  }).toString();
-  
-  const response = await makeGmailApiRequest(`/messages?${queryParams}`);
-  console.log('Gmail API response:', response);
-  
-  // If we just have message IDs, fetch the full content for each message
-  if (response.messages && response.messages.length > 0) {
-    const fullMessages = await Promise.all(
-      response.messages.map((msg: { id: string }) => 
-        makeGmailApiRequest(`/messages/${msg.id}`)
-      )
-    );
-    return fullMessages;
-  }
-  
-  return response;
 }
 
 /**
@@ -212,7 +231,7 @@ export async function getLabels(): Promise<any> {
   try {
     return await makeGmailApiRequest('/labels');
   } catch (error) {
-    console.log('Error getting labels:', error);
+    console.error('[gmailApi:Error] getLabels failed:', error);
     throw error;
   }
 }
@@ -225,7 +244,7 @@ export async function createLabel(name: string): Promise<any> {
   try {
     return await makeGmailApiRequest('/labels', 'POST', { name });
   } catch (error) {
-    console.error('Error creating label:', error);
+    console.error('[gmailApi:Error] createLabel failed:', error);
     throw error;
   }
 }
@@ -248,38 +267,27 @@ export async function snoozeEmail(messageId: string, snoozeUntil: Date): Promise
       if (snoozedLabel) {
         snoozedLabelId = snoozedLabel.id;
       } else {
-        // Create the label if it doesn't exist
+        console.log('[gmailApi:Action] Creating SNOOZED label...');
         const newLabel = await createLabel('SNOOZED');
         snoozedLabelId = newLabel.id;
       }
-    } catch (error) {
-      console.error('Error finding/creating SNOOZED label:', error);
-      throw new Error('Failed to find or create SNOOZED label');
-    }
-    
-    // Store the snooze time in localStorage or a similar persistence mechanism
-    // This is a simplified implementation - in a real app, you might use a server
-    // to track snooze times or implement a background process to "unsnooze" emails
-    try {
-      const snoozeData = {
-        messageId,
-        snoozeUntil: snoozeUntil.toISOString(),
-      };
-      
-      // Store the snooze data
-      const existingData = localStorage.getItem('snoozedEmails');
-      const snoozedEmails = existingData ? JSON.parse(existingData) : [];
-      snoozedEmails.push(snoozeData);
-      localStorage.setItem('snoozedEmails', JSON.stringify(snoozedEmails));
-    } catch (error) {
-      console.error('Error storing snooze data:', error);
-      // Continue even if local storage fails
+    } catch (labelError) {
+      console.error('[gmailApi:Error] Failed to get or create SNOOZED label:', labelError);
+      throw new Error('Failed to manage SNOOZED label for snoozing.');
     }
     
     // Remove from inbox and add the SNOOZED label
-    return updateEmail(messageId, [snoozedLabelId], ['INBOX']);
+    await updateEmail(messageId, [snoozedLabelId], ['INBOX']);
+    
+    // NOTE: Storing specific snooze *times* should be handled outside the core API service,
+    // potentially in the hook using AsyncStorage.
+    console.log(`[gmailApi:Action] Marked ${messageId} with SNOOZED label.`);
+
+    // Return minimal confirmation or relevant info if needed by caller
+    return { success: true, messageId }; 
+
   } catch (error) {
-    console.error('Error snoozing email:', error);
+    console.error(`[gmailApi:Action:Error] Failed to snooze email ${messageId}:`, error);
     throw error;
   }
 }
@@ -288,8 +296,8 @@ export async function snoozeEmail(messageId: string, snoozeUntil: Date): Promise
  * Send an email
  * @param to Recipient email address
  * @param subject Email subject
- * @param body Email body (can be plain text or HTML)
- * @param isHtml Whether the body is HTML
+ * @param body Email body (plain text or HTML)
+ * @param isHtml Whether the body content is HTML
  */
 export async function sendEmail(
   to: string,
@@ -297,63 +305,37 @@ export async function sendEmail(
   body: string,
   isHtml: boolean = false
 ): Promise<any> {
+  console.log(`[gmailApi:Action] Sending email to ${to}`);
   try {
-    // Construct email content following RFC 2822
-    const contentType = isHtml ? 'text/html' : 'text/plain';
-    const email = [
-      `From: ${await getSenderEmail()}`,
+    // Get sender dynamically if needed, or default to 'me'
+    const sender = 'me'; // Simpler: assume 'me', can be enhanced if needed
+    const rawMessage = [
+      `From: ${sender}`,
       `To: ${to}`,
       `Subject: ${subject}`,
-      'MIME-Version: 1.0',
-      `Content-Type: ${contentType}; charset=utf-8`,
+      `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=utf-8`,
       '',
-      body
+      body,
     ].join('\r\n');
 
-    // Use base64 encoding (React Native compatible version)
-    const encodedEmail = encodeBase64Url(email);
-    
-    console.log('Sending email to:', to);
-    
-    const response = await makeGmailApiRequest('/messages/send', 'POST', {
-      raw: encodedEmail
-    });
-    
-    console.log('Email sent successfully:', response);
+    const encodedMessage = encodeBase64Url(rawMessage);
+
+    const response = await makeGmailApiRequest('/messages/send', 'POST', { raw: encodedMessage });
+    console.log(`[gmailApi:Action] Email sent successfully to ${to}`);
     return response;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error(`[gmailApi:Action:Error] Failed to send email to ${to}:`, error);
     throw error;
   }
 }
 
 /**
- * Encodes a string to base64url format (safe for URLs)
- * React Native compatible version
+ * Helper to base64url encode a string
  */
 function encodeBase64Url(str: string): string {
-  // First encode as regular base64
-  let base64 = btoa(unescape(encodeURIComponent(str)));
-  
-  // Then convert to base64url by replacing chars that are different
-  return base64
-    .replace(/\+/g, '-')  // Convert '+' to '-'
-    .replace(/\//g, '_')  // Convert '/' to '_'
-    .replace(/=+$/, '');  // Remove trailing '='
-}
-
-/**
- * Get the current user's email address
- */
-async function getSenderEmail(): Promise<string> {
-  try {
-    // Get user profile information
-    const response = await makeGmailApiRequest('/profile');
-    return response.emailAddress || '';
-  } catch (error) {
-    console.log('Error getting sender email:', error);
-    return '';
-  }
+  let base64 = Buffer.from(str).toString('base64');
+  base64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return base64;
 }
 
 /**
@@ -417,35 +399,20 @@ export function parseEmailData(message: any): EmailData {
  */
 export async function revokeGmailAccess(): Promise<void> {
   try {
-    // Check if user is signed in first
-    try {
-      const currentUser = await GoogleSignin.getCurrentUser();
-      if (!currentUser) {
-        console.log('User is not signed in, skipping Gmail access revocation');
-        return;
-      }
-      
-      const tokens = await GoogleSignin.getTokens();
-      if (tokens && tokens.accessToken) {
-        // Revoke the access token
-        const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${tokens.accessToken}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to revoke access');
-        }
-      }
-    } catch (error) {
-      console.log('Error getting tokens for revocation, continuing with sign out:', error);
-      // We don't throw here to allow the sign out process to continue
+    console.log('[gmailApi:Auth] Revoking Gmail access...');
+    // Get the current access token to revoke it specifically
+    const { accessToken } = await GoogleSignin.getTokens(); 
+    if (accessToken) {
+      await GoogleSignin.revokeAccess();
+      console.log('[gmailApi:Auth] Google access revoked.');
+    } else {
+       console.warn('[gmailApi:Auth] No access token found to revoke.');
     }
+    await GoogleSignin.signOut();
+    console.log('[gmailApi:Auth] Google Sign-Out complete.');
   } catch (error) {
-    console.error('Error revoking Gmail access:', error);
-    // Don't throw so sign out can continue
+    console.error('[gmailApi:Auth:Error] Error revoking access or signing out:', error);
+    // Decide if you need to throw or just log
   }
 }
 
