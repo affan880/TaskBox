@@ -12,7 +12,8 @@ import {
   Switch,
   TouchableWithoutFeedback,
   Alert,
-  FlatList
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { useTheme } from '../../../theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -21,6 +22,8 @@ import { TaskData, TaskPriority, TaskAttachment } from '../../../types/task';
 import DateTimePicker from '../../../components/ui/date-time-picker';
 import RNBlobUtil from 'react-native-blob-util';
 import * as DocumentPicker from '@react-native-documents/picker';
+import { useStorage } from '../../../lib/storage/use-storage';
+import { errorCodes, isErrorWithCode } from '@react-native-documents/picker';
 
 type TaskFormModalProps = {
   visible: boolean;
@@ -37,6 +40,7 @@ export function TaskFormModal({
 }: TaskFormModalProps) {
   const { colors, isDark } = useTheme();
   const isEditing = !!existingTask;
+  const { uploadFile, downloadUrl, isLoading: isStorageLoading, progress: uploadProgress, error: storageError, deleteFile } = useStorage();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -48,6 +52,8 @@ export function TaskFormModal({
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [currentTag, setCurrentTag] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
   
   // Reset form when task changes
   useEffect(() => {
@@ -119,39 +125,119 @@ export function TaskFormModal({
         allowMultiSelection: true,
       });
       
-      const newAttachments: TaskAttachment[] = results.map(file => ({
-        id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: file.name || 'Unnamed file',
-        uri: file.uri,
-        type: file.type || 'application/octet-stream',
-        size: file.size || 0,
-        createdAt: new Date().toISOString(),
-      }));
+      setIsUploading(true);
       
-      setAttachments([...attachments, ...newAttachments]);
+      const newAttachments: TaskAttachment[] = [];
+      
+      for (const file of results) {
+        const attachmentId = `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        setCurrentUploadId(attachmentId);
+        
+        // Add placeholder attachment while uploading
+        const tempAttachment: TaskAttachment = {
+          id: attachmentId,
+          name: file.name || 'Unnamed file',
+          uri: file.uri,
+          type: file.type || 'application/octet-stream',
+          size: file.size || 0,
+          createdAt: new Date().toISOString(),
+          downloadUrl: '',
+          isUploading: true,
+        };
+        
+        setAttachments(prev => [...prev, tempAttachment]);
+        
+        // Upload to Firebase Storage
+        const storagePath = `tasks/attachments/${attachmentId}/${file.name}`;
+        const downloadURL = await uploadFile(file.uri, storagePath);
+        
+        if (downloadURL) {
+          // Update the attachment with the download URL
+          const updatedAttachment: TaskAttachment = {
+            ...tempAttachment,
+            downloadUrl: downloadURL,
+            isUploading: false,
+          };
+          
+          // Replace the placeholder with the updated attachment
+          setAttachments(prev => 
+            prev.map(a => a.id === attachmentId ? updatedAttachment : a)
+          );
+          
+          newAttachments.push(updatedAttachment);
+        } else {
+          // Remove the placeholder if upload failed
+          setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+          Alert.alert('Upload Failed', `Failed to upload ${file.name}`);
+        }
+      }
+      
+      setCurrentUploadId(null);
+      setIsUploading(false);
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
+      if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) {
         // User cancelled the picker
       } else {
         Alert.alert('Error', 'Failed to pick document');
         console.error('Document picker error:', err);
       }
+      setIsUploading(false);
+      setCurrentUploadId(null);
     }
   };
   
-  const handleRemoveAttachment = (attachmentId: string) => {
-    setAttachments(attachments.filter(attachment => attachment.id !== attachmentId));
+  const handleRemoveAttachment = async (attachmentId: string) => {
+    const attachmentToRemove = attachments.find(a => a.id === attachmentId);
+    
+    // If the attachment is currently uploading, we can't delete it from storage yet
+    if (attachmentToRemove?.isUploading) {
+      setAttachments(attachments.filter(a => a.id !== attachmentId));
+      return;
+    }
+    
+    // If the attachment has a downloadUrl, delete it from Firebase Storage
+    if (attachmentToRemove?.downloadUrl) {
+      try {
+        // Extract the storage path from the download URL
+        const storagePathMatch = attachmentToRemove.downloadUrl.match(/\/o\/(.*?)\?/);
+        if (storagePathMatch && storagePathMatch[1]) {
+          const storagePath = decodeURIComponent(storagePathMatch[1]);
+          const isDeleted = await deleteFile(storagePath);
+          
+          if (!isDeleted) {
+            console.error(`Failed to delete attachment ${attachmentId} from storage`);
+            // Continue with UI removal even if storage deletion fails
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting attachment from storage:', error);
+        // Continue with UI removal even if storage deletion fails
+      }
+    }
+    
+    // Remove from the local state
+    setAttachments(attachments.filter(a => a.id !== attachmentId));
   };
 
   const handleViewAttachment = async (attachment: TaskAttachment) => {
     try {
-      // Open file with device's default viewer
-      if (Platform.OS === 'ios') {
-        // On iOS, QuickLook will handle most file types
-        RNBlobUtil.ios.openDocument(attachment.uri);
+      // If the attachment has a downloadUrl, open it directly
+      if (attachment.downloadUrl) {
+        // Open file with device's default viewer
+        if (Platform.OS === 'ios') {
+          // On iOS, QuickLook will handle most file types
+          RNBlobUtil.ios.openDocument(attachment.uri);
+        } else {
+          // On Android, use the OS file viewer
+          RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
+        }
       } else {
-        // On Android, use the OS file viewer
-        RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
+        // Legacy case: use the local URI
+        if (Platform.OS === 'ios') {
+          RNBlobUtil.ios.openDocument(attachment.uri);
+        } else {
+          RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
+        }
       }
     } catch (error) {
       console.error('Error opening file:', error);
@@ -189,9 +275,17 @@ export function TaskFormModal({
       <TouchableOpacity 
         style={styles.attachmentContent}
         onPress={() => handleViewAttachment(item)}
+        disabled={item.isUploading}
       >
         <View style={styles.attachmentIcon}>
-          <Icon name={getFileIcon(item.type)} size={24} color={colors.brand.primary} />
+          {item.isUploading ? (
+            <ActivityIndicator 
+              size="small" 
+              color={colors.brand.primary} 
+            />
+          ) : (
+            <Icon name={getFileIcon(item.type)} size={24} color={colors.brand.primary} />
+          )}
         </View>
         <View style={styles.attachmentDetails}>
           <Text 
@@ -201,15 +295,23 @@ export function TaskFormModal({
             {item.name}
           </Text>
           <Text style={[styles.attachmentSize, { color: colors.text.tertiary }]}>
-            {formatFileSize(item.size)}
+            {item.isUploading ? 
+              `Uploading... ${item.id === currentUploadId ? Math.round(uploadProgress) + '%' : ''}` : 
+              formatFileSize(item.size)
+            }
           </Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.attachmentRemove}
         onPress={() => handleRemoveAttachment(item.id)}
+        disabled={item.isUploading}
       >
-        <Icon name="close" size={18} color={colors.text.tertiary} />
+        <Icon 
+          name="close" 
+          size={18} 
+          color={item.isUploading ? colors.text.quaternary : colors.text.tertiary} 
+        />
       </TouchableOpacity>
     </View>
   );

@@ -21,6 +21,7 @@ import { useTheme } from '../../theme/theme-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TaskListItem } from './components/task-list-item';
 import { TaskFormModal } from './components/task-form-modal';
+import { TaskDetailModal } from './components/task-detail-modal';
 import { useTaskStore } from '../../store/task-store';
 import type { TaskData, TaskPriority, TaskAttachment } from '../../types/task';
 import RNBlobUtil from 'react-native-blob-util';
@@ -53,6 +54,7 @@ export function TaskScreen() {
   // UI state
   const [refreshing, setRefreshing] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showTaskDetail, setShowTaskDetail] = useState(false);
   const [currentTask, setCurrentTask] = useState<TaskData | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -137,7 +139,7 @@ export function TaskScreen() {
     }
   };
 
-  const handleEditTask = (taskId: string) => {
+  const handleTaskPress = (taskId: string) => {
     if (isMultiSelectMode) {
       toggleTaskSelection(taskId);
       return;
@@ -146,7 +148,16 @@ export function TaskScreen() {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
       setCurrentTask(task);
+      setShowTaskDetail(true);
+    }
+  };
+
+  const handleEditTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setCurrentTask(task);
       setShowTaskForm(true);
+      setShowTaskDetail(false);
     }
   };
 
@@ -219,7 +230,7 @@ export function TaskScreen() {
     ({ item }: { item: TaskData }) => (
       <TaskListItem 
         task={item} 
-        onPress={handleEditTask} 
+        onPress={handleTaskPress} 
         onLongPress={handleLongPress}
         onToggleCompletion={handleToggleTaskCompletion}
         isSelected={selectedTasks.includes(item.id)}
@@ -255,147 +266,52 @@ export function TaskScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, {backgroundColor: '#ffffff'}]}>
-      {isMultiSelectMode ? (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      {isMultiSelectMode && (
         <View style={[
-          styles.selectionBar, 
-          {
-            paddingTop: insets.top,
-            backgroundColor: '#ffffff',
+          styles.multiSelectHeader,
+          { 
+            backgroundColor: colors.background.primary,
+            shadowColor: 'rgba(0,0,0,0.1)',
             borderBottomColor: 'rgba(0,0,0,0.05)',
             borderBottomWidth: 1,
-            shadowColor: 'rgba(0,0,0,0.1)',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
           }
         ]}>
-          <TouchableOpacity 
-            style={styles.selectionButton} 
+          <TouchableOpacity
+            style={styles.closeMultiSelectButton}
             onPress={exitMultiSelectMode}
           >
             <Icon name="close" size={24} color={colors.text.primary} />
           </TouchableOpacity>
-          <Text style={[styles.selectionTitle, {color: colors.text.primary}]}>
+          <Text style={[styles.multiSelectTitle, { color: colors.text.primary }]}>
             {selectedTasks.length} selected
           </Text>
-          <View style={styles.selectionActions}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                selectedTasks.forEach(id => handleToggleTaskCompletion(id));
-                exitMultiSelectMode();
-              }}
-            >
-              <Icon name="check-circle-outline" size={22} color={colors.brand.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                selectedTasks.forEach(id => handleDeleteTask(id));
-                exitMultiSelectMode();
-              }}
-            >
-              <Icon name="delete" size={22} color={colors.status.error} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View style={[
-          styles.header, 
-          {
-            paddingTop: insets.top,
-            backgroundColor: '#ffffff',
-            borderBottomColor: 'rgba(0,0,0,0.05)',
-            borderBottomWidth: 1,
-            shadowColor: 'rgba(0,0,0,0.1)',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-          }
-        ]}>
-          <Text style={[styles.headerTitle, {color: colors.text.primary}]}>
-            My Tasks
-          </Text>
-          
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={[
-                styles.filterButton, 
-                filters.showCompleted ? 
-                  { backgroundColor: 'rgba(120, 139, 255, 0.1)' } : {}
-              ]}
-              onPress={handleToggleShowCompleted}
-            >
-              <Icon 
-                name={filters.showCompleted ? "check-box-outline-blank" : "check-box"} 
-                size={20} 
-                color={filters.showCompleted ? colors.brand.primary : colors.text.tertiary} 
-              />
-              <Text 
-                style={[
-                  styles.filterButtonText, 
-                  {
-                    color: filters.showCompleted ? colors.brand.primary : colors.text.tertiary
+          <TouchableOpacity
+            style={[
+              styles.multiSelectAction,
+              { backgroundColor: colors.status.error }
+            ]}
+            onPress={() => {
+              Alert.alert(
+                'Delete Tasks',
+                'Are you sure you want to delete these tasks?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Delete', 
+                    onPress: () => {
+                      selectedTasks.forEach(id => deleteTask(id));
+                      exitMultiSelectMode();
+                    },
+                    style: 'destructive'
                   }
-                ]}
-              >
-                {filters.showCompleted ? "Show all" : "Hide completed"}
-              </Text>
-            </TouchableOpacity>
-            
-            <View style={styles.priorityFilterButtons}>
-              <TouchableOpacity 
-                style={[
-                  styles.priorityButton,
-                  filters.priority === 'high' ? 
-                    { backgroundColor: colors.status.error } : 
-                    { backgroundColor: 'rgba(244, 67, 54, 0.1)' }
-                ]}
-                onPress={() => handleFilterByPriority(filters.priority === 'high' ? null : 'high')}
-              >
-                <Icon 
-                  name="flag" 
-                  size={18} 
-                  color={filters.priority === 'high' ? '#fff' : colors.status.error} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.priorityButton,
-                  filters.priority === 'medium' ? 
-                    { backgroundColor: colors.status.warning } : 
-                    { backgroundColor: 'rgba(255, 152, 0, 0.1)' }
-                ]}
-                onPress={() => handleFilterByPriority(filters.priority === 'medium' ? null : 'medium')}
-              >
-                <Icon 
-                  name="flag" 
-                  size={18} 
-                  color={filters.priority === 'medium' ? '#fff' : colors.status.warning} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.priorityButton,
-                  filters.priority === 'low' ? 
-                    { backgroundColor: colors.status.success } : 
-                    { backgroundColor: 'rgba(76, 175, 80, 0.1)' }
-                ]}
-                onPress={() => handleFilterByPriority(filters.priority === 'low' ? null : 'low')}
-              >
-                <Icon 
-                  name="flag" 
-                  size={18} 
-                  color={filters.priority === 'low' ? '#fff' : colors.status.success} 
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+                ]
+              );
+            }}
+          >
+            <Icon name="delete" size={20} color="#FFFFFF" />
+            <Text style={styles.multiSelectActionText}>Delete</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -440,26 +356,21 @@ export function TaskScreen() {
       />
 
       {/* Floating Action Button (FAB) for adding new task */}
-      <Animated.View
+      <Animated.View 
         style={[
-          styles.fab,
+          styles.fabContainer,
           {
             transform: [{ translateY: addTaskTranslateY }],
-            opacity: fabAnim,
-            bottom: insets.bottom > 0 ? insets.bottom : 16
+            bottom: insets.bottom + 16
           }
         ]}
       >
         <TouchableOpacity
           style={[
-            styles.fabButton, 
+            styles.fab,
             {
               backgroundColor: colors.brand.primary,
-              shadowColor: 'rgba(0,0,0,0.3)',
-              shadowOffset: { width: 0, height: 2 },
-              shadowRadius: 5,
-              shadowOpacity: 0.3,
-              elevation: 5,
+              shadowColor: colors.brand.primary
             }
           ]}
           onPress={() => {
@@ -467,20 +378,28 @@ export function TaskScreen() {
             setShowTaskForm(true);
           }}
         >
-          <Icon name="add" size={24} color="#fff" />
+          <Icon name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </Animated.View>
-
-      <TaskFormModal
+      
+      {/* Task Form Modal */}
+      <TaskFormModal 
         visible={showTaskForm}
-        onClose={() => {
-          setShowTaskForm(false);
-          setCurrentTask(undefined);
-        }}
+        onClose={() => setShowTaskForm(false)}
         onSave={currentTask ? handleUpdateTask : handleAddTask}
         existingTask={currentTask}
       />
-    </View>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        visible={showTaskDetail}
+        onClose={() => setShowTaskDetail(false)}
+        task={currentTask || null}
+        onEdit={handleEditTask}
+        onDelete={handleDeleteTask}
+        onToggleCompletion={handleToggleTaskCompletion}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -488,116 +407,79 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.41,
-    zIndex: 10,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  priorityFilterButtons: {
-    flexDirection: 'row',
-  },
-  priorityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
   listContent: {
-    flexGrow: 1,
+    paddingHorizontal: 16,
+  },
+  fabContainer: {
+    position: 'absolute',
+    right: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    marginTop: 100,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    marginTop: 8,
+    paddingTop: 100,
+    paddingHorizontal: 20,
   },
   emptyImage: {
     width: 120,
     height: 120,
+    marginBottom: 20,
     opacity: 0.5,
   },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
   },
-  fabButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
   },
-  selectionBar: {
+  multiSelectHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 1.41,
+    shadowRadius: 2,
+    elevation: 2,
     zIndex: 10,
   },
-  selectionButton: {
+  closeMultiSelectButton: {
     padding: 8,
   },
-  selectionTitle: {
+  multiSelectTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
   },
-  selectionActions: {
+  multiSelectAction: {
     flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 8,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
     marginLeft: 8,
+  },
+  multiSelectActionText: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginLeft: 4,
   },
 }); 

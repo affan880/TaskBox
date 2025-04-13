@@ -29,6 +29,8 @@ export type TaskAttachment = {
   type: string;
   size: number;
   createdAt: string;
+  downloadUrl?: string;
+  isUploading?: boolean;
 };
 
 /**
