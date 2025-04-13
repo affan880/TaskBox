@@ -4,8 +4,9 @@ require_relative '../node_modules/@react-native-community/cli-platform-ios/nativ
 
 # Explicitly disable new architecture to avoid compilation issues
 ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+ENV['NO_FLIPPER'] = '1'
 
-platform :ios, '15.1'
+platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -25,13 +26,14 @@ target 'TaskBox' do
   # Add Google Sign-in pod explicitly
   pod 'GoogleSignIn', '~> 7.0'
   
-  # Disable new architecture for problematic libraries
-  # Remove duplicate pods that are causing conflicts
-
+  # Disable new architecture for React 19
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
-    :app_path => "#{Pod::Config.instance.installation_root}/.."
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+    # Disable new arch
+    :fabric_enabled => false,
+    :hermes_enabled => false
   )
 
   post_install do |installer|
@@ -39,8 +41,7 @@ target 'TaskBox' do
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
+      :mac_catalyst_enabled => false
     )
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
@@ -48,7 +49,7 @@ target 'TaskBox' do
         
         # Additional build settings to fix compilation issues
         config.build_settings['SWIFT_VERSION'] = '5.0'
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
         
         # Fix code signing issues
         config.build_settings['CODE_SIGNING_ALLOWED'] = 'YES'
@@ -67,4 +68,4 @@ target 'TaskBox' do
       end
     end
   end
-end
+end 
