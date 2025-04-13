@@ -15,7 +15,7 @@ export function useStorage(): StorageHookResult {
   const [progress, setProgress] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const user = useAuthStore.useUser();
+  const user = useAuthStore(state => state.user);
 
   const uploadFile = async (filePath: string, storagePath: string): Promise<string | null> => {
     if (!user) {
