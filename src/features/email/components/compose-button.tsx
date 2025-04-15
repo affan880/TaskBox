@@ -1,15 +1,17 @@
 import * as React from 'react';
-import { TouchableOpacity, Animated, StyleSheet, Platform } from 'react-native';
+import { Animated, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SHADOWS, BORDER_RADIUS, SPACING } from 'src/theme/theme';
+import { useTheme } from 'src/theme/theme-context';
+import { SPACING, SHADOWS, BORDER_RADIUS } from '../../../theme/theme';
 
-type ComposeButtonProps = {
+export type ComposeButtonProps = {
   composeTranslateY: Animated.AnimatedInterpolation<string | number>;
   onPress: () => void;
-  colors: any;
 };
 
-export const ComposeButton = React.memo(({ composeTranslateY, onPress, colors }: ComposeButtonProps) => {
+export const ComposeButton = React.memo(({ composeTranslateY, onPress }: ComposeButtonProps) => {
+  const { colors } = useTheme();
+  
   return (
     <Animated.View
       style={[

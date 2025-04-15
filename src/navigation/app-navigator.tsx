@@ -44,7 +44,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // Remove unused dimensions
 // const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// --- Reusable Tab Item Component (Simplified) ---
+// --- Reusable Tab Item Component ---
 type TabItemProps = {
   isFocused: boolean;
   config: { focusedIcon: string; unfocusedIcon: string; label?: string };
@@ -55,8 +55,7 @@ type TabItemProps = {
   testID?: string;
 };
 
-// Renamed component
-function TabItem({ 
+const TabItem = React.memo(({ 
   isFocused, 
   config, 
   colors, 
@@ -64,7 +63,7 @@ function TabItem({
   onLongPress, 
   accessibilityLabel, 
   testID
-}: TabItemProps) {
+}: TabItemProps) => {
   const label = config.label;
 
   return (
@@ -76,11 +75,10 @@ function TabItem({
       testID={testID}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={styles.tabItem} // Basic style with padding
+      style={styles.tabItem}
     >
       {isFocused ? (
-        // Use standard View
-        <View style={styles.activeTabPill}>
+        <View style={[styles.activeTabPill, { backgroundColor: colors.brand.primary }]}>
           <Icon 
             name={config.focusedIcon} 
             size={label ? 20 : 24}
@@ -91,7 +89,6 @@ function TabItem({
           )}
         </View>
       ) : (
-        // Use standard View
         <View style={styles.inactiveIconContainer}> 
           <Icon 
             name={config.unfocusedIcon} 
@@ -102,23 +99,23 @@ function TabItem({
       )}
     </TouchableOpacity>
   );
-}
+});
 
-// --- Custom Tab Bar (Using Simplified TabItem) ---
+// --- Custom Tab Bar ---
 type CustomTabBarProps = {
   activeIndex: number;
   routes: { name: string; key: string }[];
   onTabPress: (index: number) => void;
 };
 
-function CustomTabBar({ activeIndex, routes, onTabPress }: CustomTabBarProps) {
+const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabBarProps) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const tabConfig: { [key: string]: { focusedIcon: string; unfocusedIcon: string; label?: string } } = {
-    Email: { focusedIcon: 'menu', unfocusedIcon: 'menu' },
-    Home: { focusedIcon: 'home', unfocusedIcon: 'home-outline', label: 'Home' },
-    Following: { focusedIcon: 'account-group', unfocusedIcon: 'account-group', label: 'Following' },
+    Email: { focusedIcon: 'email', unfocusedIcon: 'email-outline', label: 'Inbox' },
+    Home: { focusedIcon: 'format-list-checks', unfocusedIcon: 'format-list-bulleted', label: 'Tasks' },
+    Following: { focusedIcon: 'account-circle', unfocusedIcon: 'account-circle-outline', label: 'Profile' },
   };
 
   return (
@@ -135,19 +132,21 @@ function CustomTabBar({ activeIndex, routes, onTabPress }: CustomTabBarProps) {
         const isFocused = activeIndex === index;
 
         return (
-          <TabItem // Use simplified component
+          <TabItem
             key={route.key}
             isFocused={isFocused}
             config={config}
             colors={colors}
             onPress={() => onTabPress(index)}
-            onLongPress={() => { /* Implement if needed */ }}
+            onLongPress={() => {/* No operation */}}
+            accessibilityLabel={`${route.name} tab`}
+            testID={`tab-${route.name.toLowerCase()}`}
           />
         );
       })}
     </View>
   );
-}
+});
 
 // --- Main Swipeable Tab Navigator ---
 function MainTabNavigator() {
@@ -156,9 +155,9 @@ function MainTabNavigator() {
 
   // Define the order and components for the pager
   const routes = [
-    { key: 'email', name: 'Email', component: EmailDrawerNavigator },
-    { key: 'home', name: 'Home', component: TaskScreen },
-    { key: 'following', name: 'Following', component: ProfileScreen as React.FC },
+    { key: 'inbox', name: 'Email', component: EmailDrawerNavigator },
+    { key: 'tasks', name: 'Home', component: TaskScreen },
+    { key: 'profile', name: 'Following', component: ProfileScreen as React.ComponentType },
   ];
 
   // Navigate PagerView when a tab is pressed
@@ -180,16 +179,14 @@ function MainTabNavigator() {
         onPageSelected={handlePageSelected}
       >
         {routes.map((route) => (
-          // Each child of PagerView is a page
           <View key={route.key} style={styles.page}>
             <route.component />
           </View>
         ))}
       </PagerView>
-      {/* Render CustomTabBar below PagerView */}
       <CustomTabBar 
         activeIndex={activeIndex}
-        routes={routes.map(r => ({ key: r.key, name: r.name }))} // Pass route names/keys
+        routes={routes.map(r => ({ key: r.key, name: r.name }))}
         onTabPress={handleTabPress}
       />
     </View>
@@ -239,9 +236,53 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
 
 // --- App Navigator Export ---
 export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
+  const { colors } = useTheme();
+  
+  // Create a complete theme object with required fonts property
+  // Use type assertion to bypass type checking for our custom theme
+  const navigationTheme: any = {
+    dark: false,
+    colors: {
+      primary: colors.brand.primary,
+      background: colors.background.primary,
+      card: colors.background.primary,
+      text: colors.text.primary,
+      border: colors.border.medium || '#E1E1E1',
+      notification: colors.status.error,
+    },
+    // Add default fonts configuration to fix the "Cannot read property 'regular' of undefined" error
+    fonts: {
+      regular: {
+        fontFamily: 'System',
+        fontWeight: '400',
+      },
+      medium: {
+        fontFamily: 'System',
+        fontWeight: '500',
+      },
+      light: {
+        fontFamily: 'System',
+        fontWeight: '300',
+      },
+      thin: {
+        fontFamily: 'System',
+        fontWeight: '100',
+      },
+      // Add the missing required font styles
+      bold: {
+        fontFamily: 'System',
+        fontWeight: '700',
+      },
+      heavy: {
+        fontFamily: 'System',
+        fontWeight: '900',
+      },
+    }
+  };
+  
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer theme={navigationTheme}>
         <NavigationRoot forceAuthScreen={forceAuthScreen} onNavigated={onNavigated} />
       </NavigationContainer>
     </GestureHandlerRootView>
@@ -252,7 +293,7 @@ export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen
 const styles = StyleSheet.create({
   pagerContainer: {
     flex: 1,
-    backgroundColor: 'transparent', // Or your app's background color
+    backgroundColor: 'transparent',
   },
   pagerView: {
     flex: 1,
@@ -273,26 +314,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     elevation: 4,
     paddingHorizontal: 5,
-    // backgroundColor set dynamically
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,        // Fill height of tab bar
+    height: 40,
   },
   inactiveIconContainer: { 
     alignItems: 'center',    
     justifyContent: 'center',
-    paddingHorizontal: 12, // <-- Add padding here for inactive spacing
-    height: '100%', // Ensure vertical alignment within tabItem space
+    paddingHorizontal: 12,
+    height: '100%',
   },
   activeTabPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1D9BF0',
-    paddingVertical: 8,      
-    paddingHorizontal: 12,   // Padding inside the pill
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 5,        
     height: '100%',          
   },
