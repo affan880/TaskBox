@@ -1,16 +1,19 @@
 import * as React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SPACING, BORDER_RADIUS, TYPOGRAPHY } from 'src/theme/theme';
+import { useTheme } from 'src/theme/theme-context';
+import { SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../../theme/theme';
+import type { EdgeInsets } from 'react-native-safe-area-context';
 
-type EmailHeaderProps = {
-  insets: { top: number; bottom: number; left: number; right: number };
-  getCurrentScreenTitle: () => string;
+export type EmailHeaderProps = {
+  insets: EdgeInsets;
+  screenTitle: string;
   onProfilePress: () => void;
-  colors: any;
 };
 
-export const EmailHeader = React.memo(({ insets, getCurrentScreenTitle, onProfilePress, colors }: EmailHeaderProps) => {
+export const EmailHeader = React.memo(({ insets, screenTitle, onProfilePress }: EmailHeaderProps) => {
+  const { colors } = useTheme();
+  
   return (
     <View 
       style={[
@@ -38,7 +41,7 @@ export const EmailHeader = React.memo(({ insets, getCurrentScreenTitle, onProfil
           >
             <Icon name="search" size={22} color={colors.brand.primary} style={styles.searchIcon} />
             <Text style={[styles.searchText, { color: colors.text.secondary }]}>
-              Search in {getCurrentScreenTitle().toLowerCase()}...
+              Search in {screenTitle.toLowerCase()}...
             </Text>
           </View>
           
@@ -98,20 +101,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: 12,
   },
-  titleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  aiButton: {
-    padding: SPACING.sm,
-  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,6 +113,13 @@ const styles = StyleSheet.create({
   },
   searchText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiButton: {
+    padding: SPACING.sm,
   },
   avatarContainer: {
     padding: SPACING.sm,
