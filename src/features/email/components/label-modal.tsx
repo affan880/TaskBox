@@ -102,6 +102,9 @@ export function LabelModal({ visible, onClose, onSelectLabel }: LabelModalProps)
   );
 }
 
+// Add displayName property
+LabelModal.displayName = 'LabelModal';
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

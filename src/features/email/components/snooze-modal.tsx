@@ -140,6 +140,8 @@ export function SnoozeModal({
   );
 }
 
+SnoozeModal.displayName = 'SnoozeModal';
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,

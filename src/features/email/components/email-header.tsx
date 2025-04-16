@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'src/theme/theme-context';
-import { SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../../theme/theme';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 
 export type EmailHeaderProps = {
@@ -11,129 +10,83 @@ export type EmailHeaderProps = {
   onProfilePress: () => void;
 };
 
-export const EmailHeader = React.memo(({ insets, screenTitle, onProfilePress }: EmailHeaderProps) => {
+export function EmailHeader({ insets, screenTitle, onProfilePress }: EmailHeaderProps) {
   const { colors } = useTheme();
   
+  const styles = StyleSheet.create({
+    headerContainer: {
+      paddingTop: insets.top + 8,
+      paddingBottom: 12,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background?.primary ?? '#ffffff',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border?.medium ?? '#e0e0e0',
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    searchBarContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 42,
+      marginRight: 12,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text?.primary ?? '#000000',
+      paddingVertical: 0,
+    },
+    avatarContainer: {
+    },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.brand?.primary ?? '#007aff',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarText: {
+      fontSize: 16,
+      fontWeight: '600' as const,
+      color: colors.text?.inverse ?? '#ffffff',
+    },
+  });
+
   return (
-    <View 
-      style={[
-        styles.headerContainer,
-        {
-          paddingTop: insets.top,
-          backgroundColor: '#ffffff',
-          borderBottomColor: 'rgba(120, 139, 255, 0.2)',
-        }
-      ]}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View 
-            style={[
-              styles.searchBar,
-              { 
-                flex: 1,
-                backgroundColor: '#f1f5ff',
-                borderWidth: 1,
-                borderColor: 'rgba(120, 139, 255, 0.2)',
-                marginRight: 8,
-              }
-            ]}
-          >
-            <Icon name="search" size={22} color={colors.brand.primary} style={styles.searchIcon} />
-            <Text style={[styles.searchText, { color: colors.text.secondary }]}>
-              Search in {screenTitle.toLowerCase()}...
-            </Text>
-          </View>
-          
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={styles.aiButton}
-              onPress={() => {
-                console.log('AI button pressed');
-              }}
-            >
-              <Image 
-                source={require('../../../../assets/images/feather.png')}
-                style={{ width: 24, height: 24, tintColor: colors.brand.primary }}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.avatarContainer}
-              onPress={onProfilePress}
-            >
-              <View style={[styles.avatar, { backgroundColor: colors.brand.primary }]}>
-                <Text style={styles.avatarText}>SA</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+    <View style={styles.headerContainer}>
+      <View style={styles.headerContent}>
+        <View style={styles.searchBarContainer}>
+          <Icon name="search" size={20} color={colors.text?.secondary ?? '#888888'} style={styles.searchIcon} />
+          <TextInput 
+            placeholder={`Search in ${screenTitle.toLowerCase()}...`}
+            placeholderTextColor={colors.text?.secondary ?? '#888888'}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
         </View>
+        
+        <TouchableOpacity 
+          style={styles.avatarContainer}
+          onPress={onProfilePress}
+        >
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>SA</Text>
+          </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
-});
+}
 
-const styles = StyleSheet.create({
-  headerContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    backgroundColor: '#ffffff', 
-    zIndex: 1000,
-    height: 'auto',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(120, 139, 255, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  header: {
-    width: '100%',
-    zIndex: 1000,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    paddingBottom: 12,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.md,
-    height: 40,
-  },
-  searchIcon: {
-    marginRight: SPACING.sm,
-  },
-  searchText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  aiButton: {
-    padding: SPACING.sm,
-  },
-  avatarContainer: {
-    padding: SPACING.sm,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDER_RADIUS.round / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: '#fff',
-  },
-}); 
+// Add displayName property
+EmailHeader.displayName = 'EmailHeader'; 

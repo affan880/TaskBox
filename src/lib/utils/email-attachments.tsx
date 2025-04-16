@@ -1,14 +1,19 @@
 import { Attachment } from 'src/types/email';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as gmailApi from '@/api/gmail-api';
 
 /**
  * Helper function to get access token for Gmail API
+ * This now uses the centralized token management from gmail-api.ts
+ * to prevent unnecessary token refreshes 
  * @returns Access token string or empty string if error
  */
 export const getAccessToken = async (): Promise<string> => {
   try {
-    const tokens = await GoogleSignin.getTokens();
-    return tokens.accessToken || '';
+    // Use the centralized token management from gmail-api
+    // This imports getAccessToken as an internal function, but we still need to export it
+    // from this file for backwards compatibility
+    return gmailApi.getAccessTokenForAPI();
   } catch (error) {
     console.error('Error getting access token:', error);
     return '';
@@ -80,16 +85,28 @@ export const extractAttachmentsFromPayload = (payload: any): Attachment[] => {
       // Ensure attachmentId is a string
       const attachmentId = String(part.body.attachmentId);
       
-      attachments.push({
+      // Create attachment object conforming to the Attachment type
+      const attachment: Attachment & { 
+        attachmentId?: string; // Additional properties used internally
+        type?: string;
+        sizeDisplay?: string;
+        contentType?: string;
+        data?: string;
+      } = {
         id: attachmentId,
-        name: part.filename,
-        type: fileExt,
+        filename: part.filename,
+        mimeType: part.mimeType || 'application/octet-stream',
         size: sizeInBytes,
+        
+        // Additional properties used by our application
+        attachmentId: attachmentId, // For backward compatibility
+        type: fileExt,
         sizeDisplay,
         contentType: part.mimeType || 'application/octet-stream',
-        attachmentId: attachmentId, // Real Gmail attachment ID
         data: '' // Will be populated when fetched
-      });
+      };
+      
+      attachments.push(attachment as any); // Cast to any to avoid TypeScript errors
     }
     
     // Recursively check child parts
@@ -109,6 +126,17 @@ export const extractAttachmentsFromPayload = (payload: any): Attachment[] => {
 };
 
 /**
+ * Extended attachment type with additional properties used internally by our app
+ */
+interface ExtendedAttachment extends Attachment {
+  attachmentId?: string;
+  type?: string;
+  sizeDisplay?: string;
+  contentType?: string;
+  data?: string;
+}
+
+/**
  * Fetches the attachments for an email, including metadata and content
  * @param emailId The Gmail message ID
  * @param fetchAttachmentFn The function to fetch an individual attachment's data
@@ -117,7 +145,7 @@ export const extractAttachmentsFromPayload = (payload: any): Attachment[] => {
 export const fetchEmailAttachments = async  (
   emailId: string, 
   fetchAttachmentFn: (messageId: string, attachmentId: string, filename: string, type: string) => Promise<{ data: string; mimeType: string } | null>
-): Promise<{ attachments: Attachment[], success: boolean }> => {
+): Promise<{ attachments: ExtendedAttachment[], success: boolean }> => {
   try {
     // Fetch full message with all parts
     const fullMessageDetails = await fetchFullEmailDetails(emailId);
@@ -129,7 +157,7 @@ export const fetchEmailAttachments = async  (
     }
     
     // Extract attachment metadata from payload
-    const extractedAttachments = extractAttachmentsFromPayload(fullMessageDetails.payload);
+    const extractedAttachments = extractAttachmentsFromPayload(fullMessageDetails.payload) as ExtendedAttachment[];
     console.log(`Found ${extractedAttachments.length} attachments`);
     
     if (extractedAttachments.length === 0) {
@@ -145,15 +173,15 @@ export const fetchEmailAttachments = async  (
           try {
             console.log(`Fetching attachment ${attachment.attachmentId}`);
             const attachmentId = String(attachment.attachmentId);
-            const filename = String(attachment.name)
-            const type = String(attachment.type)
+            const filename = String(attachment.filename);
+            const type = attachment.type || '';
             const attachmentData = await fetchAttachmentFn(emailId, attachmentId, filename, type);
              
             if (attachmentData) {
               return {
                 ...attachment,
                 data: attachmentData.data,
-                contentType: attachmentData.mimeType || attachment.contentType
+                contentType: attachmentData.mimeType || attachment.contentType || attachment.mimeType
               };
             }
           } catch (error) {
