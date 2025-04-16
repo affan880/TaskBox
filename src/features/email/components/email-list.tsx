@@ -14,6 +14,9 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../../theme/theme';
 import type { EmailData } from 'src/types/email';
 
+// Only log in development mode
+const DEBUG = __DEV__ && false; // Set to true to enable verbose logging
+
 export type EmailListProps = {
   emails: EmailData[];
   refreshing: boolean;
@@ -26,9 +29,12 @@ export type EmailListProps = {
   isLoadingMore: boolean;
   initialLoadComplete: boolean;
   handleLoadMore: () => void;
+  selectedCategory: string;
+  onSmartSort?: () => void;
+  isAnalyzing?: boolean;
 };
 
-export const EmailList = React.memo(({ 
+export function EmailList({ 
   emails,
   refreshing,
   handleRefresh,
@@ -40,14 +46,59 @@ export const EmailList = React.memo(({
   isLoadingMore,
   initialLoadComplete,
   handleLoadMore,
-}: EmailListProps) => {
+  selectedCategory,
+  onSmartSort = () => {},
+  isAnalyzing = false,
+}: EmailListProps) {
   const { colors } = useTheme();
+  const [isListReady, setIsListReady] = React.useState(false);
+  const flatListRef = React.useRef<FlatList>(null);
+  const lastCategoryChangeTime = React.useRef<number>(Date.now());
+  
+  // Set list as ready after the first render is complete
+  React.useEffect(() => {
+    if (initialLoadComplete && emails.length > 0 && !isListReady) {
+      // Use a smaller delay to ensure list is responsive
+      const timer = setTimeout(() => {
+        setIsListReady(true);
+        if (DEBUG) console.log('[EmailList] List is now ready for load more');
+      }, 300); // Reduced from 1000ms to 300ms
+      
+      return () => clearTimeout(timer);
+    }
+  }, [initialLoadComplete, emails.length, isListReady]);
+  
+  // Reset list ready state and track category change time when category changes
+  React.useEffect(() => {
+    setIsListReady(false);
+    lastCategoryChangeTime.current = Date.now();
+    if (DEBUG) console.log('[EmailList] Category changed, updating lastCategoryChangeTime');
+  }, [selectedCategory]);
 
   // Debug log
   React.useEffect(() => {
-    console.log('[EmailList] Received emails:', emails?.length || 0);
-    console.log('[EmailList] isLoading:', isLoading, 'initialLoadComplete:', initialLoadComplete);
+    if (DEBUG) {
+      console.log('[EmailList] Received emails:', emails?.length || 0);
+      console.log('[EmailList] isLoading:', isLoading, 'initialLoadComplete:', initialLoadComplete);
+    }
   }, [emails, isLoading, initialLoadComplete]);
+
+  // Handle load more with debounce after category changes
+  const handleLoadMoreWrapper = React.useCallback(() => {
+    // Ignore load more requests within 500ms of a category change
+    const timeSinceCategoryChange = Date.now() - lastCategoryChangeTime.current;
+    const tooSoonAfterCategoryChange = timeSinceCategoryChange < 500;
+    
+    // Only block load more if we're already loading more or refreshing or too soon after category change
+    if (isLoadingMore || refreshing || tooSoonAfterCategoryChange) {
+      if (DEBUG) console.log('[EmailList] Ignoring load more, already loading or refreshing or category just changed', 
+        { isLoadingMore, refreshing, timeSinceCategoryChange, tooSoonAfterCategoryChange });
+      return;
+    }
+    
+    if (DEBUG) console.log('[EmailList] Calling handleLoadMore');
+    handleLoadMore();
+  }, [isLoadingMore, refreshing, handleLoadMore]);
 
   const renderFooter = () => {
     if (!isLoadingMore) return null;
@@ -67,7 +118,7 @@ export const EmailList = React.memo(({
   // 1. We're loading and haven't completed initial load
   // 2. We're loading and have no emails yet
   if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0)) {
-    console.log('EmailList: Displaying loading indicator');
+    if (DEBUG) console.log('EmailList: Displaying loading indicator');
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color={colors.brand.primary} />
@@ -79,10 +130,11 @@ export const EmailList = React.memo(({
   }
 
   // Debug output for when we're rendering the actual list
-  console.log(`EmailList: Rendering FlatList with ${emails.length} emails`);
+  if (DEBUG) console.log(`EmailList: Rendering FlatList with ${emails.length} emails`);
   
   return (
     <FlatList
+      ref={flatListRef}
       contentContainerStyle={styles.listContent}
       data={emails}
       renderItem={({ item }) => {
@@ -106,6 +158,34 @@ export const EmailList = React.memo(({
         />
       }
       ListEmptyComponent={() => {
+        if (selectedCategory !== "All" && !isLoading) {
+          return (
+            <View style={styles.emptyContainer}>
+              <Icon name="filter_list" size={64} color={colors.text.tertiary} />
+              <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
+                No emails in this category
+              </Text>
+              <TouchableOpacity 
+                style={[styles.smartSortButton, { backgroundColor: colors.brand.primary }]}
+                onPress={onSmartSort}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <ActivityIndicator size="small" color="#ffffff" style={styles.buttonIcon} />
+                    <Text style={styles.smartSortButtonText}>Analyzing...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="sort" size={18} color="#ffffff" style={styles.buttonIcon} />
+                    <Text style={styles.smartSortButtonText}>Smart Sort</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        
         return (
           <View style={styles.emptyContainer}>
             <Icon name="inbox" size={64} color={colors.text.tertiary} />
@@ -124,20 +204,23 @@ export const EmailList = React.memo(({
         );
       }}
       ListFooterComponent={renderFooter()}
-      onEndReached={handleLoadMore}
-      onEndReachedThreshold={0.3}
+      onEndReached={handleLoadMoreWrapper}
+      onEndReachedThreshold={0.3} // More responsive value for end detection
       showsVerticalScrollIndicator={false}
       initialNumToRender={10}
       maxToRenderPerBatch={10}
       windowSize={10}
     />
   );
-});
+}
+
+// Add displayName property
+EmailList.displayName = 'EmailList';
 
 const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
-    paddingTop: 130, // Increase to prevent header from hiding content
+    paddingTop: 16, // Reduced from 130px to 16px to fix the spacing issue
     paddingBottom: 20, // Add bottom padding for better scroll experience
   },
   emptyContainer: {
@@ -151,6 +234,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
     marginTop: SPACING.md,
+    marginBottom: SPACING.md,
   },
   loaderContainer: {
     flex: 1,
@@ -178,5 +262,26 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     borderWidth: 1,
     borderRadius: BORDER_RADIUS.md,
+  },
+  smartSortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: BORDER_RADIUS.lg,
+    marginTop: SPACING.md,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  smartSortButtonText: {
+    color: '#ffffff',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
 }); 

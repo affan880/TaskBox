@@ -165,6 +165,8 @@ export function ComposeEmailModal({ visible, onClose, onSend }: ComposeEmailModa
   );
 }
 
+ComposeEmailModal.displayName = 'ComposeEmailModal';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

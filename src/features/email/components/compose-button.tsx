@@ -9,7 +9,7 @@ export type ComposeButtonProps = {
   onPress: () => void;
 };
 
-export const ComposeButton = React.memo(({ composeTranslateY, onPress }: ComposeButtonProps) => {
+export function ComposeButton({ composeTranslateY, onPress }: ComposeButtonProps) {
   const { colors } = useTheme();
   
   return (
@@ -32,7 +32,10 @@ export const ComposeButton = React.memo(({ composeTranslateY, onPress }: Compose
       </TouchableOpacity>
     </Animated.View>
   );
-});
+}
+
+// Add displayName property
+ComposeButton.displayName = 'ComposeButton';
 
 const styles = StyleSheet.create({
   fabContainer: {

@@ -17,18 +17,31 @@ export type EmailData = {
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
-// --- Token Refresh Synchronization ---
+// --- Token Caching and Refresh Synchronization ---
 let tokenRetrievalPromise: Promise<string> | null = null;
+let cachedToken: string | null = null;
+let tokenExpiryTime: number = 0;
+// Default token expiry time (55 minutes in ms - Google tokens typically last 60 minutes)
+const TOKEN_EXPIRY_MS = 55 * 60 * 1000;
 
 /**
  * Helper function to get a fresh access token, ensuring only one retrieval/refresh happens at a time.
+ * INTERNAL USE ONLY - external code should use getAccessTokenForAPI()
  */
 async function getAccessToken(): Promise<string> {
+  // Check if we have a valid cached token
+  const currentTime = Date.now();
+  if (cachedToken && tokenExpiryTime > currentTime) {
+    // console.log('[gmailApi:Auth] Using cached token');
+    return cachedToken;
+  }
+
   // If a retrieval/refresh is already in progress, wait for it
   if (tokenRetrievalPromise) {
     console.log('[gmailApi:Auth] Token retrieval/refresh in progress, waiting...');
     try {
-      return await tokenRetrievalPromise;
+      const token = await tokenRetrievalPromise;
+      return token;
     } catch (waitError) {
       console.error('[gmailApi:Auth] Waiting for token retrieval/refresh failed:', waitError);
       // Rethrow so the caller knows the token fetch failed
@@ -37,14 +50,17 @@ async function getAccessToken(): Promise<string> {
   }
 
   // --- Critical Section: Start Token Retrieval/Refresh ---
-  // console.log('[gmailApi:Auth] Initiating token retrieval/refresh process...'); // Less noisy
+  console.log('[gmailApi:Auth] Token expired or not found. Initiating token retrieval/refresh...');
   tokenRetrievalPromise = (async (): Promise<string> => {
     try {
       // Attempt to get tokens silently first
       let tokens = await GoogleSignin.getTokens();
       if (tokens.accessToken) {
-        // console.log('[gmailApi:Auth] Got valid token silently.'); // Removed for less noise
-        return tokens.accessToken;
+        // Set token and expiry
+        cachedToken = tokens.accessToken;
+        tokenExpiryTime = currentTime + TOKEN_EXPIRY_MS;
+        console.log('[gmailApi:Auth] Token cached, valid for 55 minutes');
+        return cachedToken;
       }
       // If silent fails, initiate sign-in/refresh
       console.log('[gmailApi:Auth] Silent token retrieval failed or token missing, attempting sign-in/refresh...');
@@ -53,8 +69,12 @@ async function getAccessToken(): Promise<string> {
       if (!tokens.accessToken) {
         throw new Error('Token refresh failed to produce an access token.');
       }
-      console.log('[gmailApi:Auth] Token refresh successful.');
-      return tokens.accessToken;
+      
+      // Set token and expiry
+      cachedToken = tokens.accessToken;
+      tokenExpiryTime = currentTime + TOKEN_EXPIRY_MS;
+      console.log('[gmailApi:Auth] Token refresh successful. Valid for 55 minutes');
+      return cachedToken;
     } catch (error: any) {
        // Check for the specific Android native error and provide a clearer message
       if (error.message?.includes('Callback.invoke') && error.message?.includes('null object reference')) {
@@ -72,12 +92,25 @@ async function getAccessToken(): Promise<string> {
     } finally {
       // --- End Critical Section ---
       tokenRetrievalPromise = null; // Clear the promise once settled
-      // console.log('[gmailApi:Auth] Token retrieval/refresh lock released.'); // Less noisy
     }
   })();
 
   return tokenRetrievalPromise;
   // --- End Critical Section ---
+}
+
+/**
+ * Public function for external modules to get an access token.
+ * Uses the same caching mechanism as internal functions.
+ * @returns The access token string, or empty string on error
+ */
+export async function getAccessTokenForAPI(): Promise<string> {
+  try {
+    return await getAccessToken();
+  } catch (error) {
+    console.error('[gmailApi:Auth:Error] Error getting access token for external API:', error);
+    return '';
+  }
 }
 
 /**
@@ -89,8 +122,10 @@ async function makeGmailApiRequest(
   body?: object
 ): Promise<any> {
   try {
+    // Get a valid token (either cached or fresh)
     const accessToken = await getAccessToken();
     
+    // Make the API request with the token
     const response = await fetch(`${GMAIL_API_BASE_URL}${endpoint}`, {
       method,
       headers: {
@@ -99,6 +134,32 @@ async function makeGmailApiRequest(
       },
       body: body ? JSON.stringify(body) : undefined,
     });
+    
+    // Handle token expiration or authorization errors
+    if (response.status === 401) {
+      // Token expired during use, invalidate cache
+      cachedToken = null;
+      tokenExpiryTime = 0;
+      console.log('[gmailApi:Auth] Token expired during request, will refresh on next attempt');
+      
+      // Retry the request once with a fresh token
+      const newToken = await getAccessToken();
+      const retryResponse = await fetch(`${GMAIL_API_BASE_URL}${endpoint}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${newToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      
+      if (!retryResponse.ok) {
+        const errorText = await retryResponse.text();
+        throw new Error(`Gmail API error after token refresh (${retryResponse.status}): ${errorText}`);
+      }
+      
+      return retryResponse.json();
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -423,14 +484,13 @@ export async function revokeGmailAccess(): Promise<void> {
  * @returns The attachment data (base64) and MIME type
  */
 export async function getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; size: number } | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
-
   try {
+    const accessToken = await getAccessToken();
+    
     const response = await fetch(`${GMAIL_API_BASE_URL}/messages/${messageId}/attachments/${attachmentId}`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
     
@@ -446,11 +506,6 @@ export async function getAttachment(messageId: string, attachmentId: string): Pr
     };
   } catch (error) {
     console.error(`[gmailApi] Error fetching attachment ${attachmentId} for message ${messageId}:`, error);
-    // Handle specific errors like 401 Unauthorized
-    if ((error as any)?.response?.status === 401) {
-      // Potentially trigger sign-out or token refresh mechanism here
-      throw new Error('Unauthorized (401)');
-    }
     return null;
   }
-} 
+}

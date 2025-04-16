@@ -44,6 +44,7 @@ export function useEmailActions() {
   const [hasAuthFailed, setHasAuthFailed] = useState(false);
   const initialLoadStartedRef = useRef(false); // Ref to track if initial load started
   const [internalInitialLoadComplete, setInternalInitialLoadComplete] = useState(false); // Track completion
+  const initialLoadCompleteTimestamp = useRef(0); // Track initial load completion time
 
   // Derived state: Loading is true if gmail is loading AND the initial load hasn't completed internally
   const isLoading = isGmailLoading && !internalInitialLoadComplete;
@@ -96,6 +97,7 @@ export function useEmailActions() {
       if (!initialLoadStartedRef.current) {
           setInternalInitialLoadComplete(true); 
       }
+      initialLoadCompleteTimestamp.current = Date.now(); // Mark initial load completion time
     } catch (error) {
       console.error('useEmailActions: Error triggering initial email fetch:', error);
       // Also mark as complete on error to stop loading indicators
@@ -125,10 +127,26 @@ export function useEmailActions() {
    * Loads the next page of emails.
    */
   const handleLoadMore = useCallback(async () => {
-    if (isGmailLoading || isHandlingMore.current || !nextPageToken) {
-      console.log('useEmailActions: Load more skipped', { isGmailLoading, isHandlingMore: isHandlingMore.current, hasNextPage: !!nextPageToken });
+    // Prevent loading more if:
+    // 1. Gmail is already loading
+    // 2. We're already handling a load more request
+    // 3. There's no next page token
+    // 4. We're showing a filtered category and the original list isn't empty
+    //    (this prevents loading more when switching to an empty category)
+    const hasUnfilteredEmails = coreEmails.length > 0;
+    const isFilteredCategoryWithNoResults = 
+      screenEmails.length === 0 && hasUnfilteredEmails;
+      
+    if (isGmailLoading || isHandlingMore.current || !nextPageToken || isFilteredCategoryWithNoResults) {
+      console.log('useEmailActions: Load more skipped', { 
+        isGmailLoading, 
+        isHandlingMore: isHandlingMore.current, 
+        hasNextPage: !!nextPageToken,
+        isFilteredCategoryWithNoResults
+      });
       return;
     }
+    
     console.log('useEmailActions: handleLoadMore triggered');
     isHandlingMore.current = true;
 
@@ -138,14 +156,13 @@ export function useEmailActions() {
         return;
       }
       await coreLoadMore();
-      // console.log('useEmailActions: coreLoadMore triggered'); // Implicit
     } catch (error) {
       console.error('[useEmailActions:Error] Error triggering load more emails:', error);
     } finally {
       isHandlingMore.current = false;
       console.log('useEmailActions: handleLoadMore finished');
     }
-  }, [isGmailLoading, nextPageToken, coreLoadMore, ensureAuthenticated]);
+  }, [isGmailLoading, nextPageToken, coreLoadMore, ensureAuthenticated, screenEmails.length, coreEmails.length]);
 
   // --- Delegated Actions ---
   // These functions mostly delegate to useGmail, potentially adding screen-specific logic or loading states if needed.
@@ -246,17 +263,27 @@ export function useEmailActions() {
        console.log('[useEmailActions] Triggering initial actions on first mount');
        // Reset internal completion flag before starting
        setInternalInitialLoadComplete(false); 
+       initialLoadCompleteTimestamp.current = 0; // Reset timestamp
        loadInitialEmails();
        checkSnoozedEmails();
     }
-    // Empty dependency array ensures this runs only once per actual mount
-    // The module-level flag handles the StrictMode case.
-  }, []); // Empty dependency array
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Side effect: Update screenEmails when coreEmails change
   useEffect(() => {
     setScreenEmails(coreEmails);
-    // console.log(`useEmailActions: Synced screenEmails with coreEmails (${coreEmails.length} items)`); // Too noisy
   }, [coreEmails]);
+
+  // Mark as complete when isGmailLoading is false
+  useEffect(() => {
+    // If Gmail is done loading, and we've started the initial load process,
+    // but internal complete flag isn't set yet, set it now
+    if (!isGmailLoading && initialLoadStartedRef.current && !internalInitialLoadComplete) {
+        setInternalInitialLoadComplete(true);
+        initialLoadCompleteTimestamp.current = Date.now(); // Update timestamp
+        console.log('[useEmailActions] Setting initialLoadComplete via loading state change');
+    }
+  }, [isGmailLoading, initialLoadStartedRef, internalInitialLoadComplete]);
 
   // --- Return Values ---
   return {

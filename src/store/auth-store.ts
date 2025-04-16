@@ -13,6 +13,9 @@ import { revokeGmailAccess } from 'src/api/gmail-api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+// Debug flag - only log in development mode and when needed
+const DEBUG = __DEV__ && false; // Set to true for verbose debugging
+
 // Export the type
 export type AuthState = {
   user: FirebaseAuthTypes.User | null;
@@ -31,11 +34,19 @@ export type AuthState = {
 // Token cache key
 const AUTH_TOKENS_KEY = 'auth_tokens';
 
+// Track if we already configured GoogleSignin
+let googleSigninConfigured = false;
+
 // Initialize Google Sign-in configuration
 const configureGoogleSignin = () => {
-  console.log('Configuring GoogleSignin with the following client IDs:',
-    { webClientId: FIREBASE_WEB_CLIENT_ID ? 'present' : 'missing', 
-      iosClientId: FIREBASE_IOS_CLIENT_ID ? 'present' : 'missing' });
+  // Skip if already configured to avoid duplicate configuration logs
+  if (googleSigninConfigured) return;
+  
+  if (DEBUG) {
+    console.log('Configuring GoogleSignin with the following client IDs:',
+      { webClientId: FIREBASE_WEB_CLIENT_ID ? 'present' : 'missing', 
+        iosClientId: FIREBASE_IOS_CLIENT_ID ? 'present' : 'missing' });
+  }
       
   if (Platform.OS === 'android') {
     // For Android, use the server_client_id from strings.xml directly
@@ -71,10 +82,15 @@ const configureGoogleSignin = () => {
       forceCodeForRefreshToken: true,
     });
   }
+  
+  // Mark as configured
+  googleSigninConfigured = true;
 };
 
 // Helper for debugging Google Sign-In state
 const debugGoogleSignIn = async () => {
+  if (!DEBUG) return;
+  
   try {
     console.log('Debugging GoogleSignin state...');
     
@@ -106,7 +122,7 @@ const debugGoogleSignIn = async () => {
 };
 
 // Configure Google SignIn immediately
-console.log('Initial GoogleSignin configuration');
+if (DEBUG) console.log('Initial GoogleSignin configuration');
 configureGoogleSignin();
 
 // Create the store
@@ -126,7 +142,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Add a function to explicitly refresh authentication
   refreshAuthentication: async () => {
     try {
-      console.log('Manually refreshing authentication');
+      if (DEBUG) console.log('Manually refreshing authentication');
       set({ isLoading: true, error: null });
       
       // First, ensure configuration is up to date
@@ -138,14 +154,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const currentUser = await GoogleSignin.getCurrentUser();
         isSignedIn = currentUser !== null;
       } catch (e) {
-        console.log('Error checking sign in status:', e);
+        if (DEBUG) console.log('Error checking sign in status:', e);
       }
-      console.log(`Current Google Sign-in status: ${isSignedIn ? 'Signed in' : 'Not signed in'}`);
+      if (DEBUG) console.log(`Current Google Sign-in status: ${isSignedIn ? 'Signed in' : 'Not signed in'}`);
       
       if (isSignedIn) {
         try {
           // Try to get fresh tokens
-          console.log('Attempting to refresh tokens...');
+          if (DEBUG) console.log('Attempting to refresh tokens...');
           const { accessToken, idToken } = await GoogleSignin.getTokens();
           
           if (idToken) {
@@ -156,7 +172,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // Sign in with Firebase again to refresh tokens
             const userCredential = await signInWithCredential(auth, googleCredential);
             set({ user: userCredential.user, error: null });
-            console.log('Authentication refreshed successfully');
+            if (DEBUG) console.log('Authentication refreshed successfully');
             return true;
           }
         } catch (tokenError) {
@@ -164,7 +180,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           
           // If token refresh fails, try silent sign in
           try {
-            console.log('Trying silent sign in...');
+            if (DEBUG) console.log('Trying silent sign in...');
             const userInfo = await GoogleSignin.signInSilently();
             if (userInfo) {
               const { accessToken, idToken } = await GoogleSignin.getTokens();
@@ -174,7 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
                 const userCredential = await signInWithCredential(auth, googleCredential);
                 set({ user: userCredential.user, error: null });
-                console.log('Silent sign-in successful');
+                if (DEBUG) console.log('Silent sign-in successful');
                 return true;
               }
             }
@@ -185,7 +201,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       // If we reach here, we need a full re-authentication
-      console.log('Need to perform full re-authentication');
+      if (DEBUG) console.log('Need to perform full re-authentication');
       set({ error: 'Authentication needs to be refreshed. Please sign in again.' });
       return false;
     } catch (error) {
@@ -198,109 +214,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initializeAuthListener: () => {
-    // Get the Firebase app instance
-    const app = getApp();
-
-    // Set up the auth listener using the new API
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseAuthTypes.User | null) => {
-      if (JSON.stringify(get().user) !== JSON.stringify(user)) {
-        set({ user, hasCheckedAuth: true, isLoading: false, initialized: true });
-      }
-    });
-
-    // Ensure Google SignIn is configured and then trigger session check
+    if (DEBUG) console.log('Initializing auth state listener');
+    
+    // Configure Google SignIn
     configureGoogleSignin();
-    get().checkAndRestoreSession();
-
+    
+    // Set up Firebase auth state listener
+    const app = getApp();
+    const auth = getAuth(app);
+    
+    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseAuthTypes.User | null) => {
+      if (DEBUG) console.log('Auth state changed:', user ? 'User signed in' : 'No user');
+      set({ user, hasCheckedAuth: true, initialized: true, isLoading: false });
+    });
+    
     return unsubscribe;
   },
 
   checkAndRestoreSession: async () => {
     try {
-      console.log('Starting checkAndRestoreSession');
-      set({ isLoading: true });
-
-      // First check if Firebase already has active user
-      const app = getApp();
-      const auth = getAuth(app);
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        console.log('Firebase already has active user, skipping restoration');
-        set({ user: currentUser, hasCheckedAuth: true, isLoading: false, initialized: true });
-        return true;
-      }
-
-      // Make sure GoogleSignin is configured
-      console.log('No active Firebase user, configuring GoogleSignin');
-      configureGoogleSignin();
-      await debugGoogleSignIn();
-
-      try {
-        console.log('Checking if user is signed in with Google');
-        const currentUser = await GoogleSignin.getCurrentUser();
-        const isSignedIn = currentUser !== null;
-        console.log('Google sign-in status:', isSignedIn ? 'Signed in' : 'Not signed in');
+      // Check if we have saved tokens
+      const tokensJson = await AsyncStorage.getItem(AUTH_TOKENS_KEY);
+      
+      if (tokensJson) {
+        if (DEBUG) console.log('Found saved tokens, attempting to restore session');
         
-        if (isSignedIn) {
-          console.log('User is signed in with Google, attempting to get tokens');
-          try {
-            const { accessToken, idToken } = await GoogleSignin.getTokens();
-            console.log('Tokens retrieved:', { 
-              hasAccessToken: !!accessToken, 
-              hasIdToken: !!idToken 
-            });
-            
-            if (!idToken) {
-              throw new Error('No ID token present');
-            }
-
-            await AsyncStorage.setItem(AUTH_TOKENS_KEY, JSON.stringify({ accessToken, idToken }));
-            console.log('Tokens stored in AsyncStorage');
-
-            // Create a Google credential with the token using new API
-            const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
-
-            // Sign-in the user with the credential using new API
-            console.log('Signing in with Firebase using Google credential');
-            const userCredential = await signInWithCredential(auth, googleCredential);
-            console.log('Firebase sign-in successful');
-            set({ user: userCredential.user, hasCheckedAuth: true, isLoading: false, initialized: true });
-            return true;
-          } catch (error) {
-            console.log('Error restoring from Google Sign-in:', error);
-            try {
-              console.log('Attempting silent sign-in as fallback');
-              const userInfo = await GoogleSignin.signInSilently();
-              console.log('Silent sign-in result:', userInfo ? 'successful' : 'failed');
-              
-              if (userInfo) {
-                console.log('Getting tokens after silent sign-in');
-                const { accessToken, idToken } = await GoogleSignin.getTokens();
-                if (idToken) {
-                  console.log('Creating Google credential from silent sign-in tokens');
-                  const auth = getAuth();
-                  const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
-                  const userCredential = await signInWithCredential(auth, googleCredential);
-                  set({ user: userCredential.user, hasCheckedAuth: true, isLoading: false, initialized: true });
-                  return true;
-                }
-              }
-            } catch (silentSignInError) {
-              console.log('Silent sign-in failed:', silentSignInError);
-            }
-          }
+        // Ensure Google Sign-In is properly configured
+        configureGoogleSignin();
+        
+        // Check current Firebase auth state
+        const app = getApp();
+        const auth = getAuth(app);
+        const currentUser = auth.currentUser;
+        
+        if (currentUser) {
+          if (DEBUG) console.log('Firebase user already authenticated');
+          set({ user: currentUser });
+          return true;
         }
-      } catch (error) {
-        console.log('Error in session restoration:', error);
+        
+        // Try to refresh authentication
+        return await get().refreshAuthentication();
+      } else {
+        if (DEBUG) console.log('No saved tokens found');
+        return false;
       }
-
-      set({ hasCheckedAuth: true, isLoading: false, initialized: true });
-      return false;
     } catch (error) {
-      console.error('Error in checkAndRestoreSession:', error);
-      set({ error: 'Failed to restore session', hasCheckedAuth: true, isLoading: false, initialized: true });
+      console.error('Error restoring session:', error);
       return false;
+    } finally {
+      set({ hasCheckedAuth: true });
     }
   },
 
@@ -308,29 +271,59 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      // Sign in with Google and get tokens
-      await GoogleSignin.signIn();
+      // Ensure Google Sign-In is configured
+      configureGoogleSignin();
+      
+      // Check if we are already signed in
+      await GoogleSignin.hasPlayServices();
+      
+      // Sign out from GoogleSignin first to ensure a fresh sign in
+      try {
+        await GoogleSignin.signOut();
+        if (DEBUG) console.log('Signed out from Google before sign in');
+      } catch (e) {
+        if (DEBUG) console.log('Error signing out before sign in:', e);
+      }
+      
+      // Get user info and sign in
+      if (DEBUG) console.log('Starting Google Sign In process');
+      const userInfo = await GoogleSignin.signIn();
+      
+      // First verify we have a valid idToken before proceeding
+      if (!userInfo.idToken) {
+        throw new Error('Google Sign In failed - no ID token');
+      }
+      
+      if (DEBUG) console.log('Google Sign In successful, getting tokens');
+      
+      // Get access and ID tokens for Firebase Auth
       const { accessToken, idToken } = await GoogleSignin.getTokens();
       
-      if (!idToken) {
-        throw new Error('No ID token present');
+      // Save tokens for later refresh
+      try {
+        await AsyncStorage.setItem(AUTH_TOKENS_KEY, JSON.stringify({ accessToken, idToken }));
+        if (DEBUG) console.log('Tokens saved to AsyncStorage');
+      } catch (storageError) {
+        console.error('Failed to save tokens:', storageError);
       }
-
-      // Create a Google credential with the token
+      
+      // Create Firebase credential with Google tokens
       const app = getApp();
       const auth = getAuth(app);
       const googleCredential = GoogleAuthProvider.credential(idToken, accessToken);
-
-      // Sign-in the user with the credential
-      console.log('Signing in with Firebase');
-      const userCredential = await signInWithCredential(auth, googleCredential);
-      set({ user: userCredential.user, isLoading: false, initialized: true, hasCheckedAuth: true });
       
-      return;
+      // Sign in to Firebase with credential
+      if (DEBUG) console.log('Signing in to Firebase with Google credential');
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      
+      set({ user: userCredential.user, error: null });
+      if (DEBUG) console.log('Firebase Authentication successful');
+      
     } catch (error: any) {
-      console.error('Google sign in error:', error);
-      set({ error: error.message || 'Failed to sign in with Google', isLoading: false });
-      throw error;
+      console.error('Google Sign In Error:', error);
+      set({ error: error.message || 'Failed to sign in with Google' });
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -338,36 +331,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      // First try to revoke Gmail access (which is now fail-safe)
+      // Try to revoke Gmail access
       try {
+        if (DEBUG) console.log('Attempting to revoke Gmail access');
         await revokeGmailAccess();
-      } catch (error) {
-        // Already logged in the function, continue with sign out
+        if (DEBUG) console.log('Gmail access revoked successfully');
+      } catch (revokeError) {
+        console.error('Failed to revoke Gmail access:', revokeError);
       }
       
-      // Sign out from Firebase first
-      try {
-        const app = getApp();
-        const auth = getAuth(app);
-        await auth.signOut();
-      } catch (firebaseError) {
-        console.error('Firebase sign out error:', firebaseError);
-        // Continue with Google sign out even if Firebase fails
-      }
+      // Sign out from Firebase
+      const app = getApp();
+      const auth = getAuth(app);
       
-      // Finally sign out from Google
+      // Sign out from Google
       try {
+        if (DEBUG) console.log('Signing out from Google');
+        await GoogleSignin.revokeAccess();
         await GoogleSignin.signOut();
+        if (DEBUG) console.log('Google sign out successful');
       } catch (googleError) {
         console.error('Google sign out error:', googleError);
-        // Continue anyway to update the UI state
       }
       
-      set({ user: null, isLoading: false, error: null });
+      // Sign out from Firebase
+      try {
+        if (DEBUG) console.log('Signing out from Firebase');
+        await auth.signOut();
+        if (DEBUG) console.log('Firebase sign out successful');
+      } catch (firebaseError) {
+        console.error('Firebase sign out error:', firebaseError);
+      }
+      
+      // Clear saved tokens
+      try {
+        await AsyncStorage.removeItem(AUTH_TOKENS_KEY);
+        if (DEBUG) console.log('Removed saved tokens from storage');
+      } catch (storageError) {
+        console.error('Failed to remove tokens from storage:', storageError);
+      }
+      
+      // Update state
+      set({ user: null, error: null });
+      
     } catch (error: any) {
-      console.error('Sign out error:', error);
-      // Still set user to null to ensure UI shows logged out state
-      set({ user: null, error: error.message || 'Failed to sign out', isLoading: false });
+      console.error('Sign Out Error:', error);
+      set({ error: error.message || 'Failed to sign out' });
+    } finally {
+      set({ isLoading: false });
     }
   },
 })); 
