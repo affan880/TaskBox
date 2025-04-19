@@ -1,54 +1,79 @@
 import * as React from 'react';
-import { Animated, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { 
+  StyleSheet, 
+  TouchableOpacity, 
+  Text,
+  View 
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'src/theme/theme-context';
-import { SPACING, SHADOWS, BORDER_RADIUS } from '../../../theme/theme';
 
-export type ComposeButtonProps = {
-  composeTranslateY: Animated.AnimatedInterpolation<string | number>;
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+type ComposeButtonProps = {
+  composeTranslateY: Animated.SharedValue<number>;
   onPress: () => void;
 };
 
-export function ComposeButton({ composeTranslateY, onPress }: ComposeButtonProps) {
+export function ComposeButton({ 
+  composeTranslateY, 
+  onPress 
+}: ComposeButtonProps) {
   const { colors } = useTheme();
-  
+
+  const animatedStyle = {
+    transform: [
+      { translateY: composeTranslateY }
+    ]
+  };
+
   return (
-    <Animated.View
+    <AnimatedTouchable
       style={[
-        styles.fabContainer,
+        styles.container,
         {
-          transform: [{ translateY: composeTranslateY }],
-          bottom: Platform.OS === 'ios' ? 20 : 16,
+          backgroundColor: colors.brand?.primary ?? '#6366f1',
         },
+        animatedStyle
       ]}
+      onPress={onPress}
+      activeOpacity={0.8}
     >
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.brand.primary }]}
-        onPress={onPress}
-        accessibilityLabel="Compose new email"
-        accessibilityHint="Double tap to compose a new email"
-      >
+      <View style={styles.innerContainer}>
         <Icon name="edit" size={24} color="#fff" />
-      </TouchableOpacity>
-    </Animated.View>
+      </View>
+    </AnimatedTouchable>
   );
 }
 
-// Add displayName property
-ComposeButton.displayName = 'ComposeButton';
-
 const styles = StyleSheet.create({
-  fabContainer: {
+  container: {
     position: 'absolute',
-    right: SPACING.md,
-    ...SHADOWS.lg,
-    zIndex: 10, // Ensure FAB is above content
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: BORDER_RADIUS.round / 2,
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
-}); 
+  innerContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  }
+});
+
+ComposeButton.displayName = 'ComposeButton'; 

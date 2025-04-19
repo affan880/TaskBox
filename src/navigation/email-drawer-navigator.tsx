@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-nat
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { EmailScreen } from 'src/features/email/email-screen';
 import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
+import { ComposeScreen } from 'src/features/email/compose-screen';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -25,6 +26,7 @@ export type EmailDrawerParamList = {
   Trash: undefined;
   EmailDetail: { email: any };
   ReadEmail: { email: any };
+  Compose: undefined;
 };
 
 const Drawer = createDrawerNavigator<EmailDrawerParamList>();
@@ -212,6 +214,19 @@ export function EmailDrawerNavigator() {
         component={EmailDetailScreen} 
         options={{
           title: 'Email',
+          drawerLabel: () => null,
+          drawerItemStyle: { display: 'none' },
+          headerShown: false,
+          swipeEnabled: false,
+        }}
+      />
+      
+      {/* Compose Screen - Hidden from drawer */}
+      <Drawer.Screen 
+        name="Compose" 
+        component={ComposeScreen} 
+        options={{
+          title: 'Compose',
           drawerLabel: () => null,
           drawerItemStyle: { display: 'none' },
           headerShown: false,

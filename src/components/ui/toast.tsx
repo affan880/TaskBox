@@ -8,10 +8,13 @@ import {
   ViewStyle,
   StyleProp,
   AccessibilityInfo,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
+import { create } from 'zustand';
+import RNToast from 'react-native-toast-message';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -238,7 +241,7 @@ const styles = StyleSheet.create({
 });
 
 // Create a singleton toast manager
-type ToastConfig = {
+export type ToastConfig = {
   message: string;
   type?: ToastType;
   duration?: number;
@@ -307,5 +310,31 @@ export function ToastProvider({ children }: ToastProviderProps) {
         onDismiss={() => setToastConfig({ ...toastConfig, visible: false })}
       />
     </>
+  );
+}
+
+interface ToastStore {
+  showToast: (message: string, type?: ToastType) => void;
+}
+
+export const useToast = create<ToastStore>(() => ({
+  showToast: (message: string, type: ToastType = 'info') => {
+    RNToast.show({
+      type,
+      text1: message,
+      position: 'bottom',
+      visibilityTime: 3000,
+    });
+  },
+}));
+
+export function showToast(message: string | ToastConfig) {
+  const config = typeof message === 'string' ? { message } : message;
+  
+  Alert.alert(
+    config.type?.toUpperCase() || 'INFO',
+    config.message,
+    [{ text: 'OK' }],
+    { cancelable: true }
   );
 } 

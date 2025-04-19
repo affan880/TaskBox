@@ -107,11 +107,26 @@ export function useGmail() {
           // console.log('useGmail: Setting emails (first page)'); // Less important
           setEmails(fetchedEmails);
         } else {
-          // console.log('useGmail: Appending emails to existing list'); // Less important
+          // Subsequent pages (load more)
           setEmails(prev => {
             const existingIds = new Set(prev.map(e => e.id));
-            const newEmails = fetchedEmails.filter(e => !existingIds.has(e.id));
-            return [...prev, ...newEmails];
+            // Filter out duplicates *within* the new batch first
+            const uniqueNewEmails = fetchedEmails.reduce((acc, current) => {
+              if (!acc.some(item => item.id === current.id)) {
+                acc.push(current);
+              }
+              return acc;
+            }, [] as EmailData[]);
+            
+            // Then filter against existing emails
+            const emailsToAdd = uniqueNewEmails.filter(e => !existingIds.has(e.id));
+            
+            if (emailsToAdd.length > 0) {
+              return [...prev, ...emailsToAdd];
+            } else {
+              // Avoid unnecessary state update if no new unique emails were found
+              return prev;
+            }
           });
         }
       } else {
@@ -184,15 +199,17 @@ export function useGmail() {
   /**
    * Sends an email using the Gmail API.
    */
-  const sendEmail = useCallback(async (to: string, subject: string, body: string): Promise<boolean> => {
+  const sendEmail = useCallback(async (
+    to: string, 
+    subject: string, 
+    body: string, 
+    attachments: any[] = []
+  ): Promise<boolean> => {
     setIsLoading(true); // Indicate loading state
     setError(null);
     
     try {
-      // console.log('useGmail: Sending email...'); // Redundant
-      // Pass isHtml = false for now, can be parameterized if needed
-      await gmailApi.sendEmail(to, subject, body, false); 
-      // console.log('useGmail: Email sent successfully'); // Logged by API layer
+      await gmailApi.sendEmail(to, subject, body, attachments); 
       return true;
     } catch (err: any) {
       console.error('[useGmail:Error] Failed sending email:', err);

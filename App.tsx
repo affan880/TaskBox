@@ -9,29 +9,28 @@ import * as React from 'react';
 import { StatusBar, AppState, AppStateStatus } from 'react-native';
 import { AppNavigator } from '@/navigation/app-navigator';
 import { useAuthStore, type AuthState } from '@/store/auth-store';
-import { ToastProvider } from '@/components/ui/toast';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/theme-context';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Toast from 'react-native-toast-message';
 
 // --- Google Sign-In Configuration ---
 // IMPORTANT: Configure Google Sign-In here *before* AuthProvider mounts.
 // This should run once when the module is loaded.
 GoogleSignin.configure({
-  // Replace with your actual Web Client ID from Google Cloud Console
-  webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  // Add all scopes needed for Gmail API access
+  webClientId: process.env.FIREBASE_WEB_CLIENT_ID,
+  iosClientId: process.env.FIREBASE_IOS_CLIENT_ID,
+  offlineAccess: true,
   scopes: [
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.compose',
-    // Add other scopes if necessary (e.g., labels, settings)
+    'profile',
+    'email',
+    'openid'
   ],
-  // offlineAccess: true, // Optional: if you need server-side access using a refresh token
 });
 
 // Patch Error.stack to handle potential issues with the 'err' package
@@ -92,10 +91,9 @@ export default function App() {
       <AuthProvider>
         <SafeAreaProvider>
           <ThemeProvider>
-            <ToastProvider>
-              <StatusBar barStyle="dark-content" />
-              <AppNavigator />
-            </ToastProvider>
+            <StatusBar barStyle="dark-content" />
+            <AppNavigator />
+            <Toast />
           </ThemeProvider>
         </SafeAreaProvider>
       </AuthProvider>

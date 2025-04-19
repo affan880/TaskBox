@@ -58,7 +58,11 @@ target 'TaskBox' do
         config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
         config.build_settings['CODE_SIGN_IDENTITY'] = ''
         config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
-        
+        config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'LEVELDB_PLATFORM_POSIX=1'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'OS_MACOSX=1'
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'gnu++11'
         # Disable specific warnings that are causing issues
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
         config.build_settings['CLANG_WARN_DOCUMENTATION_COMMENTS'] = 'NO'

@@ -1,4 +1,6 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import RNBlobUtil from 'react-native-blob-util';
+import { Platform } from 'react-native';
 
 // Define email data type
 // email.ts
@@ -13,6 +15,20 @@ export type EmailData = {
   body: string;
   isUnread?: boolean;
 };
+
+// Define email attachment type
+export type EmailAttachment = {
+  name: string;
+  type: string;
+  uri: string;
+  size?: number;
+};
+
+import axios from 'axios';
+import { Email } from '../types/email';
+
+// API base URL (replace with your actual API endpoint)
+const BASE_URL = 'https://api.example.com';
 
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -135,6 +151,7 @@ async function makeGmailApiRequest(
       body: body ? JSON.stringify(body) : undefined,
     });
     
+    console.log('response#################', response);
     // Handle token expiration or authorization errors
     if (response.status === 401) {
       // Token expired during use, invalidate cache
@@ -190,6 +207,30 @@ export async function listMessages(maxResults: number = 20, pageToken?: string, 
   
   // Fetches only message IDs and thread IDs, along with nextPageToken
   return makeGmailApiRequest(`/messages?${queryParams.toString()}&fields=messages(id,threadId),nextPageToken,resultSizeEstimate`);
+}
+
+/**
+ * Search for messages matching a query.
+ * @param query The search query string (Gmail search syntax)
+ * @param maxResults Maximum number of messages to return
+ * @param pageToken Optional page token for pagination
+ */
+export async function searchMessages(
+  query: string,
+  maxResults: number = 50, // Default to 50 for search
+  pageToken?: string,
+): Promise<any> { // Consider defining a specific type like ListMessagesResponse
+  const queryParams = new URLSearchParams({
+    q: query,
+    maxResults: maxResults.toString(),
+    fields: 'messages(id,threadId),nextPageToken,resultSizeEstimate', // Match listMessages fields
+  });
+  if (pageToken) {
+    queryParams.append('pageToken', pageToken);
+  }
+
+  console.log(`[gmailApi:Search] Searching messages with query: "${query}"`);
+  return makeGmailApiRequest(`/messages?${queryParams.toString()}`);
 }
 
 /**
@@ -354,49 +395,194 @@ export async function snoozeEmail(messageId: string, snoozeUntil: Date): Promise
 }
 
 /**
- * Send an email
- * @param to Recipient email address
- * @param subject Email subject
- * @param body Email body (plain text or HTML)
- * @param isHtml Whether the body content is HTML
+ * Normalizes a file URI to ensure it's correctly formatted for React Native Blob Util
+ */
+function normalizeFileUri(uri: string): string {
+  // On iOS, convert file URLs to paths for RNBlobUtil
+  if (Platform.OS === 'ios' && uri.startsWith('file://')) {
+    return decodeURIComponent(uri).replace('file://', '');
+  }
+  return uri;
+}
+
+/**
+ * Send email with Gmail API
  */
 export async function sendEmail(
   to: string,
   subject: string,
   body: string,
-  isHtml: boolean = false
-): Promise<any> {
-  console.log(`[gmailApi:Action] Sending email to ${to}`);
+  attachments: EmailAttachment[] = []
+) {
   try {
-    // Get sender dynamically if needed, or default to 'me'
-    const sender = 'me'; // Simpler: assume 'me', can be enhanced if needed
-    const rawMessage = [
-      `From: ${sender}`,
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      throw new Error('Failed to get access token');
+    }
+
+    console.log(`[gmailApi:Email] Sending email to: ${to}`);
+    console.log(`[gmailApi:Email] Subject: ${subject}`);
+    console.log(`[gmailApi:Email] With ${attachments.length} attachments`);
+
+    const fromEmail = await getEmailAddress();
+    
+    // Creating the email content
+    const messageParts = [];
+    
+    // Add email headers
+    const headers = [
+      `From: ${fromEmail}`,
       `To: ${to}`,
       `Subject: ${subject}`,
-      `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=utf-8`,
-      '',
-      body,
-    ].join('\r\n');
-
-    const encodedMessage = encodeBase64Url(rawMessage);
-
-    const response = await makeGmailApiRequest('/messages/send', 'POST', { raw: encodedMessage });
-    console.log(`[gmailApi:Action] Email sent successfully to ${to}`);
-    return response;
+      'MIME-Version: 1.0',
+    ];
+    
+    // If we have attachments, create a multipart message
+    const multipartBoundary = `------MultipartBoundary${Date.now().toString(16)}`;
+    
+    if (attachments.length > 0) {
+      headers.push(`Content-Type: multipart/mixed; boundary="${multipartBoundary}"`);
+      messageParts.push(headers.join('\r\n') + '\r\n\r\n');
+      
+      // Add the body part
+      messageParts.push(
+        `--${multipartBoundary}\r\n` +
+        'Content-Type: text/plain; charset=UTF-8\r\n' +
+        'Content-Transfer-Encoding: 7bit\r\n\r\n' +
+        `${body}\r\n\r\n`
+      );
+      
+      // Add each attachment
+      for (const attachment of attachments) {
+        try {
+          console.log(`[gmailApi:Email] Processing attachment: ${attachment.name} (${attachment.type})`);
+          
+          // Normalize the URI path for file system operations
+          const normalizedUri = normalizeFileUri(attachment.uri);
+          console.log(`[gmailApi:Email] Normalized URI: ${normalizedUri}`);
+          
+          // Check if the file exists
+          const fileExists = await RNBlobUtil.fs.exists(normalizedUri);
+          console.log(`[gmailApi:Email] File exists check: ${fileExists ? 'YES' : 'NO'}`);
+          
+          if (!fileExists) {
+            console.error(`[gmailApi:Email:Error] File does not exist: ${normalizedUri}`);
+            throw new Error(`Attachment file not found: ${attachment.name}`);
+          }
+          
+          try {
+            // Get file stats for logging
+            const stat = await RNBlobUtil.fs.stat(normalizedUri);
+            console.log(`[gmailApi:Email] File stats: size=${stat.size}, lastModified=${stat.lastModified}`);
+          } catch (statsError) {
+            console.warn(`[gmailApi:Email] Could not get file stats: ${statsError}`);
+          }
+          
+          console.log(`[gmailApi:Email] Reading file content...`);
+          
+          // Read the file content with error handling
+          let fileContent;
+          try {
+            fileContent = await RNBlobUtil.fs.readFile(normalizedUri, 'base64');
+          } catch (readError) {
+            console.error(`[gmailApi:Email:Error] Failed to read attachment file:`, readError);
+            throw new Error(`Failed to read attachment file: ${attachment.name}`);
+          }
+          
+          if (!fileContent || fileContent.length === 0) {
+            console.error(`[gmailApi:Email:Error] Empty file content for: ${attachment.name}`);
+            throw new Error(`Empty attachment file: ${attachment.name}`);
+          }
+          
+          console.log(`[gmailApi:Email] File read successfully, size: ${fileContent.length} bytes`);
+          
+          // Per Gmail API documentation, we need to ensure proper MIME type and encoding
+          const contentType = attachment.type || 'application/octet-stream';
+          
+          // Add attachment part with proper Content-Disposition and Content-Transfer-Encoding
+          messageParts.push(
+            `--${multipartBoundary}\r\n` +
+            `Content-Type: ${contentType}; name="${attachment.name}"\r\n` +
+            'Content-Transfer-Encoding: base64\r\n' +
+            `Content-Disposition: attachment; filename="${attachment.name}"\r\n\r\n` +
+            `${chunkString(fileContent, 76).join('\r\n')}\r\n\r\n`
+          );
+          
+          console.log(`[gmailApi:Email] Attachment part added successfully for: ${attachment.name}`);
+        } catch (attachmentError) {
+          console.error(`[gmailApi:Email:Error] Error processing attachment ${attachment.name}:`, attachmentError);
+          // Continue with other attachments instead of failing the whole email
+        }
+      }
+      
+      // Close the multipart message with proper boundary termination
+      messageParts.push(`--${multipartBoundary}--`);
+    } else {
+      // Simple email without attachments
+      headers.push('Content-Type: text/plain; charset=UTF-8');
+      messageParts.push(headers.join('\r\n') + '\r\n\r\n' + body);
+    }
+    
+    // Join all parts to create the raw message
+    const rawMessage = messageParts.join('');
+    
+    // URL-safe base64 encode the message
+    console.log(`[gmailApi:Email] Encoding email message...`);
+    const encodedMessage = encodeBase64UrlForRN(rawMessage);
+    console.log(`[gmailApi:Email] Email encoded, sending to Gmail API...`);
+    
+    // Using the appropriate Gmail API endpoint for sending messages
+    const response = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ 
+          raw: encodedMessage 
+        }),
+      }
+    );
+    
+    // Check for response issues
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[gmailApi:Email:Error] Gmail API error response:', errorText);
+      throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
+    }
+    
+    console.log(`[gmailApi:Email] Email sent successfully!`);
+    const responseData = await response.json();
+    return responseData;
   } catch (error) {
-    console.error(`[gmailApi:Action:Error] Failed to send email to ${to}:`, error);
+    console.error('[gmailApi:Email:Error] Error sending email:', error);
     throw error;
   }
 }
 
+// Helper function to chunk a string into specified length parts
+function chunkString(str: string, length: number): string[] {
+  const chunks = [];
+  for (let i = 0, charsLength = str.length; i < charsLength; i += length) {
+    chunks.push(str.substring(i, i + length));
+  }
+  return chunks;
+}
+
 /**
- * Helper to base64url encode a string
+ * URL-safe base64 encode a string for React Native (no Buffer dependency)
  */
-function encodeBase64Url(str: string): string {
-  let base64 = Buffer.from(str).toString('base64');
-  base64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  return base64;
+function encodeBase64UrlForRN(input: string): string {
+  // Standard base64 encoding
+  let encoded = btoa(input);
+  
+  // Make URL safe
+  encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  return encoded;
 }
 
 /**
@@ -507,5 +693,28 @@ export async function getAttachment(messageId: string, attachmentId: string): Pr
   } catch (error) {
     console.error(`[gmailApi] Error fetching attachment ${attachmentId} for message ${messageId}:`, error);
     return null;
+  }
+}
+
+export async function fetchEmails(): Promise<Email[]> {
+  try {
+    const response = await axios.get(`${BASE_URL}/emails`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching emails:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the user's email address from Google Sign-in
+ */
+async function getEmailAddress(): Promise<string> {
+  try {
+    const userInfo = await GoogleSignin.getCurrentUser();
+    return userInfo?.user?.email || 'me';
+  } catch (error) {
+    console.error('Error getting email address:', error);
+    return 'me'; // Fallback to 'me' which is accepted by Gmail API
   }
 }

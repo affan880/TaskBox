@@ -10,12 +10,14 @@ type TaskAttachmentsViewerProps = {
   attachments: TaskAttachment[];
   title?: string;
   maxInitialItems?: number;
+  onViewAttachment?: (attachment: TaskAttachment) => void;
 };
 
 export function TaskAttachmentsViewer({ 
   attachments, 
   title = 'Attachments', 
-  maxInitialItems = 3 
+  maxInitialItems = 3,
+  onViewAttachment
 }: TaskAttachmentsViewerProps) {
   const { colors, isDark } = useTheme();
   const [showAll, setShowAll] = useState(false);
@@ -74,7 +76,8 @@ export function TaskAttachmentsViewer({
         {displayedAttachments.map((attachment) => (
           <TaskAttachmentDownloader 
             key={attachment.id} 
-            attachment={attachment} 
+            attachment={attachment}
+            onView={onViewAttachment}
           />
         ))}
       </View>

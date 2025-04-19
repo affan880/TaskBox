@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { TaskData, TaskPriority } from '@/types/task';
+import { TaskData, TaskPriority, TaskAttachment } from '@/types/task';
 import { format } from 'date-fns';
 import { TaskAttachmentsViewer } from './task-attachments-viewer';
 
@@ -24,6 +24,7 @@ type TaskDetailModalProps = {
   onEdit: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onToggleCompletion: (taskId: string) => void;
+  onViewAttachment?: (attachment: TaskAttachment) => void;
 };
 
 const { width, height } = Dimensions.get('window');
@@ -34,7 +35,8 @@ export function TaskDetailModal({
   task,
   onEdit,
   onDelete,
-  onToggleCompletion
+  onToggleCompletion,
+  onViewAttachment
 }: TaskDetailModalProps) {
   const { colors, isDark } = useTheme();
   
@@ -128,6 +130,13 @@ export function TaskDetailModal({
       ]
     );
   };
+
+  // Handle viewing attachment
+  const handleViewAttachment = (attachment: TaskAttachment) => {
+    if (onViewAttachment) {
+      onViewAttachment(attachment);
+    }
+  };
   
   return (
     <Modal
@@ -217,135 +226,114 @@ export function TaskDetailModal({
                   </View>
                   <Text 
                     style={[
-                      styles.statusText,
+                      styles.statusText, 
                       { 
                         color: task.isCompleted
                           ? colors.status.success
-                          : colors.text.secondary
+                          : colors.text.primary 
                       }
                     ]}
                   >
-                    {task.isCompleted ? 'Completed' : 'Mark as Complete'}
+                    {task.isCompleted ? 'Completed' : 'Mark as Completed'}
                   </Text>
                 </TouchableOpacity>
                 
                 {/* Task title */}
-                <Text 
-                  style={[
-                    styles.taskTitle,
-                    { color: colors.text.primary }
-                  ]}
-                >
+                <Text style={[styles.taskTitle, { color: colors.text.primary }]}>
                   {task.title}
                 </Text>
                 
                 {/* Task metadata */}
                 <View style={styles.metadataContainer}>
-                  {/* Priority */}
+                  {/* Creation date */}
                   <View style={styles.metadataItem}>
-                    <Icon
-                      name="flag"
-                      size={16}
-                      color={getPriorityColor(task.priority)}
-                      style={styles.metadataIcon}
+                    <Icon 
+                      name="today" 
+                      size={16} 
+                      color={colors.text.tertiary}
+                      style={styles.metadataIcon} 
+                    />
+                    <Text style={[styles.metadataText, { color: colors.text.tertiary }]}>
+                      Created: {formatDate(task.createdAt)}
+                    </Text>
+                  </View>
+                  
+                  {/* Due date */}
+                  <View style={styles.metadataItem}>
+                    <Icon 
+                      name="event" 
+                      size={16} 
+                      color={colors.text.tertiary}
+                      style={styles.metadataIcon} 
                     />
                     <Text 
                       style={[
-                        styles.metadataText,
+                        styles.metadataText, 
                         { 
-                          color: getPriorityColor(task.priority),
-                          fontWeight: '500'
+                          color: task.dueDate ? colors.text.tertiary : colors.text.quaternary 
                         }
+                      ]}
+                    >
+                      Due: {formatDueDate(task.dueDate)}
+                    </Text>
+                  </View>
+                  
+                  {/* Priority */}
+                  <View style={styles.metadataItem}>
+                    <Icon 
+                      name="flag" 
+                      size={16} 
+                      color={getPriorityColor(task.priority)}
+                      style={styles.metadataIcon} 
+                    />
+                    <Text 
+                      style={[
+                        styles.metadataText, 
+                        { color: getPriorityColor(task.priority) }
                       ]}
                     >
                       {getPriorityLabel(task.priority)}
                     </Text>
                   </View>
-                  
-                  {/* Due date */}
-                  {task.dueDate && (
-                    <View style={styles.metadataItem}>
-                      <Icon
-                        name="event"
-                        size={16}
-                        color={colors.text.secondary}
-                        style={styles.metadataIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.metadataText,
-                          { color: colors.text.secondary }
-                        ]}
-                      >
-                        Due: {formatDueDate(task.dueDate)}
-                      </Text>
-                    </View>
-                  )}
-                  
-                  {/* Created date */}
-                  <View style={styles.metadataItem}>
-                    <Icon
-                      name="access-time"
-                      size={16}
-                      color={colors.text.tertiary}
-                      style={styles.metadataIcon}
-                    />
-                    <Text
-                      style={[
-                        styles.metadataText,
-                        { color: colors.text.tertiary }
-                      ]}
-                    >
-                      Created: {formatDate(task.createdAt)}
-                    </Text>
-                  </View>
                 </View>
                 
-                {/* Description section */}
+                {/* Description */}
                 {task.description && (
                   <View 
                     style={[
-                      styles.descriptionContainer,
+                      styles.descriptionContainer, 
                       { backgroundColor: 'rgba(0,0,0,0.02)' }
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.descriptionText,
-                        { color: colors.text.primary }
-                      ]}
-                    >
+                    <Text style={[styles.descriptionText, { color: colors.text.primary }]}>
                       {task.description}
                     </Text>
                   </View>
                 )}
                 
-                {/* Tags section */}
+                {/* Tags */}
                 {task.tags && task.tags.length > 0 && (
                   <View style={styles.tagsContainer}>
                     <Text 
-                      style={[
-                        styles.sectionTitle,
-                        { color: colors.text.secondary }
-                      ]}
+                      style={[styles.sectionTitle, { color: colors.text.primary }]}
                     >
                       Tags
                     </Text>
                     <View style={styles.tagsList}>
                       {task.tags.map((tag, index) => (
                         <View 
-                          key={index}
+                          key={`${tag}-${index}`}
                           style={[
-                            styles.tag,
+                            styles.tag, 
                             { 
-                              backgroundColor: 'rgba(120, 139, 255, 0.1)',
-                              borderColor: 'rgba(120, 139, 255, 0.3)'
+                              backgroundColor: `${colors.brand.primary}10`, 
+                              borderColor: `${colors.brand.primary}30`
                             }
                           ]}
                         >
                           <Text 
                             style={[
-                              styles.tagText,
+                              styles.tagText, 
                               { color: colors.brand.primary }
                             ]}
                           >
@@ -363,6 +351,7 @@ export function TaskDetailModal({
                     attachments={task.attachments}
                     title="Attachments"
                     maxInitialItems={10}
+                    onViewAttachment={handleViewAttachment}
                   />
                 )}
               </ScrollView>

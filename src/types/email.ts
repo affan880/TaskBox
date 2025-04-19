@@ -228,3 +228,53 @@ export type GmailTheme = {
       icon: string;
     };
 }; 
+/**
+ * Email type definitions
+ */
+
+export type EmailPriority = 'high' | 'medium' | 'low';
+
+export type EmailAttachment = {
+  id: string;
+  name: string;
+  uri: string;
+  type: string;
+  size: number;
+  createdAt: string;
+  downloadUrl?: string;
+  isUploading?: boolean;
+};
+
+export type Email = {
+  id: string;
+  subject: string;
+  body: string;
+  sender: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  recipients: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
+  ccRecipients?: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
+  bccRecipients?: {
+    id: string;
+    name: string;
+    email: string;
+  }[];
+  attachments: EmailAttachment[];
+  isRead: boolean;
+  isStarred: boolean;
+  priority: EmailPriority;
+  labels: string[];
+  createdAt: string;
+  sentAt?: string;
+  receivedAt?: string;
+};

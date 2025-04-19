@@ -289,15 +289,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (DEBUG) console.log('Starting Google Sign In process');
       const userInfo = await GoogleSignin.signIn();
       
-      // First verify we have a valid idToken before proceeding
-      if (!userInfo.idToken) {
-        throw new Error('Google Sign In failed - no ID token');
-      }
-      
-      if (DEBUG) console.log('Google Sign In successful, getting tokens');
-      
       // Get access and ID tokens for Firebase Auth
       const { accessToken, idToken } = await GoogleSignin.getTokens();
+      
+      if (!idToken) {
+        throw new Error('Google Sign In failed - no ID token. Please check your Google Sign-In configuration.');
+      }
       
       // Save tokens for later refresh
       try {
@@ -321,7 +318,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
     } catch (error: any) {
       console.error('Google Sign In Error:', error);
-      set({ error: error.message || 'Failed to sign in with Google' });
+      let errorMessage = 'Failed to sign in with Google';
+      
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        errorMessage = 'Sign in was cancelled';
+      } else if (error.code === 'SIGN_IN_REQUIRED') {
+        errorMessage = 'Sign in is required';
+      } else if (error.code === 'IN_PROGRESS') {
+        errorMessage = 'Sign in is already in progress';
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        errorMessage = 'Google Play Services are not available or outdated';
+      } else if (error.message?.includes('no ID token')) {
+        errorMessage = 'Google Sign-In configuration error. Please check your setup.';
+      }
+      
+      set({ error: errorMessage });
     } finally {
       set({ isLoading: false });
     }
