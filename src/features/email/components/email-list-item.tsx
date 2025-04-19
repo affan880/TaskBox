@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, memo } from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import { StyleSheet, View, Text, Pressable, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
 import Animated, { 
   useSharedValue, 
@@ -12,219 +12,226 @@ import Animated, {
 import { EmailData } from 'src/types/email';
 import { useTheme } from 'src/theme/theme-context';
 import { PaperclipIcon } from 'src/components/icons';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { SPACING, TYPOGRAPHY, BORDER_RADIUS } from '../../../theme/theme';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type EmailListItemProps = {
   email: EmailData;
-  onPress: (emailId: string) => void;
-  onLongPress?: (emailId: string) => void;
-  isSelected?: boolean;
-  isSelectMode?: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  isSelected: boolean;
+  onToggleRead: (emailId: string, isUnread: boolean) => void;
 };
 
-export const EmailListItem = memo(({ email, onPress, onLongPress, isSelected = false, isSelectMode = false }: EmailListItemProps) => {
-  const { colors, isDark } = useTheme();
-  const pressed = useSharedValue(0);
-  const scale = useSharedValue(1);
+export function EmailListItem({ 
+  email, 
+  onPress, 
+  onLongPress,
+  isSelected,
+  onToggleRead
+}: EmailListItemProps) {
+  const { colors } = useTheme();
   
-  const handlePress = useCallback(() => {
-    onPress(email.id);
-  }, [email.id, onPress]);
-  
-  const handleLongPress = useCallback(() => {
-    if (onLongPress) {
-      onLongPress(email.id);
-    }
-  }, [email.id, onLongPress]);
-  
-  const senderName = useMemo(() => {
-    if (!email || !email.from) {
-      return 'Unknown Sender';
-    }
-    
-    try {
-      const match = email.from.match(/^"?([^"<]+)"?\s*(?:<[^>]*>)?$/);
-      return match ? match[1].trim() : email.from || 'Unknown Sender';
-    } catch (e) {
-      console.warn('Error parsing sender name:', e);
-      return email.from || 'Unknown Sender';
-    }
-  }, [email?.from]);
-  
+  const handleToggleRead = useCallback(() => {
+    onToggleRead(email.id, !email.isUnread);
+  }, [email.id, email.isUnread, onToggleRead]);
+
+  // Format date to show in a more readable format
   const formattedDate = useMemo(() => {
-    if (!email || !email.date) {
-      return '';
+    const emailDate = new Date(email.date);
+    const today = new Date();
+    
+    // Same day - show time
+    if (emailDate.toDateString() === today.toDateString()) {
+      return format(emailDate, 'h:mm a');
     }
     
-    try {
-      const date = new Date(email.date);
-      return format(date, 'MMM d');
-    } catch (e) {
-      console.warn('Error formatting date:', e);
-      return email.date || '';
+    // This week - show day name
+    const daysDiff = Math.floor((today.getTime() - emailDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff < 7) {
+      return format(emailDate, 'EEE');
     }
-  }, [email?.date]);
-  
-  // Create animated styles for 3D tilt effect
-  const animatedCardStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: scale.value },
-        { translateY: interpolate(pressed.value, [0, 1], [0, -2], Extrapolate.CLAMP) }
-      ],
-      shadowOpacity: interpolate(pressed.value, [0, 1], [0.1, 0.15], Extrapolate.CLAMP),
-      shadowRadius: interpolate(pressed.value, [0, 1], [8, 12], Extrapolate.CLAMP),
-      elevation: interpolate(pressed.value, [0, 1], [4, 8], Extrapolate.CLAMP),
-    };
-  });
-  
-  // Get background color based on read/unread status and theme
-  const getBgColor = () => {
-    if (isSelected) {
-      return colors.surface.highlight;
+    
+    // This year - show date
+    if (emailDate.getFullYear() === today.getFullYear()) {
+      return format(emailDate, 'MMM d');
     }
-    if (email.isUnread) {
-      return isDark ? colors.surface.primary : '#FFFFFF';
-    }
-    return isDark ? colors.surface.secondary : '#F9F9F9';
-  };
+    
+    // Other years - show year
+    return format(emailDate, 'MM/dd/yy');
+  }, [email.date]);
   
   return (
-    <View style={styles.outerContainer}>
-      <AnimatedPressable
-        style={[
-          styles.container,
-          {
-            backgroundColor: getBgColor(),
-            borderColor: isDark ? colors.border.light : 'rgba(0,0,0,0.05)',
-            shadowColor: isDark ? '#000000' : 'rgba(0,0,0,0.3)',
-          },
-          animatedCardStyle,
-        ]}
-        onPress={handlePress}
-        onLongPress={handleLongPress}
-        onPressIn={() => {
-          pressed.value = 1;
-          scale.value = withSpring(0.98, { damping: 10, stiffness: 400 });
-        }}
-        onPressOut={() => {
-          pressed.value = 0;
-          scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`Email from ${senderName}, subject: ${email.subject}`}
-        accessibilityState={{ selected: isSelected }}
-      >
+    <TouchableOpacity
+      style={[
+        styles.container,
+        { 
+          backgroundColor: email.isUnread 
+            ? colors.background?.primary || '#ffffff' 
+            : colors.surface?.primary || '#fafafa',
+        },
+        isSelected && { 
+          backgroundColor: colors.surface?.highlight || 'rgba(100, 100, 255, 0.05)'
+        }
+      ]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={200}
+      activeOpacity={0.7}
+    >
+      <View style={styles.leftContent}>
+        {isSelected ? (
+          <View style={[styles.checkbox, { backgroundColor: colors.brand?.primary || '#6366f1' }]}>
+            <Icon name="check" size={16} color="#ffffff" />
+          </View>
+        ) : (
+          <TouchableOpacity 
+            onPress={handleToggleRead}
+            style={[styles.unreadIndicator, { 
+              backgroundColor: email.isUnread ? colors.brand?.primary || '#6366f1' : 'transparent',
+              borderWidth: !email.isUnread ? 1 : 0,
+              borderColor: colors.border?.medium || '#d1d5db',
+            }]} 
+          />
+        )}
+        
         <View style={styles.content}>
           <View style={styles.header}>
             <Text 
-              numberOfLines={1} 
               style={[
-                styles.sender, 
-                { color: colors.text.primary },
-                email.isUnread && styles.unread
+                styles.sender,
+                { color: colors.text?.primary || '#111827' },
+                email.isUnread ? styles.boldText : styles.regularText
+              ]}
+              numberOfLines={1}
+            >
+              {email.from}
+            </Text>
+            <Text 
+              style={[
+                styles.date,
+                { color: colors.text?.tertiary || '#6b7280' },
+                email.isUnread && styles.boldText
               ]}
             >
-              {senderName}
-            </Text>
-            <Text style={[styles.date, { color: colors.text.tertiary }]}>
               {formattedDate}
             </Text>
           </View>
           
           <Text 
-            numberOfLines={1} 
             style={[
-              styles.subject, 
-              { color: colors.text.primary },
-              email.isUnread && styles.unread
+              styles.subject,
+              { color: colors.text?.primary || '#111827' },
+              email.isUnread ? styles.boldText : styles.regularText
             ]}
+            numberOfLines={1}
           >
-            {email.subject}
+            {email.subject || '(No subject)'}
           </Text>
           
-          <Text 
-            numberOfLines={2} 
-            style={[styles.preview, { color: colors.text.secondary }]}
-          >
-            {email.snippet}
-          </Text>
-          
-          {email.hasAttachments && (
-            <View style={[styles.attachmentIndicator, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-              <PaperclipIcon
-                size={16}
-                color={isDark ? colors.text.secondary : colors.text.tertiary}
-                style={styles.attachIcon}
+          <View style={styles.snippetContainer}>
+            <Text 
+              style={[
+                styles.snippet,
+                { color: colors.text?.secondary || '#4b5563' }
+              ]}
+              numberOfLines={2}
+            >
+              {email.snippet}
+            </Text>
+            
+            {email.hasAttachments && (
+              <Icon 
+                name="attachment" 
+                size={18} 
+                color={colors.text?.secondary || '#4b5563'} 
+                style={styles.attachmentIcon}
               />
-              <Text style={[styles.attachmentText, { color: colors.text.secondary }]}>
-                Attachments
-              </Text>
-            </View>
-          )}
+            )}
+          </View>
         </View>
-      </AnimatedPressable>
-    </View>
+      </View>
+    </TouchableOpacity>
   );
-});
+}
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
   container: {
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
-    shadowOpacity: 0.1,
-    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  leftContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  unreadIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+    marginTop: 6,
   },
   content: {
-    padding: 16,
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   sender: {
-    fontSize: 16,
+    fontSize: 15,
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
-  date: {
-    fontSize: 14,
-  },
-  subject: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  preview: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  unread: {
+  boldText: {
     fontWeight: '600',
   },
-  attachmentIndicator: {
+  regularText: {
+    fontWeight: '400',
+  },
+  date: {
+    fontSize: 13,
+  },
+  subject: {
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  snippetContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 12,
   },
-  attachmentText: {
-    fontSize: 12,
-    marginLeft: 4,
+  snippet: {
+    fontSize: 14,
+    opacity: 0.8,
+    flex: 1,
+    lineHeight: 20,
   },
-  attachIcon: {
-    marginRight: 4,
+  attachmentIcon: {
+    marginLeft: 8,
   },
 }); 

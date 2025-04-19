@@ -6,35 +6,22 @@ import { useTheme } from '@/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import RNBlobUtil from 'react-native-blob-util';
 import FileViewer from 'react-native-file-viewer';
+import { formatFileSize, getFileIcon, openFile } from './task-attachment-utils';
 
 type TaskAttachmentDownloaderProps = {
   attachment: TaskAttachment;
   showDownloadButton?: boolean;
+  onView?: (attachment: TaskAttachment) => void;
 };
 
-export function TaskAttachmentDownloader({ attachment, showDownloadButton = true }: TaskAttachmentDownloaderProps) {
+export function TaskAttachmentDownloader({ 
+  attachment, 
+  showDownloadButton = true,
+  onView
+}: TaskAttachmentDownloaderProps) {
   const { colors, isDark } = useTheme();
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [isDownloaded, setIsDownloaded] = useState(false);
-
-  // Helper function to format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Get appropriate icon for file type
-  const getFileIcon = (type: string): string => {
-    if (type.includes('image')) return 'image';
-    if (type.includes('pdf')) return 'picture-as-pdf';
-    if (type.includes('word') || type.includes('document')) return 'description';
-    if (type.includes('excel') || type.includes('sheet')) return 'table-chart';
-    if (type.includes('presentation') || type.includes('powerpoint')) return 'slideshow';
-    if (type.includes('text')) return 'text-snippet';
-    if (type.includes('zip') || type.includes('compressed')) return 'archive';
-    return 'insert-drive-file';
-  };
 
   // Handle downloading the attachment
   const handleDownload = useCallback(async () => {
@@ -66,7 +53,7 @@ export function TaskAttachmentDownloader({ attachment, showDownloadButton = true
           `"${filename}" is already downloaded. Do you want to open it?`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open', onPress: () => openFile(filePath) }
+            { text: 'Open', onPress: () => openFile(filePath, attachment.type) }
           ]
         );
         return;
@@ -75,236 +62,213 @@ export function TaskAttachmentDownloader({ attachment, showDownloadButton = true
       // Start downloading
       setDownloadProgress(0);
       
-      // For file URLs, download from network
-      if (attachment.uri.startsWith('http')) {
-        // Download with progress tracking
-        RNBlobUtil.config({
-          fileCache: true,
-          path: filePath,
-          addAndroidDownloads: Platform.OS === 'android' ? {
-            useDownloadManager: true,
-            notification: true,
-            title: filename,
-            description: 'Downloading attachment',
-            mime: attachment.type,
-            mediaScannable: true,
-          } : undefined,
-        })
-          .fetch('GET', attachment.uri)
-          .progress((received, total) => {
-            const percentage = Math.floor((Number(received) / Number(total)) * 100);
-            setDownloadProgress(percentage);
-          })
-          .then(res => {
-            setDownloadProgress(100);
-            setIsDownloaded(true);
-            
-            Alert.alert(
-              'Download Complete',
-              `Attachment "${filename}" downloaded. Open it?`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Open', onPress: () => openFile(res.path()) }
-              ]
-            );
-          })
-          .catch(error => {
-            console.error('Download error:', error);
-            setDownloadProgress(null);
-            Alert.alert('Download Failed', 'Could not download the attachment.');
-          });
-      } else {
-        // For local URIs, copy the file
-        try {
-          // Copy file with progress simulation
-          setDownloadProgress(10);
-          await RNBlobUtil.fs.cp(attachment.uri, filePath);
-          setDownloadProgress(100);
-          setIsDownloaded(true);
-          
-          Alert.alert(
-            'Download Complete',
-            `Attachment "${filename}" downloaded. Open it?`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open', onPress: () => openFile(filePath) }
-            ]
-          );
-        } catch (error) {
-          console.error('File copy error:', error);
-          setDownloadProgress(null);
-          Alert.alert('Download Failed', 'Could not copy the attachment.');
-        }
+      // Download from the attachment's download URL
+      if (!attachment.downloadUrl) {
+        Alert.alert('Error', 'Download URL not available');
+        setDownloadProgress(null);
+        return;
       }
+      
+      const task = RNBlobUtil.config({
+        path: filePath,
+        fileCache: true,
+        addAndroidDownloads: Platform.OS === 'android' ? {
+          useDownloadManager: true,
+          notification: true,
+          title: filename,
+          description: 'Downloading file',
+          mime: attachment.type,
+          mediaScannable: true,
+        } : undefined,
+      }).fetch('GET', attachment.downloadUrl);
+      
+      task.progress({ interval: 250 }, (received, total) => {
+        setDownloadProgress(Math.round((received / total) * 100));
+      });
+      
+      const res = await task;
+      
+      // Get path to the downloaded file
+      const downloadedPath = res.path();
+      
+      setDownloadProgress(100);
+      setIsDownloaded(true);
+      
+      // Offer to open the file
+      Alert.alert(
+        'Download Complete',
+        `"${filename}" has been downloaded. Do you want to open it?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open', onPress: () => openFile(downloadedPath, attachment.type) }
+        ]
+      );
     } catch (error) {
-      console.error('Download setup error:', error);
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download the file');
       setDownloadProgress(null);
-      Alert.alert('Error', 'Failed to prepare download.');
     }
   }, [attachment, downloadProgress]);
-
-  // Open file with the default viewer
-  const openFile = useCallback((filePath: string) => {
-    FileViewer.open(filePath, { showOpenWithDialog: true })
-      .catch(error => {
-        console.error('Error opening file:', error);
-        Alert.alert('Error', 'Could not open the file. You may need a specific app to view this file type.');
-      });
-  }, []);
-
-  // Render download button or progress indicator
-  const renderDownloadStatus = () => {
-    if (downloadProgress === null) {
-      // Not downloading yet
-      return (
-        <TouchableOpacity
-          style={[
-            styles.downloadButton,
-            { backgroundColor: colors.brand.primary }
-          ]}
-          onPress={handleDownload}
-          disabled={!showDownloadButton}
-        >
-          <Icon name="file-download" size={20} color="#FFFFFF" />
-          <Text style={styles.downloadText}>Download</Text>
-        </TouchableOpacity>
-      );
-    } else if (downloadProgress < 100) {
-      // In progress
-      return (
-        <View style={styles.progressContainer}>
-          <View 
-            style={[
-              styles.progressBar, 
-              { 
-                backgroundColor: colors.brand.primary,
-                width: `${downloadProgress}%` 
-              }
-            ]} 
-          />
-          <Text style={styles.progressText}>{downloadProgress}%</Text>
-        </View>
-      );
-    } else {
-      // Downloaded
-      return (
-        <View style={[styles.downloadedIndicator, { backgroundColor: colors.status.success }]}>
-          <Icon name="check" size={16} color="#FFFFFF" />
-          <Text style={styles.downloadedText}>Downloaded</Text>
-        </View>
-      );
+  
+  // Handle opening the attachment
+  const handleOpen = useCallback(async () => {
+    if (onView) {
+      onView(attachment);
+      return;
     }
-  };
-
+    
+    try {
+      // If already downloaded
+      if (isDownloaded) {
+        const targetDir = Platform.OS === 'ios' 
+          ? `${RNBlobUtil.fs.dirs.DocumentDir}/TaskBox/Attachments`
+          : `${RNBlobUtil.fs.dirs.DownloadDir}/TaskBox`;
+        const sanitizedFilename = attachment.name.replace(/[\/\\?%*:|"<>]/g, '_');
+        const filePath = `${targetDir}/${sanitizedFilename}`;
+        
+        const fileExists = await RNBlobUtil.fs.exists(filePath);
+        if (fileExists) {
+          await openFile(filePath, attachment.type);
+          return;
+        }
+      }
+      
+      // If has a local URI
+      if (attachment.uri) {
+        await openFile(attachment.uri, attachment.type);
+        return;
+      }
+      
+      // Needs to be downloaded
+      if (attachment.downloadUrl) {
+        handleDownload();
+      } else {
+        Alert.alert('Error', 'File cannot be opened');
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      Alert.alert('Error', 'Failed to open the file');
+    }
+  }, [attachment, isDownloaded, handleDownload, onView]);
+  
   return (
     <View style={styles.container}>
-      <View style={styles.fileInfo}>
-        <View style={styles.iconContainer}>
-          <Icon 
-            name={getFileIcon(attachment.type)} 
-            size={28} 
-            color={colors.brand.primary} 
-          />
+      <TouchableOpacity
+        style={styles.fileInfo}
+        onPress={handleOpen}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+          <Icon name={getFileIcon(attachment.type)} size={20} color={colors.brand.primary} />
         </View>
-        <View style={styles.fileDetails}>
-          <Text 
-            style={[styles.fileName, { color: colors.text.primary }]}
-            numberOfLines={1}
-          >
+        
+        <View style={styles.detailsContainer}>
+          <Text style={[styles.fileName, { color: colors.text.primary }]} numberOfLines={1}>
             {attachment.name}
           </Text>
           <Text style={[styles.fileSize, { color: colors.text.tertiary }]}>
             {formatFileSize(attachment.size)}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       
-      {renderDownloadStatus()}
+      {showDownloadButton && attachment.downloadUrl && !isDownloaded && downloadProgress === null && (
+        <TouchableOpacity
+          style={[styles.downloadButton, { backgroundColor: colors.brand.primary }]}
+          onPress={handleDownload}
+        >
+          <Icon name="download" size={16} color="#fff" />
+        </TouchableOpacity>
+      )}
+      
+      {downloadProgress !== null && downloadProgress < 100 && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressIndicator,
+                { 
+                  width: `${downloadProgress}%`,
+                  backgroundColor: colors.brand.primary
+                }
+              ]} 
+            />
+          </View>
+          <Text style={[styles.progressText, { color: colors.text.secondary }]}>
+            {downloadProgress}%
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f1f5ff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(120, 139, 255, 0.2)',
     marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   fileInfo: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 12,
   },
   iconContainer: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
-  fileDetails: {
+  detailsContainer: {
     flex: 1,
   },
   fileName: {
-    fontWeight: '500',
     fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   fileSize: {
     fontSize: 12,
-    marginTop: 2,
   },
   downloadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 32,
+    height: 32,
     borderRadius: 16,
-  },
-  downloadText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   progressContainer: {
-    width: 100,
-    height: 24,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
+    padding: 12,
+    paddingTop: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderRadius: 2,
+    flex: 1,
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  progressIndicator: {
     position: 'absolute',
     left: 0,
     top: 0,
-    height: '100%',
+    bottom: 0,
+    borderRadius: 2,
   },
   progressText: {
-    position: 'absolute',
-    width: '100%',
-    textAlign: 'center',
-    color: '#000',
     fontSize: 12,
-    lineHeight: 24,
+    width: 36,
+    textAlign: 'right',
   },
-  downloadedIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  downloadedText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
-  }
 }); 

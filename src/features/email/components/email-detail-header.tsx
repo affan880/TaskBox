@@ -1,105 +1,249 @@
 // src/screens/email/components/email-detail-header.tsx
-import * as React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTheme } from 'src/theme/theme-context';
+import { SPACING, TYPOGRAPHY } from '../../../theme/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type EmailDetailHeaderProps = {
-  gmailTheme: any; // Consider defining a stricter type for the theme
+  gmailTheme: any;
   isActionLoading: boolean;
   onGoBack: () => void;
-  // Add other action handlers as needed (archive, delete, etc.)
+  onMarkAsRead?: () => void;
+  onMarkAsUnread?: () => void;
+  onArchive?: () => void;
+  onDelete?: () => void;
+  onReportSpam?: () => void;
+  onMoveTo?: () => void;
+  onAddLabel?: () => void;
+  onSnooze?: () => void;
+  onPrint?: () => void;
+  onForward?: () => void;
+  onReply?: () => void;
+  onReplyAll?: () => void;
+  isUnread: boolean;
 };
 
 export function EmailDetailHeader({
   gmailTheme,
   isActionLoading,
   onGoBack,
-}: EmailDetailHeaderProps): React.ReactElement {
-  // Rule: Functional Component
+  onMarkAsRead,
+  onMarkAsUnread,
+  onArchive,
+  onDelete,
+  onReportSpam,
+  onMoveTo,
+  onAddLabel,
+  onSnooze,
+  onPrint,
+  onForward,
+  onReply,
+  onReplyAll,
+  isUnread,
+}: EmailDetailHeaderProps) {
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const handleMorePress = () => {
+    setShowMoreMenu(true);
+  };
+
+  const handleAction = (action?: () => void) => {
+  };
+
   return (
-    <View
-      style={[
-        styles.gmailHeader,
-        {
-          backgroundColor: gmailTheme.surface,
-          borderBottomColor: gmailTheme.border,
-        },
-      ]}
-    >
+    <View style={[styles.header, { backgroundColor: colors.background?.primary }]}>
       <View style={styles.headerContent}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={onGoBack}
           disabled={isActionLoading}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Icon name="arrow-back" size={24} color={gmailTheme.text.secondary} />
+          <Icon name="arrow-back" size={24} color={gmailTheme.text.primary} />
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
-          {/* TODO: Implement action handlers */}
           <TouchableOpacity
-            style={styles.headerIconButton}
+            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
+            onPress={onArchive}
             disabled={isActionLoading}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="archive" size={22} color={gmailTheme.text.secondary} />
+            <Icon name="archive" size={24} color={gmailTheme.text.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.headerIconButton}
+            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
+            onPress={onDelete}
             disabled={isActionLoading}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="delete" size={22} color={gmailTheme.text.secondary} />
+            <Icon name="delete" size={24} color={gmailTheme.text.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.headerIconButton}
+            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
+            onPress={onReply}
             disabled={isActionLoading}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="mail-outline" size={22} color={gmailTheme.text.secondary} />
+            <Icon name="reply" size={24} color={gmailTheme.text.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.headerIconButton}
+            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
+            onPress={handleMorePress}
             disabled={isActionLoading}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Icon name="more-vert" size={22} color={gmailTheme.text.secondary} />
+            <Icon name="more-vert" size={24} color={gmailTheme.text.primary} />
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        visible={showMoreMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMoreMenu(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowMoreMenu(false)}
+        >
+          <View style={[styles.menuContainer, { backgroundColor: gmailTheme.surface }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(isUnread ? onMarkAsRead : onMarkAsUnread)}
+            >
+              <Icon
+                name={isUnread ? "mark-email-read" : "mark-email-unread"}
+                size={24}
+                color={gmailTheme.text.primary}
+              />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                {isUnread ? "Mark as read" : "Mark as unread"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onReplyAll)}
+            >
+              <Icon name="reply-all" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Reply all
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onForward)}
+            >
+              <Icon name="forward" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Forward
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onSnooze)}
+            >
+              <Icon name="schedule" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Snooze
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onAddLabel)}
+            >
+              <Icon name="label" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Add label
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onMoveTo)}
+            >
+              <Icon name="folder" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Move to
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onReportSpam)}
+            >
+              <Icon name="report" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Report spam
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleAction(onPrint)}
+            >
+              <Icon name="print" size={24} color={gmailTheme.text.primary} />
+              <Text style={[styles.menuItemText, { color: gmailTheme.text.primary }]}>
+                Print
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-// Rule: Styles grouped at the bottom
 const styles = StyleSheet.create({
-  gmailHeader: {
-    height: 56,        // Standard header height
+  header: {
+    height: 56,
     borderBottomWidth: 1,
-    zIndex: 10,        // Ensure header stays on top
-    marginTop:40,      // TODO: This margin might need context (safe area)
+    borderBottomColor: '#e0e0e0',
   },
   headerContent: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: '100%',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
   backButton: {
-    padding: 8,        // Increase touch area
-    marginRight: 12,   // Space before actions
+    padding: 8,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerIconButton: {
-    padding: 8,        // Increase touch area
-    marginLeft: 12,   // Space between icons
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    width: '80%',
+    borderRadius: 8,
+    padding: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    marginLeft: 16,
+    fontSize: 16,
   },
 });

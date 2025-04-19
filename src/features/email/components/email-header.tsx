@@ -8,19 +8,29 @@ export type EmailHeaderProps = {
   insets: EdgeInsets;
   screenTitle: string;
   onProfilePress: () => void;
+  searchQuery: string;
+  onSearchChange: (text: string) => void;
+  onSearchSubmit: () => void;
+  onClearSearch: () => void;
 };
 
-export function EmailHeader({ insets, screenTitle, onProfilePress }: EmailHeaderProps) {
+export function EmailHeader({ 
+  insets, 
+  screenTitle, 
+  onProfilePress, 
+  searchQuery, 
+  onSearchChange, 
+  onSearchSubmit, 
+  onClearSearch 
+}: EmailHeaderProps) {
   const { colors } = useTheme();
   
   const styles = StyleSheet.create({
     headerContainer: {
-      paddingTop: insets.top + 8,
-      paddingBottom: 12,
+      paddingTop: insets.top,
+      paddingBottom: 14,
       paddingHorizontal: 16,
       backgroundColor: colors.background?.primary ?? '#ffffff',
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border?.medium ?? '#e0e0e0',
     },
     headerContent: {
       flexDirection: 'row',
@@ -30,35 +40,52 @@ export function EmailHeader({ insets, screenTitle, onProfilePress }: EmailHeader
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      height: 42,
+      backgroundColor: colors.surface?.secondary ?? '#f3f4f6',
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      height: 48,
       marginRight: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 2,
+      elevation: 1,
     },
     searchIcon: {
-      marginRight: 8,
+      marginRight: 10,
     },
     searchInput: {
       flex: 1,
-      fontSize: 15,
+      fontSize: 16,
       color: colors.text?.primary ?? '#000000',
-      paddingVertical: 0,
+      paddingVertical: 10,
+      fontWeight: '400',
     },
     avatarContainer: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 2,
     },
     avatar: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: colors.brand?.primary ?? '#007aff',
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: colors.brand?.primary ?? '#6366f1',
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 2,
+      borderColor: '#ffffff',
     },
     avatarText: {
       fontSize: 16,
       fontWeight: '600' as const,
       color: colors.text?.inverse ?? '#ffffff',
+    },
+    clearButton: {
+      padding: 6,
+      marginLeft: 4,
     },
   });
 
@@ -66,18 +93,27 @@ export function EmailHeader({ insets, screenTitle, onProfilePress }: EmailHeader
     <View style={styles.headerContainer}>
       <View style={styles.headerContent}>
         <View style={styles.searchBarContainer}>
-          <Icon name="search" size={20} color={colors.text?.secondary ?? '#888888'} style={styles.searchIcon} />
+          <Icon name="search" size={22} color={colors.text?.tertiary ?? '#6b7280'} style={styles.searchIcon} />
           <TextInput 
-            placeholder={`Search in ${screenTitle.toLowerCase()}...`}
-            placeholderTextColor={colors.text?.secondary ?? '#888888'}
+            placeholder={`Search in all inbox...`}
+            placeholderTextColor={colors.text?.tertiary ?? '#6b7280'}
             style={styles.searchInput}
             returnKeyType="search"
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            onSubmitEditing={onSearchSubmit}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={onClearSearch} style={styles.clearButton} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <Icon name="cancel" size={20} color={colors.text?.tertiary ?? '#6b7280'} />
+            </TouchableOpacity>
+          )}
         </View>
         
         <TouchableOpacity 
           style={styles.avatarContainer}
           onPress={onProfilePress}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>SA</Text>

@@ -1,35 +1,35 @@
 import * as React from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform,
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
   ScrollView,
-  Switch,
-  TouchableWithoutFeedback,
   Alert,
-  FlatList,
-  ActivityIndicator
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ActivityIndicator,
+  FlatList
 } from 'react-native';
-import { useTheme } from '../../../theme/theme-context';
+import { useTheme } from '@/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useState, useEffect } from 'react';
-import { TaskData, TaskPriority, TaskAttachment } from '../../../types/task';
-import DateTimePicker from '../../../components/ui/date-time-picker';
+import { TaskData, TaskPriority, TaskAttachment } from '@/types/task';
+import DateTimePickerModal from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
+import { Picker } from '@react-native-picker/picker';
 import RNBlobUtil from 'react-native-blob-util';
-import * as DocumentPicker from '@react-native-documents/picker';
-import { useStorage } from '../../../lib/storage/use-storage';
-import { errorCodes, isErrorWithCode } from '@react-native-documents/picker';
+import { useStorage } from '@/lib/storage/use-storage';
+import { useTaskAttachments } from './task-attachment-utils';
 
 type TaskFormModalProps = {
   visible: boolean;
   onClose: () => void;
-  onSave: (task: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  existingTask?: TaskData;
+  onSave: (task: TaskData) => void;
+  existingTask?: TaskData | null;
 };
 
 export function TaskFormModal({ 
@@ -39,227 +39,94 @@ export function TaskFormModal({
   existingTask
 }: TaskFormModalProps) {
   const { colors, isDark } = useTheme();
-  const isEditing = !!existingTask;
-  const { uploadFile, downloadUrl, isLoading: isStorageLoading, progress: uploadProgress, error: storageError, deleteFile } = useStorage();
-
-  // Form state
+  
+  // Task data state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [hasDueDate, setHasDueDate] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>('medium');
-  const [tags, setTags] = useState<string[]>([]);
-  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
-  const [currentTag, setCurrentTag] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   
-  // Reset form when task changes
+  // Attachment handling with our custom hook
+  const {
+    attachments,
+    setAttachments,
+    isUploading,
+    currentUploadId,
+    uploadProgress,
+    handleAddAttachment,
+    handleRemoveAttachment,
+    handleViewAttachment
+  } = useTaskAttachments(existingTask?.attachments || []);
+  
+  // Focus ref for title input
+  const titleInputRef = useRef<TextInput>(null);
+  
+  // Initialize form with existing task data if provided
   useEffect(() => {
     if (existingTask) {
       setTitle(existingTask.title);
       setDescription(existingTask.description || '');
       setDueDate(existingTask.dueDate ? new Date(existingTask.dueDate) : null);
-      setHasDueDate(!!existingTask.dueDate);
-      setPriority(existingTask.priority);
-      setTags(existingTask.tags || []);
-      setAttachments(existingTask.attachments || []);
+      setPriority(existingTask.priority || 'medium');
     } else {
-      // Default values for new task
+      // Reset form for new tasks
       setTitle('');
       setDescription('');
       setDueDate(null);
-      setHasDueDate(false);
       setPriority('medium');
-      setTags([]);
-      setAttachments([]);
     }
-    setCurrentTag('');
   }, [existingTask, visible]);
   
+  // Focus title input when modal opens
+  useEffect(() => {
+    if (visible) {
+      setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 300);
+    }
+  }, [visible]);
+  
   const handleSave = () => {
-    if (!title.trim()) return;
-    
-    onSave({
-      title,
-      description: description.trim() || undefined,
-      isCompleted: existingTask ? existingTask.isCompleted : false,
-      dueDate: hasDueDate && dueDate ? dueDate.toISOString() : undefined,
-      priority,
-      tags: tags.length > 0 ? tags : undefined,
-      attachments: attachments.length > 0 ? attachments : undefined,
-    });
-    
-    onClose();
-  };
-  
-  const handleAddTag = () => {
-    if (currentTag.trim() && !tags.includes(currentTag.trim())) {
-      setTags([...tags, currentTag.trim()]);
-      setCurrentTag('');
-    }
-  };
-  
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-  
-  const handleChangeDueDate = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setDueDate(selectedDate);
-      setHasDueDate(true);
-    }
-  };
-  
-  const formatDate = (date: Date | null): string => {
-    if (!date) return 'Set due date';
-    return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  };
-  
-  const handleAddAttachment = async () => {
-    try {
-      const results = await DocumentPicker.pick({
-        type: [DocumentPicker.types.allFiles],
-        allowMultiSelection: true,
-      });
-      
-      setIsUploading(true);
-      
-      const newAttachments: TaskAttachment[] = [];
-      
-      for (const file of results) {
-        const attachmentId = `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        setCurrentUploadId(attachmentId);
-        
-        // Add placeholder attachment while uploading
-        const tempAttachment: TaskAttachment = {
-          id: attachmentId,
-          name: file.name || 'Unnamed file',
-          uri: file.uri,
-          type: file.type || 'application/octet-stream',
-          size: file.size || 0,
-          createdAt: new Date().toISOString(),
-          downloadUrl: '',
-          isUploading: true,
-        };
-        
-        setAttachments(prev => [...prev, tempAttachment]);
-        
-        // Upload to Firebase Storage
-        const storagePath = `tasks/attachments/${attachmentId}/${file.name}`;
-        const downloadURL = await uploadFile(file.uri, storagePath);
-        
-        if (downloadURL) {
-          // Update the attachment with the download URL
-          const updatedAttachment: TaskAttachment = {
-            ...tempAttachment,
-            downloadUrl: downloadURL,
-            isUploading: false,
-          };
-          
-          // Replace the placeholder with the updated attachment
-          setAttachments(prev => 
-            prev.map(a => a.id === attachmentId ? updatedAttachment : a)
-          );
-          
-          newAttachments.push(updatedAttachment);
-        } else {
-          // Remove the placeholder if upload failed
-          setAttachments(prev => prev.filter(a => a.id !== attachmentId));
-          Alert.alert('Upload Failed', `Failed to upload ${file.name}`);
-        }
-      }
-      
-      setCurrentUploadId(null);
-      setIsUploading(false);
-    } catch (err) {
-      if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) {
-        // User cancelled the picker
-      } else {
-        Alert.alert('Error', 'Failed to pick document');
-        console.error('Document picker error:', err);
-      }
-      setIsUploading(false);
-      setCurrentUploadId(null);
-    }
-  };
-  
-  const handleRemoveAttachment = async (attachmentId: string) => {
-    const attachmentToRemove = attachments.find(a => a.id === attachmentId);
-    
-    // If the attachment is currently uploading, we can't delete it from storage yet
-    if (attachmentToRemove?.isUploading) {
-      setAttachments(attachments.filter(a => a.id !== attachmentId));
+    if (!title.trim()) {
+      Alert.alert('Error', 'Task title is required');
       return;
     }
     
-    // If the attachment has a downloadUrl, delete it from Firebase Storage
-    if (attachmentToRemove?.downloadUrl) {
-      try {
-        // Extract the storage path from the download URL
-        const storagePathMatch = attachmentToRemove.downloadUrl.match(/\/o\/(.*?)\?/);
-        if (storagePathMatch && storagePathMatch[1]) {
-          const storagePath = decodeURIComponent(storagePathMatch[1]);
-          const isDeleted = await deleteFile(storagePath);
-          
-          if (!isDeleted) {
-            console.error(`Failed to delete attachment ${attachmentId} from storage`);
-            // Continue with UI removal even if storage deletion fails
-          }
-        }
-      } catch (error) {
-        console.error('Error deleting attachment from storage:', error);
-        // Continue with UI removal even if storage deletion fails
-      }
+    if (isUploading) {
+      Alert.alert(
+        'Uploads in Progress', 
+        'Please wait for attachments to finish uploading before saving.'
+      );
+      return;
     }
     
-    // Remove from the local state
-    setAttachments(attachments.filter(a => a.id !== attachmentId));
+    const taskData: TaskData = {
+      id: existingTask?.id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: title.trim(),
+      description: description.trim() || undefined,
+      isCompleted: existingTask?.isCompleted || false,
+      createdAt: existingTask?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      dueDate: dueDate ? dueDate.toISOString() : undefined,
+      priority,
+      attachments: attachments.length > 0 ? attachments : undefined
+    };
+    
+    onSave(taskData);
+    onClose();
   };
-
-  const handleViewAttachment = async (attachment: TaskAttachment) => {
-    try {
-      // If the attachment has a downloadUrl, open it directly
-      if (attachment.downloadUrl) {
-        // Open file with device's default viewer
-        if (Platform.OS === 'ios') {
-          // On iOS, QuickLook will handle most file types
-          RNBlobUtil.ios.openDocument(attachment.uri);
-        } else {
-          // On Android, use the OS file viewer
-          RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
-        }
-      } else {
-        // Legacy case: use the local URI
-        if (Platform.OS === 'ios') {
-          RNBlobUtil.ios.openDocument(attachment.uri);
-        } else {
-          RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
-        }
-      }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      Alert.alert('Error', 'Failed to open file');
+  
+  const handleCancel = () => {
+    onClose();
+  };
+  
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || dueDate;
+    setDatePickerVisible(Platform.OS === 'ios');
+    if (currentDate) {
+      setDueDate(currentDate);
     }
-  };
-  
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-  
-  const getFileIcon = (type: string): string => {
-    if (type.includes('image')) return 'image';
-    if (type.includes('pdf')) return 'picture-as-pdf';
-    if (type.includes('word') || type.includes('document')) return 'description';
-    if (type.includes('excel') || type.includes('sheet')) return 'table-chart';
-    if (type.includes('presentation') || type.includes('powerpoint')) return 'slideshow';
-    if (type.includes('text')) return 'text-snippet';
-    if (type.includes('zip') || type.includes('compressed')) return 'archive';
-    return 'insert-drive-file';
   };
   
   const renderAttachmentItem = ({ item }: { item: TaskAttachment }) => (
@@ -319,341 +186,222 @@ export function TaskFormModal({
   return (
     <Modal
       visible={visible}
-      transparent={true}
       animationType="slide"
+      transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay} />
-      </TouchableWithoutFeedback>
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <View 
-          style={[
-            styles.content, 
-            { 
-              backgroundColor: '#ffffff',
-              borderTopColor: 'rgba(0,0,0,0.05)',
-              shadowColor: 'rgba(0,0,0,0.2)',
-              shadowOffset: { width: 0, height: -3 },
-              shadowRadius: 5,
-              shadowOpacity: 0.3,
-              elevation: 10,
-            }
-          ]}
-        >
-          <View style={[styles.header, { borderBottomColor: 'rgba(0,0,0,0.05)' }]}>
-            <Text style={[styles.title, { color: colors.text.primary }]}>
-              {isEditing ? 'Edit Task' : 'Create Task'}
-            </Text>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onClose}
-            >
-              <Icon name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.formContainer}>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  color: colors.text.primary,
-                  backgroundColor: '#f1f5ff',
-                  borderColor: 'rgba(120, 139, 255, 0.2)',
-                  borderRadius: 8,
-                }
-              ]}
-              placeholder="Task title"
-              placeholderTextColor={colors.text.tertiary}
-              value={title}
-              onChangeText={setTitle}
-              returnKeyType="next"
-            />
-            
-            <TextInput
-              style={[
-                styles.textArea,
-                { 
-                  color: colors.text.primary,
-                  backgroundColor: '#f1f5ff',
-                  borderColor: 'rgba(120, 139, 255, 0.2)',
-                  borderRadius: 8,
-                }
-              ]}
-              placeholder="Description (optional)"
-              placeholderTextColor={colors.text.tertiary}
-              value={description}
-              onChangeText={setDescription}
-              multiline={true}
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-            
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.text.secondary }]}>
-                Due Date
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.modalOverlay}>
+          <View 
+            style={[
+              styles.modalContainer, 
+              {
+                backgroundColor: colors.background.primary
+              }
+            ]}
+          >
+            <View style={styles.header}>
+              <Text style={[styles.modalTitle, {color: colors.text.primary}]}>
+                {existingTask ? 'Edit Task' : 'Add New Task'}
               </Text>
-              <View style={styles.dueDate}>
-                <Switch
-                  value={hasDueDate}
-                  onValueChange={(value) => {
-                    setHasDueDate(value);
-                    if (value && !dueDate) {
-                      // Default to tomorrow
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      setDueDate(tomorrow);
+              <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
+                <Icon name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.formContainer}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, {color: colors.text.secondary}]}>
+                  Title
+                </Text>
+                <TextInput
+                  ref={titleInputRef}
+                  style={[
+                    styles.textInput, 
+                    {
+                      color: colors.text.primary,
+                      borderColor: colors.border.light,
+                      backgroundColor: colors.background.secondary
                     }
-                  }}
-                  thumbColor={hasDueDate ? colors.brand.primary : '#cccccc'}
-                  trackColor={{ 
-                    false: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)', 
-                    true: isDark ? colors.brand.dark : 'rgba(120, 139, 255, 0.3)' 
-                  }}
+                  ]}
+                  placeholder="Task title"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={title}
+                  onChangeText={setTitle}
                 />
-                {hasDueDate && (
-                  <TouchableOpacity
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, {color: colors.text.secondary}]}>
+                  Description
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textArea,
+                    {
+                      color: colors.text.primary,
+                      borderColor: colors.border.light,
+                      backgroundColor: colors.background.secondary
+                    }
+                  ]}
+                  placeholder="Task description (optional)"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, {color: colors.text.secondary}]}>
+                  Due Date (Optional)
+                </Text>
+                
+                <TouchableOpacity
+                  onPress={() => setDatePickerVisible(true)}
+                  style={[
+                    styles.dateSelector,
+                    {
+                      borderColor: colors.border.light,
+                      backgroundColor: colors.background.secondary
+                    }
+                  ]}
+                >
+                  <Text 
                     style={[
-                      styles.dateButton,
-                      { 
-                        backgroundColor: '#f1f5ff',
-                        borderColor: 'rgba(120, 139, 255, 0.2)',
-                        borderRadius: 8,
+                      styles.dateText, 
+                      {
+                        color: dueDate ? colors.text.primary : colors.text.tertiary
                       }
                     ]}
-                    onPress={() => setShowDatePicker(true)}
                   >
-                    <Text style={{ color: colors.text.primary }}>
-                      {formatDate(dueDate)}
-                    </Text>
-                    <Icon name="event" size={20} color={colors.brand.primary} />
-                  </TouchableOpacity>
+                    {dueDate ? format(dueDate, 'PPP') : 'Select due date'}
+                  </Text>
+                  <Icon name="event" size={20} color={colors.text.secondary} />
+                </TouchableOpacity>
+                
+                {isDatePickerVisible && (
+                  <DateTimePickerModal
+                    value={dueDate || new Date()}
+                    mode="date"
+                    onChange={handleDateChange}
+                    minimumDate={new Date()}
+                  />
                 )}
               </View>
               
-              {showDatePicker && (
-                <DateTimePicker
-                  value={dueDate || new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={handleChangeDueDate}
-                  minimumDate={new Date()}
-                />
-              )}
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.text.secondary }]}>
-                Priority
-              </Text>
-              <View style={styles.priorityButtons}>
-                <TouchableOpacity
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, {color: colors.text.secondary}]}>
+                  Priority
+                </Text>
+                <View 
                   style={[
-                    styles.priorityButton,
-                    { 
-                      backgroundColor: priority === 'low'
-                        ? colors.status.success
-                        : 'rgba(76, 175, 80, 0.1)',
-                      borderWidth: priority === 'low' ? 0 : 1,
-                      borderColor: priority === 'low' ? 'transparent' : 'rgba(76, 175, 80, 0.5)',
+                    styles.pickerContainer,
+                    {
+                      borderColor: colors.border.light,
+                      backgroundColor: colors.background.secondary
                     }
                   ]}
-                  onPress={() => setPriority('low')}
                 >
-                  <Text style={{ 
-                    color: priority === 'low' ? '#fff' : colors.status.success, 
-                    fontWeight: priority === 'low' ? '600' : 'normal',
-                  }}>
-                    Low
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.priorityButton,
-                    { 
-                      backgroundColor: priority === 'medium'
-                        ? colors.status.warning
-                        : 'rgba(255, 152, 0, 0.1)',
-                      borderWidth: priority === 'medium' ? 0 : 1,
-                      borderColor: priority === 'medium' ? 'transparent' : 'rgba(255, 152, 0, 0.5)',
-                    }
-                  ]}
-                  onPress={() => setPriority('medium')}
-                >
-                  <Text style={{ 
-                    color: priority === 'medium' ? '#fff' : colors.status.warning, 
-                    fontWeight: priority === 'medium' ? '600' : 'normal',
-                  }}>
-                    Medium
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.priorityButton,
-                    { 
-                      backgroundColor: priority === 'high'
-                        ? colors.status.error
-                        : 'rgba(244, 67, 54, 0.1)',
-                      borderWidth: priority === 'high' ? 0 : 1,
-                      borderColor: priority === 'high' ? 'transparent' : 'rgba(244, 67, 54, 0.5)',
-                    }
-                  ]}
-                  onPress={() => setPriority('high')}
-                >
-                  <Text style={{ 
-                    color: priority === 'high' ? '#fff' : colors.status.error, 
-                    fontWeight: priority === 'high' ? '600' : 'normal',
-                  }}>
-                    High
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.text.secondary }]}>
-                Tags
-              </Text>
-              <View style={styles.tagInput}>
-                <TextInput
-                  style={[
-                    styles.tagTextInput,
-                    { 
-                      color: colors.text.primary,
-                      backgroundColor: '#f1f5ff',
-                      borderColor: 'rgba(120, 139, 255, 0.2)',
-                      borderRadius: 8,
-                    }
-                  ]}
-                  placeholder="Add a tag"
-                  placeholderTextColor={colors.text.tertiary}
-                  value={currentTag}
-                  onChangeText={setCurrentTag}
-                  returnKeyType="done"
-                  onSubmitEditing={handleAddTag}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    { 
-                      backgroundColor: colors.brand.primary,
-                      shadowColor: 'rgba(0,0,0,0.2)',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowRadius: 3,
-                      shadowOpacity: 0.3,
-                      elevation: 3,
-                    }
-                  ]}
-                  onPress={handleAddTag}
-                >
-                  <Icon name="add" size={20} color="#fff" />
-                </TouchableOpacity>
+                  <Picker
+                    selectedValue={priority}
+                    onValueChange={(itemValue) => setPriority(itemValue as TaskPriority)}
+                    style={[styles.picker, {color: colors.text.primary}]}
+                    dropdownIconColor={colors.text.secondary}
+                  >
+                    <Picker.Item label="Low" value="low" />
+                    <Picker.Item label="Medium" value="medium" />
+                    <Picker.Item label="High" value="high" />
+                  </Picker>
+                </View>
               </View>
               
-              {tags.length > 0 && (
-                <View style={styles.tagsContainer}>
-                  {tags.map((tag, index) => (
-                    <View 
-                      key={index} 
-                      style={[
-                        styles.tag,
-                        { 
-                          backgroundColor: 'rgba(120, 139, 255, 0.1)',
-                          borderWidth: 1,
-                          borderColor: 'rgba(120, 139, 255, 0.3)'
-                        }
-                      ]}
-                    >
-                      <Text style={{ color: colors.brand.primary }}>{tag}</Text>
-                      <TouchableOpacity
-                        style={styles.removeTag}
-                        onPress={() => handleRemoveTag(tag)}
-                      >
-                        <Icon name="close" size={16} color={colors.brand.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+              <View style={styles.inputGroup}>
+                <View style={styles.attachmentsHeader}>
+                  <Text style={[styles.inputLabel, {color: colors.text.secondary}]}>
+                    Attachments
+                  </Text>
+                  <TouchableOpacity 
+                    style={[
+                      styles.attachButton,
+                      { backgroundColor: colors.brand.primary }
+                    ]}
+                    onPress={handleAddAttachment}
+                    disabled={isUploading}
+                  >
+                    <Icon name="attach-file" size={16} color="#FFFFFF" />
+                    <Text style={styles.attachButtonText}>
+                      Add Files
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
+                
+                {attachments.length > 0 ? (
+                  <FlatList
+                    data={attachments}
+                    renderItem={renderAttachmentItem}
+                    keyExtractor={(item) => item.id}
+                    style={styles.attachmentsList}
+                  />
+                ) : (
+                  <View 
+                    style={[
+                      styles.emptyAttachmentsContainer,
+                      {
+                        borderColor: colors.border.light,
+                        backgroundColor: colors.background.secondary
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.emptyAttachmentsText, {color: colors.text.tertiary}]}>
+                      No attachments added
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
             
-            <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.text.secondary }]}>
-                Attachments
-              </Text>
+            <View style={styles.footer}>
               <TouchableOpacity
-                style={[
-                  styles.addAttachmentButton,
-                  { 
-                    backgroundColor: '#f1f5ff',
-                    borderColor: 'rgba(120, 139, 255, 0.2)',
-                    borderRadius: 8,
-                  }
-                ]}
-                onPress={handleAddAttachment}
+                style={[styles.cancelButton, {borderColor: colors.border.medium}]}
+                onPress={handleCancel}
               >
-                <Icon name="attach-file" size={20} color={colors.brand.primary} />
-                <Text style={[styles.addAttachmentText, { color: colors.brand.primary }]}>
-                  Add Attachment
+                <Text style={[styles.cancelButtonText, {color: colors.text.secondary}]}>
+                  Cancel
                 </Text>
               </TouchableOpacity>
               
-              {attachments.length > 0 && (
-                <FlatList
-                  data={attachments}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderAttachmentItem}
-                  style={styles.attachmentsList}
-                  scrollEnabled={false}
-                />
-              )}
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: colors.brand.primary }
+                ]}
+                onPress={handleSave}
+                disabled={isUploading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {existingTask ? 'Update' : 'Save'}
+                </Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-          
-          <View style={[styles.footer, { borderTopColor: 'rgba(0,0,0,0.05)' }]}>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { 
-                  backgroundColor: colors.brand.primary,
-                  shadowColor: 'rgba(0,0,0,0.3)',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowRadius: 4,
-                  shadowOpacity: 0.2,
-                  elevation: 3,
-                }
-              ]}
-              onPress={handleSave}
-              disabled={!title.trim()}
-            >
-              <Text style={[styles.buttonText, { fontWeight: '600' }]}>
-                {isEditing ? 'Update Task' : 'Create Task'}
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
 
+// Import helper functions
+import { formatFileSize, getFileIcon } from './task-attachment-utils';
+
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  content: {
+  modalContainer: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 24,
@@ -669,7 +417,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  title: {
+  modalTitle: {
     fontSize: 18,
     fontWeight: '600',
   },
@@ -679,7 +427,15 @@ const styles = StyleSheet.create({
   formContainer: {
     padding: 20,
   },
-  input: {
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  textInput: {
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -694,104 +450,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 100,
   },
-  formGroup: {
-    marginBottom: 20,
-  },
-  formLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  priorityButtons: {
+  dateSelector: {
     flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+    flex: 1,
+  },
+  dateText: {
+    flex: 1,
+    marginRight: 8,
+  },
+  pickerContainer: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  picker: {
+    flex: 1,
+  },
+  attachmentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  priorityButton: {
-    flex: 1,
+  attachButton: {
     padding: 10,
     borderRadius: 8,
-    marginHorizontal: 4,
     alignItems: 'center',
   },
-  dueDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginLeft: 16,
-    flex: 1,
-  },
-  tagInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tagTextInput: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 16,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  attachButtonText: {
     marginLeft: 8,
+    fontWeight: '500',
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  attachmentsList: {
     marginTop: 8,
   },
-  tag: {
+  emptyAttachmentsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    paddingRight: 4,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  removeTag: {
-    padding: 4,
+  emptyAttachmentsText: {
+    fontSize: 14,
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
   },
-  button: {
+  cancelButton: {
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  buttonText: {
+  cancelButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  addAttachmentButton: {
-    flexDirection: 'row',
+  saveButton: {
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    padding: 10,
-    marginVertical: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
   },
-  addAttachmentText: {
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  attachmentsList: {
-    marginTop: 8,
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   attachmentItem: {
     flexDirection: 'row',

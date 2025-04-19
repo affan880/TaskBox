@@ -1,193 +1,108 @@
 import * as React from 'react';
-import { useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import BottomSheet from '@gorhom/bottom-sheet';
+import { useTheme } from '@/lib/theme';
+import { Clock, Calendar } from '@/components/ui/icons';
+import { Button } from '@/components/ui/button';
 
-type SnoozeModalProps = {
+type Props = {
   visible: boolean;
   onClose: () => void;
-  onSelectSnoozeTime: (date: Date) => Promise<void>;
+  onSnooze: (date: Date) => void;
 };
 
-type PresetTime = {
-  label: string;
-  days?: number;
-  hours?: number;
-  minutes?: number;
-};
+export function SnoozeModal({ visible, onClose, onSnooze }: Props) {
+  const { colors } = useTheme();
+  const bottomSheetRef = React.useRef<BottomSheet>(null);
+  const [selectedDate, setSelectedDate] = React.useState(new Date());
 
-export function SnoozeModal({
-  visible,
-  onClose,
-  onSelectSnoozeTime,
-}: SnoozeModalProps) {
-  const [isSelecting, setIsSelecting] = useState(false);
+  const snapPoints = React.useMemo(() => ['50%'], []);
 
-  function getNextWeekendDays(): { saturday: Date; sunday: Date } {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const daysUntilSaturday = (6 - currentDay + 7) % 7;
-    const daysUntilSunday = (7 - currentDay) % 7;
-
-    const nextSaturday = new Date(today);
-    nextSaturday.setDate(today.getDate() + daysUntilSaturday);
-    nextSaturday.setHours(9, 0, 0, 0);
-
-    const nextSunday = new Date(today);
-    nextSunday.setDate(today.getDate() + daysUntilSunday);
-    nextSunday.setHours(9, 0, 0, 0);
-
-    return { saturday: nextSaturday, sunday: nextSunday };
-  }
-
-  const getSnoozeTime = (preset: PresetTime): Date => {
-    const now = new Date();
-    const snoozeTime = new Date(now);
-
-    if (preset.days) {
-      snoozeTime.setDate(now.getDate() + preset.days);
+  React.useEffect(() => {
+    if (visible) {
+      bottomSheetRef.current?.expand();
+    } else {
+      bottomSheetRef.current?.close();
     }
-    if (preset.hours) {
-      snoozeTime.setHours(now.getHours() + preset.hours);
-    }
-    if (preset.minutes) {
-      snoozeTime.setMinutes(now.getMinutes() + preset.minutes);
-    }
+  }, [visible]);
 
-    // Round to nearest minute
-    snoozeTime.setSeconds(0, 0);
-
-    return snoozeTime;
+  const handleSnoozeOption = (hours: number) => {
+    const date = new Date();
+    date.setHours(date.getHours() + hours);
+    onSnooze(date);
   };
 
-  const handleSelectTime = async (preset: PresetTime) => {
-    if (isSelecting) return;
-
-    setIsSelecting(true);
-    try {
-      const snoozeTime = getSnoozeTime(preset);
-      await onSelectSnoozeTime(snoozeTime);
-      onClose();
-    } catch (error) {
-      console.error('Failed to snooze email:', error);
-    } finally {
-      setIsSelecting(false);
-    }
+  const handleCustomSnooze = () => {
+    onSnooze(selectedDate);
   };
-
-  const { saturday, sunday } = getNextWeekendDays();
-
-  const presetTimes: PresetTime[] = [
-    { label: 'Later today', hours: 3 },
-    { label: 'Tomorrow morning', days: 1, hours: 9 },
-    { label: 'Tomorrow afternoon', days: 1, hours: 14 },
-    { label: 'Tomorrow evening', days: 1, hours: 18 },
-    { label: 'This weekend', days: 0 }, // Special case, will use next Saturday
-    { label: 'Next week', days: 7, hours: 9 },
-    { label: 'Next month', days: 30, hours: 9 },
-  ];
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
+    <BottomSheet
+      ref={bottomSheetRef}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      onClose={onClose}
+      backgroundStyle={{ backgroundColor: colors.background }}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Snooze until</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text style={{ fontSize: 20, fontWeight: '600', marginBottom: 16, color: colors.text }}>
+          Snooze Email
+        </Text>
 
-          <ScrollView style={styles.optionsList}>
-            {presetTimes.map((preset, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.option}
-                onPress={() => handleSelectTime(preset)}
-                disabled={isSelecting}
-              >
-                <Text style={styles.optionText}>{preset.label}</Text>
-                <Text style={styles.optionTime}>
-                  {preset.label === 'This weekend'
-                    ? saturday.toLocaleString(undefined, {
-                        weekday: 'long',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                      })
-                    : getSnoozeTime(preset).toLocaleString(undefined, {
-                        weekday: 'long',
-                        hour: 'numeric',
-                        minute: 'numeric',
-                      })}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        <View style={{ gap: 16 }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+              borderRadius: 8,
+              backgroundColor: colors.gray[100],
+            }}
+            onPress={() => handleSnoozeOption(1)}
+          >
+            <Clock size={24} color={colors.text} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Later today (1 hour)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+              borderRadius: 8,
+              backgroundColor: colors.gray[100],
+            }}
+            onPress={() => handleSnoozeOption(24)}
+          >
+            <Calendar size={24} color={colors.text} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Tomorrow</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 16,
+              borderRadius: 8,
+              backgroundColor: colors.gray[100],
+            }}
+            onPress={() => handleSnoozeOption(168)}
+          >
+            <Calendar size={24} color={colors.text} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Next week</Text>
+          </TouchableOpacity>
+
+          <View style={{ marginTop: 16 }}>
+            <Button
+              variant="outline"
+              onPress={handleCustomSnooze}
+              style={{ width: '100%' }}
+            >
+              <Text style={{ color: colors.text }}>Custom Time</Text>
+            </Button>
+          </View>
         </View>
       </View>
-    </Modal>
+    </BottomSheet>
   );
-}
-
-SnoozeModal.displayName = 'SnoozeModal';
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    width: '80%',
-    maxHeight: '80%',
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#666',
-  },
-  optionsList: {
-    flexGrow: 0,
-  },
-  option: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
-  },
-  optionText: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  optionTime: {
-    fontSize: 14,
-    color: '#666',
-  },
-}); 
+} 

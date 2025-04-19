@@ -1,5 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { MMKV } from 'react-native-mmkv';
+
+// Initialize MMKV storage with fallback handling
+let storage: MMKV | null = null;
+try {
+  storage = new MMKV({
+    id: 'app-storage',
+    encryptionKey: 'taskbox-secure-storage',
+  });
+} catch (error) {
+  console.warn('MMKV initialization failed, falling back to AsyncStorage', error);
+}
 
 // Storage interfaces to abstract implementations
 interface AsyncStorageInterface {
@@ -28,6 +40,20 @@ const memoryStorageAdapter: SyncStorageInterface = {
   },
   clearAll: () => {
     memoryStorage.clear();
+  }
+};
+
+// MMKV adapter for sync storage
+const mmkvStorageAdapter: SyncStorageInterface = {
+  getString: (key: string) => storage?.getString(key),
+  set: (key: string, value: string) => {
+    storage?.set(key, value);
+  },
+  delete: (key: string) => {
+    storage?.delete(key);
+  },
+  clearAll: () => {
+    storage?.clearAll();
   }
 };
 
@@ -64,16 +90,30 @@ const asyncStorageAdapter: AsyncStorageInterface = {
   }
 };
 
-// Use AsyncStorage adapter as our primary storage
-const storage = asyncStorageAdapter;
-console.log('Using AsyncStorage for app storage');
+// Use appropriate storage adapter based on MMKV availability
+const syncStorage = storage ? mmkvStorageAdapter : memoryStorageAdapter;
+const asyncStorage = asyncStorageAdapter;
+
+console.log(`Using ${storage ? 'MMKV' : 'Memory'} for app sync storage and AsyncStorage for async storage`);
 
 /**
  * Get a value from storage
  */
 export async function getItem<T>(key: string, defaultValue?: T): Promise<T | undefined> {
   try {
-    const value = await storage.getString(key);
+    // Try first from sync storage (MMKV)
+    let value = syncStorage.getString(key);
+    
+    // If not found, try from async storage (AsyncStorage)
+    if (value === undefined) {
+      value = await asyncStorage.getString(key);
+      
+      // If found in async storage but not in sync storage, cache it for future sync access
+      if (value !== undefined) {
+        syncStorage.set(key, value);
+      }
+    }
+    
     if (value === undefined || value === null) return defaultValue;
     
     try {
@@ -93,7 +133,10 @@ export async function getItem<T>(key: string, defaultValue?: T): Promise<T | und
  */
 export async function setItem<T>(key: string, value: T): Promise<void> {
   try {
-    await storage.set(key, JSON.stringify(value));
+    const stringValue = JSON.stringify(value);
+    // Store in both sync and async storage
+    syncStorage.set(key, stringValue);
+    await asyncStorage.set(key, stringValue);
   } catch (e) {
     console.error(`Error saving to storage for key ${key}:`, e);
   }
@@ -104,7 +147,8 @@ export async function setItem<T>(key: string, value: T): Promise<void> {
  */
 export async function removeItem(key: string): Promise<void> {
   try {
-    await storage.delete(key);
+    syncStorage.delete(key);
+    await asyncStorage.delete(key);
   } catch (error) {
     console.error(`Error removing item from storage for key ${key}:`, error);
   }
@@ -115,7 +159,8 @@ export async function removeItem(key: string): Promise<void> {
  */
 export async function clearStorage(): Promise<void> {
   try {
-    await storage.clearAll();
+    syncStorage.clearAll();
+    await asyncStorage.clearAll();
   } catch (error) {
     console.error('Error clearing storage:', error);
   }
@@ -127,18 +172,46 @@ export async function clearStorage(): Promise<void> {
  */
 export function getItemSync<T>(key: string, defaultValue: T): T {
   try {
-    // Queue up an async update for future reference
-    getItem(key, defaultValue).then(() => {
-      // This is just to ensure the value exists in AsyncStorage for future async calls
-    }).catch(err => {
-      console.error(`Background sync failed for key ${key}:`, err);
-    });
+    // Try to get the value from sync storage
+    const value = syncStorage.getString(key);
     
-    // Always return the default value for predictable behavior
-    return defaultValue;
+    if (value === undefined || value === null) {
+      // Queue up an async update for future reference
+      getItem(key, defaultValue).then(() => {
+        // This is just to ensure the value exists in AsyncStorage for future async calls
+      }).catch(err => {
+        console.error(`Background sync failed for key ${key}:`, err);
+      });
+      
+      return defaultValue;
+    }
+    
+    try {
+      return JSON.parse(value) as T;
+    } catch (e) {
+      console.error(`Error parsing sync storage value for key ${key}:`, e);
+      return defaultValue;
+    }
   } catch (error) {
     console.error(`Error in getItemSync for key ${key}:`, error);
     return defaultValue;
+  }
+}
+
+/**
+ * Set a value synchronously
+ */
+export function setItemSync<T>(key: string, value: T): void {
+  try {
+    const stringValue = JSON.stringify(value);
+    syncStorage.set(key, stringValue);
+    
+    // Queue up an async update
+    asyncStorage.set(key, stringValue).catch(err => {
+      console.error(`Background async set failed for key ${key}:`, err);
+    });
+  } catch (e) {
+    console.error(`Error in setItemSync for key ${key}:`, e);
   }
 }
 
