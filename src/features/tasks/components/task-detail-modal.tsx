@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TaskData, TaskPriority, TaskAttachment } from '@/types/task';
 import { format } from 'date-fns';
 import { TaskAttachmentsViewer } from './task-attachments-viewer';
+import { TaskShareButton } from './task-share-button';
 
 type TaskDetailModalProps = {
   visible: boolean;
@@ -179,8 +180,10 @@ export function TaskDetailModal({
                     <Icon name="edit" size={20} color={colors.text.primary} />
                   </TouchableOpacity>
                   
+                  <TaskShareButton task={task} style={styles.actionButton} />
+                  
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[styles.actionButton, { marginLeft: 16 }]}
                     onPress={handleDelete}
                   >
                     <Icon name="delete" size={20} color={colors.status.error} />

@@ -151,7 +151,7 @@ async function makeGmailApiRequest(
       body: body ? JSON.stringify(body) : undefined,
     });
     
-    console.log('response#################', response);
+    // console.log('response#################', response);
     // Handle token expiration or authorization errors
     if (response.status === 401) {
       // Token expired during use, invalidate cache
