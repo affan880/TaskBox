@@ -91,3 +91,4 @@ firebase-debug.*.log
 .env.development
 .env.test
 .env.production
+GoogleService-Info.plist
