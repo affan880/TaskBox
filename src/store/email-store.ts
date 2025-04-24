@@ -1,8 +1,19 @@
 import { create } from 'zustand';
 import { Email, EmailPriority } from '../types/email';
 import { fetchEmails, sendEmail, updateEmail, deleteEmail } from '../api/gmail-api';
+<<<<<<< HEAD
 import { loadCategories, loadLastSelectedCategory, saveLastSelectedCategory } from '../lib/storage/category-storage';
 import { EmailFilter } from '../utils/email-filters';
+=======
+
+type EmailFilter = {
+  isRead?: boolean;
+  isStarred?: boolean;
+  priority?: EmailPriority;
+  searchText?: string;
+  labels?: string[];
+};
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
 type EmailStore = {
   // State
@@ -10,8 +21,11 @@ type EmailStore = {
   isLoading: boolean;
   error: string | null;
   filters: EmailFilter;
+<<<<<<< HEAD
   categories: string[];
   selectedCategory: string;
+=======
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
   
   // Actions
   fetchEmails: () => Promise<void>;
@@ -21,8 +35,11 @@ type EmailStore = {
   deleteEmail: (emailId: string) => Promise<void>;
   setFilters: (filters: Partial<EmailFilter>) => void;
   resetFilters: () => void;
+<<<<<<< HEAD
   fetchCategories: () => Promise<void>;
   setSelectedCategory: (category: string) => Promise<void>;
+=======
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 };
 
 export const useEmailStore = create<EmailStore>((set, get) => ({
@@ -31,8 +48,11 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
   isLoading: false,
   error: null,
   filters: {},
+<<<<<<< HEAD
   categories: [],
   selectedCategory: 'All',
+=======
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
   
   // Actions
   fetchEmails: async () => {
@@ -51,11 +71,15 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
   sendEmail: async (emailData) => {
     set({ isLoading: true, error: null });
     try {
+<<<<<<< HEAD
       const newEmail = await sendEmail(
         emailData.recipients.map(r => r.email).join(','), 
         emailData.subject, 
         emailData.body || ''
       );
+=======
+      const newEmail = await sendEmail(emailData);
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
       set(state => ({ 
         emails: [newEmail, ...state.emails],
         isLoading: false 
@@ -72,11 +96,15 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
   
   markAsRead: async (emailId, isRead) => {
     try {
+<<<<<<< HEAD
       // Add to UNREAD label if not read, remove if read
       const addLabelIds = isRead ? [] : ['UNREAD'];
       const removeLabelIds = isRead ? ['UNREAD'] : [];
       
       await updateEmail(emailId, addLabelIds, removeLabelIds);
+=======
+      await updateEmail(emailId, { isRead });
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
       set(state => ({
         emails: state.emails.map(email => 
           email.id === emailId ? { ...email, isRead } : email
@@ -97,11 +125,15 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
     const isStarred = !email.isStarred;
     
     try {
+<<<<<<< HEAD
       // Add to STARRED label if starred, remove if not starred
       const addLabelIds = isStarred ? ['STARRED'] : [];
       const removeLabelIds = isStarred ? [] : ['STARRED'];
       
       await updateEmail(emailId, addLabelIds, removeLabelIds);
+=======
+      await updateEmail(emailId, { isStarred });
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
       set(state => ({
         emails: state.emails.map(email => 
           email.id === emailId ? { ...email, isStarred } : email
@@ -135,6 +167,7 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
   
   resetFilters: () => {
     set({ filters: {} });
+<<<<<<< HEAD
   },
 
   fetchCategories: async () => {
@@ -164,5 +197,7 @@ export const useEmailStore = create<EmailStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to set category'
       });
     }
+=======
+>>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
   }
 }));
