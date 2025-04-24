@@ -32,3 +32,10 @@ export const CURRENT_API_CONFIG = API_CONFIG[ENVIRONMENT];
 
 // Export the BASE_URL directly for convenience
 export const BASE_URL = CURRENT_API_CONFIG.BASE_URL; 
+
+// Debug logging
+if (__DEV__) {
+  console.log('🔧 API Config - Environment:', ENVIRONMENT);
+  console.log('🔧 API Config - process.env.BASE_URL:', process.env.BASE_URL);
+  console.log('🔧 API Config - Configured URL:', BASE_URL);
+} 

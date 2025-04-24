@@ -28,10 +28,10 @@ import axios from 'axios';
 import { Email } from '../types/email';
 
 // API base URL (replace with your actual API endpoint)
-const BASE_URL = 'https://api.example.com';
+const BASE_URL = process.env.BASE_URL;
 
 // Base URL for Gmail API
-const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
+const GMAIL_API_BASE_URL = `${BASE_URL}/api/gmail`;
 
 // --- Token Caching and Refresh Synchronization ---
 let tokenRetrievalPromise: Promise<string> | null = null;
@@ -198,7 +198,7 @@ async function makeGmailApiRequest(
  */
 export async function listMessages(maxResults: number = 20, pageToken?: string, labelIds: string[] = ['INBOX']): Promise<any> {
   const queryParams = new URLSearchParams({
-    maxResults: maxResults.toString(),
+    maxResults: maxResults.toString(), 
     labelIds: labelIds.join(','),
   });
   if (pageToken) {
@@ -207,6 +207,86 @@ export async function listMessages(maxResults: number = 20, pageToken?: string, 
   
   // Fetches only message IDs and thread IDs, along with nextPageToken
   return makeGmailApiRequest(`/messages?${queryParams.toString()}&fields=messages(id,threadId),nextPageToken,resultSizeEstimate`);
+}
+
+/**
+ * Get multiple emails in a single batch request (much more efficient)
+ * @param messageIds Array of message IDs to retrieve
+ * @returns Array of email data objects
+ */
+export async function getEmailsByIds(messageIds: string[]): Promise<EmailData[]> {
+  try {
+    console.log(`[gmailApi:Batch] Fetching ${messageIds.length} emails in batch`);
+    
+    // If there's only one message ID, just use the standard request
+    if (messageIds.length === 1) {
+      const message = await getEmailById(messageIds[0]);
+      return [parseEmailData(message)];
+    }
+    
+    // Get token for the batch request
+    const accessToken = await getAccessToken();
+    
+    // Use the new batch endpoint implemented on our backend
+    const response = await fetch(`${GMAIL_API_BASE_URL}/messages/batch`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ids: messageIds }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Batch API error (${response.status}): ${errorText}`);
+    }
+    
+    const responseData = await response.json();
+    
+    // The batch endpoint returns already parsed messages
+    if (responseData.messages && Array.isArray(responseData.messages)) {
+      return responseData.messages;
+    }
+    
+    throw new Error('Invalid response format from batch endpoint');
+  } catch (error) {
+    console.error('[gmailApi:Error] Batch email fetch failed:', error);
+    
+    // Fallback to chunked requests if batch endpoint fails
+    console.log('[gmailApi:Batch] Falling back to individual requests in chunks');
+    
+    // Process in chunks of 5 to avoid rate limits
+    const chunkSize = 5;
+    const emailsData: EmailData[] = [];
+    
+    for (let i = 0; i < messageIds.length; i += chunkSize) {
+      const chunk = messageIds.slice(i, i + chunkSize);
+      console.log(`[gmailApi:Batch] Processing chunk ${i/chunkSize + 1} of ${Math.ceil(messageIds.length/chunkSize)}`);
+      
+      const chunkResults = await Promise.all(
+        chunk.map(async (id) => {
+          try {
+            const message = await getEmailById(id);
+            return parseEmailData(message);
+          } catch (err) {
+            console.error(`[gmailApi:Error] Failed to fetch email ${id}:`, err);
+            return null;
+          }
+        })
+      );
+      
+      // Add non-null results to the emails array
+      emailsData.push(...chunkResults.filter((email): email is EmailData => email !== null));
+      
+      // Add a small delay between chunks to avoid rate limits
+      if (i + chunkSize < messageIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    return emailsData;
+  }
 }
 
 /**
@@ -716,5 +796,101 @@ async function getEmailAddress(): Promise<string> {
   } catch (error) {
     console.error('Error getting email address:', error);
     return 'me'; // Fallback to 'me' which is accepted by Gmail API
+  }
+}
+
+// --- Email cache to avoid duplicate fetches ---
+let emailCache: Record<string, EmailData> = {};
+
+/**
+ * Clear the email cache
+ */
+export function clearEmailCache(): void {
+  emailCache = {};
+  console.log('[gmailApi:Cache] Email cache cleared');
+}
+
+/**
+ * Get an email from the cache or fetch it if not found
+ * @param messageId The message ID to retrieve
+ * @returns The email data
+ */
+export async function getCachedEmailById(messageId: string): Promise<EmailData> {
+  // Return from cache if available
+  if (emailCache[messageId]) {
+    console.log(`[gmailApi:Cache] Cache hit for email ${messageId}`);
+    return emailCache[messageId];
+  }
+  
+  // Fetch and cache if not found
+  try {
+    console.log(`[gmailApi:Cache] Cache miss for email ${messageId}, fetching`);
+    const message = await getEmailById(messageId);
+    const emailData = parseEmailData(message);
+    emailCache[messageId] = emailData;
+    return emailData;
+  } catch (error) {
+    console.error(`[gmailApi:Cache:Error] Failed to fetch email ${messageId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch a list of emails with content in a single batch
+ * This is much more efficient than making multiple API calls
+ * @param maxResults Maximum number of messages to return
+ * @param pageToken Token for the next page of results
+ * @param labelIds Array of label IDs to filter by (e.g., 'INBOX', 'UNREAD')
+ */
+export async function listEmailsWithContent(
+  maxResults: number = 20, 
+  pageToken?: string, 
+  labelIds: string[] = ['INBOX']
+): Promise<{emails: EmailData[], nextPageToken?: string}> {
+  try {
+    // First, get the list of message IDs
+    const messagesList = await listMessages(maxResults, pageToken, labelIds);
+    
+    // If there are no messages, return an empty array
+    if (!messagesList.messages || messagesList.messages.length === 0) {
+      return { emails: [] };
+    }
+    
+    // Extract message IDs
+    const messageIds = messagesList.messages.map((msg: any) => msg.id);
+    
+    // Check which IDs are already in cache
+    const cachedIds = new Set(Object.keys(emailCache));
+    const uncachedIds = messageIds.filter((id: string) => !cachedIds.has(id));
+    
+    // Prepare result array keeping the original order
+    const emails: EmailData[] = [];
+    
+    // If we have uncached IDs, fetch them in batch
+    if (uncachedIds.length > 0) {
+      console.log(`[gmailApi:Listing] Fetching ${uncachedIds.length} uncached emails via batch`);
+      
+      const batchedEmails = await getEmailsByIds(uncachedIds);
+      
+      // Store all fetched emails in cache
+      batchedEmails.forEach(email => {
+        emailCache[email.id] = email;
+      });
+    }
+    
+    // Construct result array from cache maintaining original order
+    messageIds.forEach((id: string) => {
+      if (emailCache[id]) {
+        emails.push(emailCache[id]);
+      }
+    });
+    
+    return { 
+      emails, 
+      nextPageToken: messagesList.nextPageToken 
+    };
+  } catch (error) {
+    console.error('[gmailApi:Error] Failed to list emails with content:', error);
+    throw error;
   }
 }
