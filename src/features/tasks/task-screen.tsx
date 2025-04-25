@@ -1,20 +1,17 @@
 import * as React from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
-<<<<<<< HEAD
-=======
-  ActivityIndicator, 
-  FlatList, 
-  RefreshControl, 
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
   View, 
   StyleSheet, 
   TouchableOpacity,
   Text,
-<<<<<<< HEAD
   Image,
   TextInput,
-  ScrollView
+  ScrollView,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -23,7 +20,11 @@ import FeatherIcon from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../theme/theme-context';
 import { useTaskStore } from '../../store/task-store';
+import { useProjectStore } from '../../store/project-store';
+import { ProjectWithTasks } from '../../types/project';
 import type { TaskData, TaskPriority } from '../../types/task';
+import { TaskSummary } from '../../components/task-summary';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 
 // Define Tab type
 type ActiveTab = 'Overview' | 'Analytics';
@@ -34,24 +35,19 @@ type ProjectSectionProps = {
   styles: any; // Consider defining a more specific type for styles
   colors: any; // Replace 'any' with your actual theme colors type
   isDark: boolean;
-  project?: any; // Placeholder for actual project data type
   onNavigate: () => void; // Add callback for navigation
 };
 
-function ProjectSection({ styles, colors, isDark, project, onNavigate }: ProjectSectionProps): React.ReactElement {
-  // Default/placeholder data if needed
-  const displayProject = project || {
-      title: 'Mane UIKit',
-      startDate: '01/01/2021',
-      endDate: '01/02/2021',
-      progress: 50,
-      tasksCompleted: 24,
-      tasksTotal: 48,
-      avatars: ['1', '2', '3', '4'], // Example
-  };
-  const progressPercent = `${displayProject.progress}%`;
+function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionProps): React.ReactElement {
+  const { projects } = useProjectStore();
+  
+  // Get the most recent project with tasks
+  const recentProject = projects.length > 0 
+    ? projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+    : null;
 
-  return (
+  if (!recentProject) {
+    return (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
@@ -63,44 +59,91 @@ function ProjectSection({ styles, colors, isDark, project, onNavigate }: Project
           </TouchableOpacity>
         </View>
         <View style={styles.projectCard}>
-          <View style={styles.projectCardTopRow}>
-            <Text style={styles.projectTitle}>{displayProject.title}</Text>
-            <View style={styles.avatarContainer}>
-              {/* Render first 3 avatars */} 
-              {displayProject.avatars.slice(0, 3).map((avatarId: string, index: number) => (
-                  <Image 
-                      key={avatarId}
-                      source={{ uri: `https://via.placeholder.com/32?text=${index + 1}` }}
-                      style={[styles.avatar, { zIndex: index }]} />
-              ))}
-              {/* More indicator */}
-              {displayProject.avatars.length > 3 && (
-                  <View style={[styles.avatarMore, { zIndex: 3 }]}>
-                      <Text style={styles.avatarMoreText}>+{displayProject.avatars.length - 3}</Text>
-                  </View>
-              )}
-            </View>
-          </View>
-          <View style={styles.dateContainer}>
-            <View style={styles.dateItem}>
-              <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-              <Text style={styles.dateText}>{displayProject.startDate}</Text>
-            </View>
-            <Text style={styles.dateSeparator}>→</Text>
-            <View style={styles.dateItem}>
-              <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-              <Text style={styles.dateText}>{displayProject.endDate}</Text>
-            </View>
-          </View>
-          <View style={styles.progressBarContainer}>
-             <Text style={styles.progressText}>{progressPercent}</Text>
-             <View style={styles.progressTrack}>
-               <View style={[styles.progressFill, { width: progressPercent }]} />
-             </View>
-             <Text style={styles.taskCountText}>{`${displayProject.tasksCompleted}/${displayProject.tasksTotal} tasks`}</Text>
-          </View>
+          <Text style={[styles.projectTitle, { textAlign: 'center' }]}>No projects yet</Text>
+          <TouchableOpacity 
+            style={[styles.addButton, { marginTop: 16, alignSelf: 'center' }]}
+            onPress={onNavigate}
+          >
+            <Text style={{ color: 'white', fontWeight: '600' }}>Create Project</Text>
+          </TouchableOpacity>
         </View>
       </View>
+    );
+  }
+
+  // Get project with tasks
+  const projectWithTasks = useProjectStore.getState().getProjectWithTasks(recentProject.id);
+  if (!projectWithTasks) {
+    return (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Your project</Text>
+          </View>
+          <TouchableOpacity onPress={onNavigate}>
+            <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.projectCard}>
+          <Text style={[styles.projectTitle, { textAlign: 'center' }]}>Project not found</Text>
+          <TouchableOpacity 
+            style={[styles.addButton, { marginTop: 16, alignSelf: 'center' }]}
+            onPress={onNavigate}
+          >
+            <Text style={{ color: 'white', fontWeight: '600' }}>Create Project</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const completedTasks = projectWithTasks.tasks.filter(task => task.isCompleted).length;
+  const totalTasks = projectWithTasks.tasks.length;
+  const progressPercent = `${Math.round((completedTasks / totalTasks) * 100)}%`;
+
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={styles.sectionTitle}>Your project</Text>
+        </View>
+        <TouchableOpacity onPress={onNavigate}>
+          <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.projectCard}>
+        <View style={styles.projectCardTopRow}>
+          <Text style={styles.projectTitle}>{projectWithTasks.title}</Text>
+          {/* Remove avatars section since it's not in the project type */}
+        </View>
+        <View style={styles.dateContainer}>
+          <View style={styles.dateItem}>
+            <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
+            <Text style={styles.dateText}>
+              {projectWithTasks.startDate ? new Date(projectWithTasks.startDate).toLocaleDateString() : 'No start date'}
+            </Text>
+          </View>
+          <Text style={styles.dateSeparator}>→</Text>
+          <View style={styles.dateItem}>
+            <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
+            <Text style={styles.dateText}>
+              {projectWithTasks.endDate ? new Date(projectWithTasks.endDate).toLocaleDateString() : 'No end date'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <Text style={styles.progressText}>{progressPercent}</Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: progressPercent }]} />
+          </View>
+          <Text style={styles.taskCountText}>
+            {`${completedTasks}/${totalTasks} tasks`}
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -109,51 +152,233 @@ type RecentTasksSectionProps = {
     styles: any;
     colors: any;
     isDark: boolean;
-    recentTask?: any; // Placeholder for actual recent task data type
 };
 
-function RecentTasksSection({ styles, colors, isDark, recentTask }: RecentTasksSectionProps): React.ReactElement {
-    const displayTask = recentTask || {
-        title: 'Userflow Mane UIKit',
-        deadline: '03/01/2021',
-        icon: 'terrain' // Example icon name
-    };
+function RecentTasksSection({ styles, colors, isDark }: RecentTasksSectionProps): React.ReactElement {
+  const { tasks } = useTaskStore();
+  
+  // Get the most recent incomplete task
+  const recentTask = tasks
+    .filter(task => !task.isCompleted)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+
+  if (!recentTask) {
     return (
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleContainer}>
-                    <FeatherIcon name="list" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-                    <Text style={styles.sectionTitle}>Your recent tasks</Text>
-                </View>
-                <TouchableOpacity>
-                    <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
-                </TouchableOpacity>
-            </View>
-            <View style={styles.recentTaskCard}>
-                <View style={styles.recentTaskIconContainer}>
-                    {/* Use a relevant icon based on task type or default */}
-                    <Icon name={displayTask.icon} size={24} color={colors.text.primary} /> 
-                </View>
-                <View style={styles.recentTaskInfo}>
-                    <Text style={styles.recentTaskTitle}>{displayTask.title}</Text>
-                    <View style={styles.recentTaskDeadlineContainer}>
-                        <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-                        <Text style={styles.recentTaskDeadlineText}>Deadline: {displayTask.deadline}</Text>
-                    </View>
-                </View>
-            </View>
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <FeatherIcon name="list" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Your recent tasks</Text>
+          </View>
         </View>
+        <View style={styles.recentTaskCard}>
+          <Text style={[styles.recentTaskTitle, { textAlign: 'center' }]}>No pending tasks</Text>
+        </View>
+      </View>
     );
+  }
+
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <FeatherIcon name="list" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={styles.sectionTitle}>Your recent tasks</Text>
+        </View>
+      </View>
+      <View style={styles.recentTaskCard}>
+        <View style={styles.recentTaskIconContainer}>
+          <Icon 
+            name={recentTask.priority === 'high' ? 'priority-high' : 
+                  recentTask.priority === 'medium' ? 'priority-medium' : 
+                  'priority-low'} 
+            size={24} 
+            color={colors.text.primary} 
+          />
+        </View>
+        <View style={styles.recentTaskInfo}>
+          <Text style={styles.recentTaskTitle}>{recentTask.title}</Text>
+          <View style={styles.recentTaskDeadlineContainer}>
+            <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
+            <Text style={styles.recentTaskDeadlineText}>
+              {recentTask.dueDate ? `Due ${new Date(recentTask.dueDate).toLocaleDateString()}` : 'No due date'}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// *** TaskSummarySection Component ***
+function TaskSummarySection({ styles, colors, isDark, tasks }: { styles: any, colors: any, isDark: boolean, tasks: TaskData[] }): React.ReactElement {
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <FeatherIcon name="bar-chart-2" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={styles.sectionTitle}>Task Overview</Text>
+        </View>
+      </View>
+      
+      <TaskSummary tasks={tasks} compact={true} />
+    </View>
+  );
+}
+
+// *** TaskListSection Component ***
+type TaskListSectionProps = {
+  styles: any;
+  colors: any;
+  isDark: boolean;
+  tasks: TaskData[];
+  onTaskPress: (task: TaskData) => void;
+  onToggleComplete: (taskId: string) => void;
+};
+
+function TaskListSection({ styles, colors, isDark, tasks, onTaskPress, onToggleComplete }: TaskListSectionProps): React.ReactElement {
+  // Filter and sort tasks
+  const sortedTasks = [...tasks].sort((a, b) => {
+    // First sort by completion status
+    if (a.isCompleted !== b.isCompleted) {
+      return a.isCompleted ? 1 : -1;
+    }
+    // Then sort by priority
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    if (a.priority !== b.priority) {
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    }
+    // Finally sort by due date
+    if (a.dueDate && b.dueDate) {
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    }
+    return 0;
+  });
+
+  if (sortedTasks.length === 0) {
+    return (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <FeatherIcon name="check-square" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>All Tasks</Text>
+          </View>
+        </View>
+        <View style={[styles.taskListEmpty, { backgroundColor: isDark ? colors.background.secondary : '#FFFFFF' }]}>
+          <FeatherIcon name="check-circle" size={48} color={colors.text.tertiary} />
+          <Text style={[styles.taskListEmptyText, { color: colors.text.secondary }]}>
+            No tasks yet. Create one to get started!
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <FeatherIcon name="check-square" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={styles.sectionTitle}>All Tasks</Text>
+        </View>
+      </View>
+      
+      {sortedTasks.map((task) => (
+        <TouchableOpacity
+          key={task.id}
+          style={[
+            styles.taskItem,
+            { backgroundColor: isDark ? colors.background.secondary : '#FFFFFF' }
+          ]}
+          onPress={() => onTaskPress(task)}
+        >
+          <TouchableOpacity
+            style={[
+              styles.taskCheckbox,
+              { borderColor: task.isCompleted ? colors.brand.primary : colors.border.light }
+            ]}
+            onPress={() => onToggleComplete(task.id)}
+          >
+            {task.isCompleted && (
+              <FeatherIcon name="check" size={16} color={colors.brand.primary} />
+            )}
+          </TouchableOpacity>
+          
+          <View style={styles.taskContent}>
+            <Text 
+              style={[
+                styles.taskTitle,
+                { color: colors.text.primary },
+                task.isCompleted && styles.taskTitleCompleted
+              ]}
+              numberOfLines={1}
+            >
+              {task.title}
+            </Text>
+            
+            {task.description && (
+              <Text 
+                style={[styles.taskDescription, { color: colors.text.secondary }]}
+                numberOfLines={2}
+              >
+                {task.description}
+              </Text>
+            )}
+            
+            <View style={styles.taskFooter}>
+              {task.dueDate && (
+                <View style={styles.taskDateContainer}>
+                  <FeatherIcon name="calendar" size={14} color={colors.text.tertiary} />
+                  <Text style={[styles.taskDate, { color: colors.text.tertiary }]}>
+                    {new Date(task.dueDate).toLocaleDateString()}
+                  </Text>
+                </View>
+              )}
+              
+              <View style={[
+                styles.taskPriority,
+                { 
+                  backgroundColor: 
+                    task.priority === 'high' ? `${colors.status.error}20` :
+                    task.priority === 'medium' ? `${colors.status.warning}20` :
+                    `${colors.status.success}20`
+                }
+              ]}>
+                <Text style={[
+                  styles.taskPriorityText,
+                  { 
+                    color: 
+                      task.priority === 'high' ? colors.status.error :
+                      task.priority === 'medium' ? colors.status.warning :
+                      colors.status.success
+                  }
+                ]}>
+                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 }
 
 export function TaskScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   
-  const { tasks, isLoading, initialized, loadTasks } = useTaskStore();
+  const { tasks, isLoading, initialized, loadTasks, addTask, saveTasks } = useTaskStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('Overview');
+  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  
+  // Task form state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [priority, setPriority] = useState<TaskPriority>('medium');
 
   useEffect(() => {
     if (!initialized) {
@@ -169,9 +394,69 @@ export function TaskScreen() {
     }
   };
 
-  // Navigation handler
+  // Navigation handlers
   const navigateToProjectDetail = (): void => {
-    navigation.navigate('ProjectDetail'); // Use the actual route name for ProjectDetailScreen
+    navigation.navigate('ProjectDetail');
+  };
+
+  const navigateToTaskList = (): void => {
+    navigation.navigate('TaskList');
+  };
+
+  // Task creation handlers
+  const handleAddTask = () => {
+    setIsTaskModalVisible(true);
+  };
+
+  const handleCloseTaskModal = () => {
+    setIsTaskModalVisible(false);
+    // Reset form
+    setTaskTitle('');
+    setTaskDescription('');
+    setDueDate(null);
+    setPriority('medium');
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskTitle.trim()) {
+      Alert.alert('Error', 'Task title is required');
+      return;
+    }
+
+    try {
+      const newTask = {
+        title: taskTitle.trim(),
+        description: taskDescription.trim(),
+        isCompleted: false,
+        dueDate: dueDate?.toISOString(),
+        priority,
+        tags: [],
+        attachments: [],
+      };
+
+      addTask(newTask);
+      await saveTasks();
+      handleCloseTaskModal();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      Alert.alert('Error', 'Failed to create task. Please try again.');
+    }
+  };
+
+  const handleTaskPress = (task: TaskData) => {
+    // TODO: Navigate to task detail screen
+    console.log('Task pressed:', task);
+  };
+
+  const handleToggleComplete = async (taskId: string) => {
+    try {
+      const { toggleTaskCompletion, saveTasks } = useTaskStore.getState();
+      toggleTaskCompletion(taskId);
+      await saveTasks();
+    } catch (error) {
+      console.error('Failed to toggle task completion:', error);
+      Alert.alert('Error', 'Failed to update task. Please try again.');
+    }
   };
 
   const styles = StyleSheet.create({
@@ -250,6 +535,20 @@ export function TaskScreen() {
     },
     activeTabButtonText: {
       color: colors.brand.primary, 
+    },
+    contentContainer: {
+      flex: 1,
+      paddingHorizontal: 16,
+    },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     sectionContainer: { marginTop: 16 },
     sectionHeader: {
@@ -419,6 +718,166 @@ export function TaskScreen() {
         color: colors.text.secondary,
         textAlign: 'center',
     },
+    modalContainer: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingTop: 20,
+      paddingBottom: 36,
+      maxHeight: '90%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      marginBottom: 16,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    closeButton: {
+      position: 'absolute',
+      right: 16,
+    },
+    modalScroll: {
+      paddingHorizontal: 16,
+    },
+    formGroup: {
+      marginBottom: 16,
+    },
+    formLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      marginBottom: 8,
+    },
+    formInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+    },
+    formTextArea: {
+      height: 100,
+      textAlignVertical: 'top',
+    },
+    priorityOptions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    priorityOption: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderRadius: 8,
+      marginHorizontal: 4,
+    },
+    activePriorityOption: {
+      borderWidth: 1.5,
+    },
+    priorityOptionText: {
+      fontSize: 14,
+    },
+    saveButton: {
+      marginHorizontal: 16,
+      marginTop: 16,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    saveButtonText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    taskListEmpty: {
+      padding: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    taskListEmptyText: {
+      marginTop: 12,
+      fontSize: 16,
+      textAlign: 'center',
+    },
+    taskItem: {
+      flexDirection: 'row',
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 8,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    taskCheckbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      marginRight: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    taskContent: {
+      flex: 1,
+    },
+    taskTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    taskTitleCompleted: {
+      textDecorationLine: 'line-through',
+      color: colors.text.tertiary,
+    },
+    taskDescription: {
+      fontSize: 14,
+      marginBottom: 8,
+    },
+    taskFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    taskDateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    taskDate: {
+      fontSize: 12,
+      marginLeft: 4,
+    },
+    taskPriority: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    taskPriorityText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    viewAllButton: {
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    viewAllButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
   });
 
   return (
@@ -426,553 +885,232 @@ export function TaskScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Dashboard</Text>
-            <Icon name="terrain" size={24} color={colors.text.primary} style={styles.headerTitleIcon} />
+            <Text style={styles.headerTitle}>Tasks</Text>
+            <TouchableOpacity style={styles.headerTitleIcon}>
+              <FeatherIcon name="chevron-down" size={20} color={colors.text.primary} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={styles.addButton} 
-            onPress={() => {
-              console.log('Add pressed');
-            }}
-          >
-            <Icon name="add" size={24} color="#FFFFFF" />
+          <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
+            <FeatherIcon name="plus" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
+        
         <View style={styles.searchBarContainer}>
-          <Icon name="search" size={20} color={colors.text.secondary} style={styles.searchIcon} />
+          <FeatherIcon name="search" size={20} color={colors.text.tertiary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search Tasks"
-            placeholderTextColor={colors.text.secondary}
+            placeholder="Search tasks..."
+            placeholderTextColor={colors.text.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity>
-             <FeatherIcon name="sliders" size={20} color={colors.text.secondary} />
-          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.tabsContainer}>
+          {['Overview', 'Analytics'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.tabButton,
+                activeTab === tab && styles.activeTabButton,
+              ]}
+              onPress={() => setActiveTab(tab as ActiveTab)}
+            >
+              <Text
+                style={[
+                  styles.tabButtonText,
+                  activeTab === tab && styles.activeTabButtonText,
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
-
-      <View style={styles.tabsContainer}>
-         <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'Overview' && styles.activeTabButton]}
-            onPress={() => setActiveTab('Overview')}
-         >
-            <Text style={[styles.tabButtonText, activeTab === 'Overview' && styles.activeTabButtonText]}>
-               Overview
-            </Text>
-         </TouchableOpacity>
-         <TouchableOpacity 
-            style={[styles.tabButton, activeTab === 'Analytics' && styles.activeTabButton]}
-            onPress={() => setActiveTab('Analytics')}
-         >
-            <Text style={[styles.tabButtonText, activeTab === 'Analytics' && styles.activeTabButtonText]}>
-               Analytics
-            </Text>
-         </TouchableOpacity>
-      </View>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}> 
-         {activeTab === 'Overview' && (
-           <>
-             <ProjectSection 
-                styles={styles} 
-                colors={colors} 
-                isDark={isDark} 
-                project={null} 
-                onNavigate={navigateToProjectDetail}
-              />
-             <RecentTasksSection styles={styles} colors={colors} isDark={isDark} recentTask={null} />
-           </>
-         )}
-
-         {activeTab === 'Analytics' && (
-           <View style={styles.emptyAnalyticsContainer}>
-             <FeatherIcon name="bar-chart-2" size={48} color={colors.text.tertiary} />
-             <Text style={[styles.emptyAnalyticsText, { marginTop: 16 }]}>
-               Analytics section
-               {'\n'}(coming soon)
-             </Text>
-           </View>
-         )}
+      
+      <ScrollView style={styles.contentContainer}>
+        {activeTab === 'Overview' ? (
+          <>
+            <TaskSummarySection 
+              styles={styles} 
+              colors={colors} 
+              isDark={isDark} 
+              tasks={tasks} 
+            />
+            <ProjectSection 
+              styles={styles} 
+              colors={colors} 
+              isDark={isDark} 
+              onNavigate={navigateToProjectDetail} 
+            />
+            <RecentTasksSection 
+              styles={styles} 
+              colors={colors} 
+              isDark={isDark} 
+            />
+            <TouchableOpacity 
+              style={[styles.viewAllButton, { backgroundColor: colors.brand.primary }]}
+              onPress={navigateToTaskList}
+            >
+              <Text style={[styles.viewAllButtonText, { color: colors.text.inverse }]}>
+                View All Tasks
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={{ padding: 16 }}>
+            <TaskSummary tasks={tasks} />
+          </View>
+        )}
       </ScrollView>
+      
+      {/* Task Creation Modal */}
+      <Modal
+        visible={isTaskModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseTaskModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalContainer}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+                New Task
+              </Text>
+              <TouchableOpacity onPress={handleCloseTaskModal} style={styles.closeButton}>
+                <Icon name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalScroll}>
+              {/* Task Title */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
+                  Title
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    { 
+                      backgroundColor: colors.background.secondary, 
+                      color: colors.text.primary,
+                      borderColor: colors.border.light
+                    }
+                  ]}
+                  placeholder="Task title"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={taskTitle}
+                  onChangeText={setTaskTitle}
+                />
+              </View>
+              
+              {/* Task Description */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
+                  Description
+                </Text>
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    styles.formTextArea,
+                    { 
+                      backgroundColor: colors.background.secondary, 
+                      color: colors.text.primary,
+                      borderColor: colors.border.light
+                    }
+                  ]}
+                  placeholder="Task description"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={taskDescription}
+                  onChangeText={setTaskDescription}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+              
+              {/* Due Date */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
+                  Due Date
+                </Text>
+                <DatePickerInput
+                  label="Select Due Date"
+                  value={dueDate}
+                  onChange={setDueDate}
+                />
+              </View>
+              
+              {/* Priority Selection */}
+              <View style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
+                  Priority
+                </Text>
+                <View style={styles.priorityOptions}>
+                  {(['low', 'medium', 'high'] as TaskPriority[]).map(option => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.priorityOption,
+                        { borderColor: colors.border.light },
+                        priority === option && [
+                          styles.activePriorityOption,
+                          { 
+                            borderColor: 
+                              option === 'high' ? colors.status.error : 
+                              option === 'medium' ? colors.status.warning : 
+                              colors.status.success,
+                            backgroundColor: 
+                              option === 'high' ? `${colors.status.error}20` : 
+                              option === 'medium' ? `${colors.status.warning}20` : 
+                              `${colors.status.success}20`
+                          }
+                        ]
+                      ]}
+                      onPress={() => setPriority(option)}
+                    >
+                      <Text 
+                        style={[
+                          styles.priorityOptionText,
+                          { color: colors.text.secondary },
+                          priority === option && { 
+                            color: 
+                              option === 'high' ? colors.status.error : 
+                              option === 'medium' ? colors.status.warning : 
+                              colors.status.success,
+                            fontWeight: '600'
+                          }
+                        ]}
+                      >
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+            
+            <TouchableOpacity 
+              style={[styles.saveButton, { backgroundColor: colors.brand.primary }]}
+              onPress={handleCreateTask}
+            >
+              <Text style={[styles.saveButtonText, { color: colors.text.inverse }]}>
+                Create Task
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          {/* Add loading indicator */}
+        </View>
+      )}
     </SafeAreaView>
   );
 } 
-=======
-  Animated,
-  Dimensions,
-  Image,
-  Platform,
-  Alert
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useTheme } from '../../theme/theme-context';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TaskListItem } from './components/task-list-item';
-import { TaskFormModal } from './components/task-form-modal';
-import { TaskDetailModal } from './components/task-detail-modal';
-import { useTaskStore } from '../../store/task-store';
-import type { TaskData, TaskPriority, TaskAttachment } from '../../types/task';
-import RNBlobUtil from 'react-native-blob-util';
-
-const { width } = Dimensions.get('window');
-
-type TaskFilterState = {
-  showCompleted: boolean;
-  priority: TaskPriority | null;
-  search: string;
-};
-
-export function TaskScreen() {
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const { colors, isDark } = useTheme();
-  
-  // Task store
-  const { 
-    tasks, 
-    isLoading, 
-    initialized,
-    loadTasks,
-    addTask,
-    updateTask,
-    deleteTask,
-    toggleTaskCompletion 
-  } = useTaskStore();
-  
-  // UI state
-  const [refreshing, setRefreshing] = useState(false);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [showTaskDetail, setShowTaskDetail] = useState(false);
-  const [currentTask, setCurrentTask] = useState<TaskData | undefined>(undefined);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
-  const [filters, setFilters] = useState<TaskFilterState>({
-    showCompleted: true,
-    priority: null,
-    search: '',
-  });
-
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const fabAnim = useRef(new Animated.Value(1)).current;
-  const addTaskTranslateY = fabAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [100, 0],
-  });
-
-  // Load tasks on mount
-  useEffect(() => {
-    if (!initialized) {
-      handleRefresh();
-    }
-  }, [initialized]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await loadTasks();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
-  // Filter tasks based on current filters
-  const filteredTasks = React.useMemo(() => {
-    return tasks.filter(task => {
-      // Filter based on completion status
-      if (!filters.showCompleted && task.isCompleted) {
-        return false;
-      }
-      
-      // Filter based on priority
-      if (filters.priority && task.priority !== filters.priority) {
-        return false;
-      }
-      
-      // Filter based on search text
-      if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase())) {
-        return false;
-      }
-      
-      return true;
-    }).sort((a, b) => {
-      // Sort by completion status first
-      if (a.isCompleted !== b.isCompleted) {
-        return a.isCompleted ? 1 : -1;
-      }
-      
-      // For incomplete tasks, sort by priority
-      if (!a.isCompleted && !b.isCompleted) {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      }
-      
-      // For completed tasks, sort by completion date (newest first)
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
-  }, [tasks, filters]);
-
-  const handleAddTask = (taskData: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addTask(taskData);
-  };
-
-  const handleUpdateTask = (taskData: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (currentTask) {
-      updateTask(currentTask.id, taskData);
-    }
-  };
-
-  const handleTaskPress = (taskId: string) => {
-    if (isMultiSelectMode) {
-      toggleTaskSelection(taskId);
-      return;
-    }
-    
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      setCurrentTask(task);
-      setShowTaskDetail(true);
-    }
-  };
-
-  const handleEditTask = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      setCurrentTask(task);
-      setShowTaskForm(true);
-      setShowTaskDetail(false);
-    }
-  };
-
-  const handleDeleteTask = (taskId: string) => {
-    deleteTask(taskId);
-  };
-
-  const handleToggleTaskCompletion = (taskId: string) => {
-    toggleTaskCompletion(taskId);
-  };
-
-  // Handle long press to start multi-select mode
-  const handleLongPress = (taskId: string) => {
-    setIsMultiSelectMode(true);
-    setSelectedTasks([taskId]);
-  };
-
-  // Toggle task selection in multi-select mode
-  const toggleTaskSelection = (taskId: string) => {
-    setSelectedTasks(prev => {
-      if (prev.includes(taskId)) {
-        const newSelection = prev.filter(id => id !== taskId);
-        if (newSelection.length === 0) {
-          setIsMultiSelectMode(false);
-        }
-        return newSelection;
-      } else {
-        return [...prev, taskId];
-      }
-    });
-  };
-
-  // Exit multi-select mode
-  const exitMultiSelectMode = () => {
-    setSelectedTasks([]);
-    setIsMultiSelectMode(false);
-  };
-
-  const handleToggleShowCompleted = () => {
-    setFilters(prev => ({
-      ...prev,
-      showCompleted: !prev.showCompleted
-    }));
-  };
-
-  const handleFilterByPriority = (priority: TaskPriority | null) => {
-    setFilters(prev => ({
-      ...prev,
-      priority
-    }));
-  };
-
-  const handleViewAttachment = async (attachment: TaskAttachment) => {
-    try {
-      // Open file with device's default viewer
-      if (Platform.OS === 'ios') {
-        // On iOS, QuickLook will handle most file types
-        RNBlobUtil.ios.openDocument(attachment.uri);
-      } else {
-        // On Android, use the OS file viewer
-        RNBlobUtil.android.actionViewIntent(attachment.uri, attachment.type);
-      }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      Alert.alert('Error', 'Failed to open file');
-    }
-  };
-
-  const renderTaskItem = useCallback(
-    ({ item }: { item: TaskData }) => (
-      <TaskListItem 
-        task={item} 
-        onPress={handleTaskPress} 
-        onLongPress={handleLongPress}
-        onToggleCompletion={handleToggleTaskCompletion}
-        isSelected={selectedTasks.includes(item.id)}
-        isSelectMode={isMultiSelectMode}
-      />
-    ),
-    [selectedTasks, isMultiSelectMode]
-  );
-
-  // Show/hide the FAB based on scroll direction
-  useEffect(() => {
-    let previousValue = 0;
-    const listener = scrollY.addListener(({ value }) => {
-      if (value > previousValue && value > 100) {
-        // Scrolling down, hide FAB
-        Animated.spring(fabAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      } else if (value < previousValue) {
-        // Scrolling up, show FAB
-        Animated.spring(fabAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-        }).start();
-      }
-      previousValue = value;
-    });
-
-    return () => {
-      scrollY.removeListener(listener);
-    };
-  }, []);
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-      {isMultiSelectMode && (
-        <View style={[
-          styles.multiSelectHeader,
-          { 
-            backgroundColor: colors.background.primary,
-            shadowColor: 'rgba(0,0,0,0.1)',
-            borderBottomColor: 'rgba(0,0,0,0.05)',
-            borderBottomWidth: 1,
-          }
-        ]}>
-          <TouchableOpacity
-            style={styles.closeMultiSelectButton}
-            onPress={exitMultiSelectMode}
-          >
-            <Icon name="close" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.multiSelectTitle, { color: colors.text.primary }]}>
-            {selectedTasks.length} selected
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.multiSelectAction,
-              { backgroundColor: colors.status.error }
-            ]}
-            onPress={() => {
-              Alert.alert(
-                'Delete Tasks',
-                'Are you sure you want to delete these tasks?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { 
-                    text: 'Delete', 
-                    onPress: () => {
-                      selectedTasks.forEach(id => deleteTask(id));
-                      exitMultiSelectMode();
-                    },
-                    style: 'destructive'
-                  }
-                ]
-              );
-            }}
-          >
-            <Icon name="delete" size={20} color="#FFFFFF" />
-            <Text style={styles.multiSelectActionText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <FlatList
-        data={filteredTasks}
-        renderItem={renderTaskItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingTop: 8, paddingBottom: 100 }
-        ]}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={handleRefresh}
-            colors={[colors.brand.primary]}
-            progressBackgroundColor={colors.background.primary}
-          />
-        }
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={colors.brand.primary} />
-            </View>
-          ) : (
-            <View style={styles.centerContainer}>
-              <Image 
-                source={require('../../../assets/images/blob1.png')}
-                style={[styles.emptyImage, {tintColor: 'rgba(0,0,0,0.1)'}]}
-              />
-              <Text style={[styles.emptyText, {color: colors.text.primary}]}>
-                No tasks found
-              </Text>
-              <Text style={[styles.emptySubtext, {color: colors.text.tertiary}]}>
-                Create your first task by tapping the + button
-              </Text>
-            </View>
-          )
-        }
-      />
-
-      {/* Floating Action Button (FAB) for adding new task */}
-      <Animated.View 
-        style={[
-          styles.fabContainer,
-          {
-            transform: [{ translateY: addTaskTranslateY }],
-            bottom: insets.bottom + 16
-          }
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            {
-              backgroundColor: colors.brand.primary,
-              shadowColor: colors.brand.primary
-            }
-          ]}
-          onPress={() => {
-            setCurrentTask(undefined);
-            setShowTaskForm(true);
-          }}
-        >
-          <Icon name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </Animated.View>
-      
-      {/* Task Form Modal */}
-      <TaskFormModal 
-        visible={showTaskForm}
-        onClose={() => setShowTaskForm(false)}
-        onSave={currentTask ? handleUpdateTask : handleAddTask}
-        existingTask={currentTask}
-      />
-
-      {/* Task Detail Modal */}
-      <TaskDetailModal
-        visible={showTaskDetail}
-        onClose={() => setShowTaskDetail(false)}
-        task={currentTask || null}
-        onEdit={handleEditTask}
-        onDelete={handleDeleteTask}
-        onToggleCompletion={handleToggleTaskCompletion}
-      />
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-    paddingHorizontal: 20,
-  },
-  emptyImage: {
-    width: 120,
-    height: 120,
-    marginBottom: 20,
-    opacity: 0.5,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  multiSelectHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    zIndex: 10,
-  },
-  closeMultiSelectButton: {
-    padding: 8,
-  },
-  multiSelectTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  multiSelectAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  multiSelectActionText: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-}); 
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5

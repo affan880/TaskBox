@@ -28,17 +28,10 @@ import axios from 'axios';
 import { Email } from '../types/email';
 
 // API base URL (replace with your actual API endpoint)
-<<<<<<< HEAD
 const BASE_URL = process.env.BASE_URL;
 
 // Base URL for Gmail API
 const GMAIL_API_BASE_URL = `${BASE_URL}/api/gmail`;
-=======
-const BASE_URL = 'https://api.example.com';
-
-// Base URL for Gmail API
-const GMAIL_API_BASE_URL = 'https://gmail.googleapis.com/gmail/v1/users/me';
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
 // --- Token Caching and Refresh Synchronization ---
 let tokenRetrievalPromise: Promise<string> | null = null;
@@ -158,11 +151,7 @@ async function makeGmailApiRequest(
       body: body ? JSON.stringify(body) : undefined,
     });
     
-<<<<<<< HEAD
     // console.log('response#################', response);
-=======
-    console.log('response#################', response);
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
     // Handle token expiration or authorization errors
     if (response.status === 401) {
       // Token expired during use, invalidate cache
@@ -209,11 +198,7 @@ async function makeGmailApiRequest(
  */
 export async function listMessages(maxResults: number = 20, pageToken?: string, labelIds: string[] = ['INBOX']): Promise<any> {
   const queryParams = new URLSearchParams({
-<<<<<<< HEAD
     maxResults: maxResults.toString(), 
-=======
-    maxResults: maxResults.toString(),
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
     labelIds: labelIds.join(','),
   });
   if (pageToken) {
@@ -225,7 +210,6 @@ export async function listMessages(maxResults: number = 20, pageToken?: string, 
 }
 
 /**
-<<<<<<< HEAD
  * Get multiple emails in a single batch request (much more efficient)
  * @param messageIds Array of message IDs to retrieve
  * @returns Array of email data objects
@@ -306,8 +290,6 @@ export async function getEmailsByIds(messageIds: string[]): Promise<EmailData[]>
 }
 
 /**
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
  * Search for messages matching a query.
  * @param query The search query string (Gmail search syntax)
  * @param maxResults Maximum number of messages to return
@@ -815,7 +797,6 @@ async function getEmailAddress(): Promise<string> {
     console.error('Error getting email address:', error);
     return 'me'; // Fallback to 'me' which is accepted by Gmail API
   }
-<<<<<<< HEAD
 }
 
 // --- Email cache to avoid duplicate fetches ---
@@ -912,6 +893,4 @@ export async function listEmailsWithContent(
     console.error('[gmailApi:Error] Failed to list emails with content:', error);
     throw error;
   }
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 }

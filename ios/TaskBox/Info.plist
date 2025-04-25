@@ -62,12 +62,9 @@
 	<array>
 		<string>MaterialIcons.ttf</string>
 		<string>MaterialCommunityIcons.ttf</string>
-<<<<<<< HEAD
 		<string>Feather.ttf</string>
 		<string>FontAwesome.ttf</string>
 		<string>FeatherIcon.ttf</string>
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 	</array>
 </dict>
 </plist>

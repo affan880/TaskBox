@@ -158,15 +158,12 @@ export async function detectEmailIntent(messageId: string): Promise<EmailIntentR
       throw new Error('No access token available');
     }
     console.log('🔍 Access token_______________:', accessToken);
-<<<<<<< HEAD
     
     // Log critical debug information
     console.log('🔍 Current BASE_URL in email-analysis-api:', BASE_URL);
     const fullApiUrl = `${BASE_URL}/api/detect-intent`;
     console.log('🔍 Full API URL being called:', fullApiUrl);
     
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
     // Make the POST request to the intent detection endpoint
     const response = await fetch(`${BASE_URL}/api/detect-intent`, {
       method: 'POST',

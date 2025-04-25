@@ -20,20 +20,16 @@ import { ProfileScreen } from 'src/features/profile/profile-screen';
 import { EmailDrawerNavigator } from './email-drawer-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TaskScreen } from 'src/features/tasks/task-screen';
-<<<<<<< HEAD
-import { ProjectDetailScreen } from 'src/features/projects/project-detail-screen';
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
+import { ProjectDetailScreen } from '@/features/tasks/project-detail-screen';
+import { TaskListScreen } from '@/features/tasks/task-list-screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Needed for positioning
 
 // Define navigator types
 export type RootStackParamList = {
   MainTabs: undefined;
   Auth: undefined;
-<<<<<<< HEAD
   ProjectDetail: undefined;
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
+  TaskList: undefined;
 };
 
 // Updated Tab Param List for the new design
@@ -228,7 +224,6 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-<<<<<<< HEAD
         <>
           <Stack.Screen 
             name="MainTabs" 
@@ -238,13 +233,11 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
             name="ProjectDetail" 
             component={ProjectDetailScreen} 
           />
+          <Stack.Screen 
+            name="TaskList" 
+            component={TaskListScreen} 
+          />
         </>
-=======
-        <Stack.Screen 
-          name="MainTabs" 
-          component={MainTabNavigator}
-        />
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
       ) : (
         <Stack.Screen
           name="Auth"

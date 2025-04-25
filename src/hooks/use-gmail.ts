@@ -64,7 +64,6 @@ export function useGmail() {
     let nextToken: string | null = null;
 
     try {
-<<<<<<< HEAD
       // Use the new optimized listEmailsWithContent function to get emails in batch
       console.log('[useGmail:Fetch] Fetching emails with content in batch...');
       const { emails: batchedEmails, nextPageToken: newNextPageToken } = 
@@ -119,80 +118,6 @@ export function useGmail() {
       }
       
       setNextPageToken(nextToken);
-=======
-      // console.log('useGmail: Calling gmailApi.listMessages', { maxResults, pageToken }); // Redundant, logged by action hook
-      // Step 1: Fetch list of message IDs and next page token
-      const listResponse = await gmailApi.listMessages(maxResults, pageToken); 
-      nextToken = listResponse.nextPageToken || null;
-      const messageRefs = listResponse.messages || [];
-      console.log('[useGmail:Fetch] listMessages response received', { 
-        messageCount: messageRefs.length,
-        hasNextPageToken: !!nextToken 
-      });
-
-      if (messageRefs.length > 0) {
-        // Step 2: Fetch full details for each message ID
-        console.log(`[useGmail:Fetch] Fetching details for ${messageRefs.length} message IDs...`);
-        const detailResults = await Promise.allSettled(
-          messageRefs.map((ref: { id: string }) => gmailApi.getEmailById(ref.id))
-        );
-        console.log(`[useGmail:Fetch] Details fetched for ${messageRefs.length} message IDs.`);
-
-        // Step 3: Format successful responses
-        fetchedEmails = detailResults
-          .map((result, index) => {
-            if (result.status === 'fulfilled') {
-              try {
-                // Formatting happens here
-                return formatEmailDetails(result.value);
-              } catch (formatError) {
-                console.error(`[useGmail:Error] Error formatting email ${messageRefs[index].id}:`, formatError);
-                return null; // Skip emails that fail formatting
-              }
-            } else {
-              console.error(`[useGmail:Error] Failed fetching details for email ${messageRefs[index].id}:`, result.reason);
-              return null; // Skip emails that failed to fetch
-            }
-          })
-          .filter((email): email is EmailData => email !== null); // Filter out nulls (errors)
-        
-        console.log(`[useGmail:Fetch] Successfully formatted ${fetchedEmails.length} emails.`);
-
-        // Update state based on pagination
-        if (!pageToken) {
-          // console.log('useGmail: Setting emails (first page)'); // Less important
-          setEmails(fetchedEmails);
-        } else {
-          // Subsequent pages (load more)
-          setEmails(prev => {
-            const existingIds = new Set(prev.map(e => e.id));
-            // Filter out duplicates *within* the new batch first
-            const uniqueNewEmails = fetchedEmails.reduce((acc, current) => {
-              if (!acc.some(item => item.id === current.id)) {
-                acc.push(current);
-              }
-              return acc;
-            }, [] as EmailData[]);
-            
-            // Then filter against existing emails
-            const emailsToAdd = uniqueNewEmails.filter(e => !existingIds.has(e.id));
-            
-            if (emailsToAdd.length > 0) {
-              return [...prev, ...emailsToAdd];
-            } else {
-              // Avoid unnecessary state update if no new unique emails were found
-              return prev;
-            }
-          });
-        }
-      } else {
-         // No messages found for this page
-         if (!pageToken) setEmails([]); // Clear emails if it was the first page
-      }
-      
-      setNextPageToken(nextToken);
-      // console.log('useGmail: Email fetch process completed successfully'); // Can be inferred
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
       return { emails: fetchedEmails, nextPageToken: nextToken };
 
     } catch (err: any) {
@@ -229,7 +154,6 @@ export function useGmail() {
     setCurrentEmail(null); // Clear previous email while loading
     
     try {
-<<<<<<< HEAD
       console.log(`[useGmail:Fetch] Fetching details for email ${emailId} using cache-first approach`);
       
       // Use the new cached version to avoid duplicate API calls
@@ -255,18 +179,6 @@ export function useGmail() {
       console.log(`[useGmail:Fetch:Success] fetchEmailById for ${emailId}`); // Log Success
       setCurrentEmail(emailData);
       return emailData;
-=======
-      console.log(`[useGmail:Fetch] Fetching details for single email ${emailId}`);
-      const response = await gmailApi.getEmailById(emailId); // Use the correct API function
-      // console.log(`[useGmail:Fetch] Raw details received for ${emailId}`); // Too verbose
-
-      const formattedEmail = formatEmailDetails(response); 
-      // console.log(`[useGmail:Fetch] Details formatted for ${emailId}`); // Too verbose
-
-      setCurrentEmail(formattedEmail);
-      console.log(`[useGmail:Fetch:Success] fetchEmailById for ${emailId}`); // Log Success
-      return formattedEmail;
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
     } catch (err: any) {
       console.error(`[useGmail:Error] Failed fetching details for email ${emailId}:`, err);
@@ -277,11 +189,7 @@ export function useGmail() {
       setIsLoading(false);
       console.log(`[useGmail:Fetch:Finally] fetchEmailById for ${emailId}`); // Log Finally
     }
-<<<<<<< HEAD
   }, []); // Dependencies: none
-=======
-  }, []); // Dependencies: formatEmailDetails implicitly used
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
   // --- Email Actions ---
 
@@ -673,45 +581,4 @@ export function useGmail() {
     },
     downloadAttachmentData, // Expose the new function
   };
-<<<<<<< HEAD
-=======
-} 
-
-// Function to find the specific attachment part within the email payload by filename
-function findAttachmentPartByFilename(
-  payload: GmailMessagePart | null | undefined,
-  filenameToFind: string
-): GmailMessagePart | null {
-  if (!payload) {
-    return null;
-  }
-
-  // Check if the current part's filename matches
-  if (payload.filename === filenameToFind) {
-    console.log(
-      `[findAttachmentPartByFilename] Found matching filename: ${filenameToFind} in partId: ${
-        payload.partId || 'root'
-      }`
-    );
-    // Ensure the found part has a body with an attachmentId
-    if (payload.body?.attachmentId) {
-       return payload;
-    } else {
-       console.warn(`[findAttachmentPartByFilename] Part with matching filename ${filenameToFind} found, but missing body.attachmentId.`);
-       // Continue searching in case of duplicates or nested structures where only one has the ID
-    }
-  }
-
-  // If the current part has nested parts, recursively search them
-  if (payload.parts && payload.parts.length > 0) {
-    for (const part of payload.parts) {
-      const foundPart = findAttachmentPartByFilename(part, filenameToFind);
-      if (foundPart) {
-        return foundPart; // Return the found part up the recursion chain
-      }
-    }
-  }
-
-  return null; // Not found in this branch
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 } 

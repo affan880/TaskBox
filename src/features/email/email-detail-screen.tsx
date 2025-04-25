@@ -371,7 +371,6 @@ export function EmailDetailScreen() {
         }),
       ]).start();
     }, []);
-<<<<<<< HEAD
     
     const analyzeEmailIntent = async () => {
       console.log('Analyzing email intent');
@@ -398,111 +397,6 @@ export function EmailDetailScreen() {
     useEffect(() => {
       analyzeEmailIntent();
     }, []); // Removed showIntentToast from dependencies
-=======
-
-    // --- Intent Detection Logic ---
-    const handleToastPress = useCallback(() => {
-      if (!detectedIntentInfo || !currentEmail?.id) return;
-      
-      const { intent, suggestedAction } = detectedIntentInfo;
-      const emailId = currentEmail.id;
-      
-      console.log(`Toast pressed for intent: ${intent}`);
-      toast.hide(); // Hide the toast once pressed
-
-      switch (intent) {
-        case 'reply':
-          // ComposeModal reverted, reply intent needs re-implementation
-          console.warn('Reply intent cannot be handled with the current ComposeModal.');
-          // setComposeMode('reply');
-          // setShowComposeModal(true);
-          break;
-        case 'schedule_meeting':
-          setShowScheduleModal(true);
-          break;
-        case 'set_reminder':
-          setShowReminderModal(true);
-          break;
-        case 'create_task':
-          setShowTaskModal(true);
-          break;
-        case 'snooze':
-          // Assuming SnoozeModal needs email ID
-          setSelectedEmailIdForModal(emailId);
-          setShowSnoozeModal(true);
-          break;
-        case 'archive':
-          Alert.alert('Confirm Archive', suggestedAction?.text || 'Archive this email?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Archive', onPress: () => archiveEmail(emailId) },
-          ]);
-          break;
-        case 'delete':
-           Alert.alert('Confirm Delete', suggestedAction?.text || 'Delete this email?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', onPress: () => deleteEmail(emailId), style: 'destructive' },
-          ]);
-          break;
-        case 'mark_spam':
-          Alert.alert('Confirm Spam', suggestedAction?.text || 'Mark this email as spam?', [
-            { text: 'Cancel', style: 'cancel' },
-            // Assuming a `markAsSpam` function exists in useScreenActions
-            //{ text: 'Mark Spam', onPress: () => markAsSpam(emailId) },
-            { text: 'Mark Spam (Not Impl.)', onPress: () => console.warn('Mark as Spam not implemented') },
-          ]);
-          break;
-        case 'none':
-        default:
-          // Do nothing for 'none' or unknown intents
-          break;
-      }
-    }, [detectedIntentInfo, currentEmail?.id, archiveEmail, deleteEmail]);
-
-    const showIntentToast = useCallback((intentInfo: EmailIntentResponse) => {
-      if (!intentInfo.suggestedAction?.text) return;
-      
-      toast.show({
-        message: intentInfo.suggestedAction.text,
-        type: 'info',
-        position: 'top',
-        duration: 4000
-      });
-    }, [handleToastPress]);
-
-    // Detect email intent when the component mounts or email changes
-    // useEffect(() => {
-    //   const analyzeEmailIntent = async () => {
-    //     if (currentEmail?.id) {
-    //       try {
-    //         // Call the intent detection API
-    //         const intentResult = await detectEmailIntent(currentEmail.id);
-    //         console.log('Email intent analysis result:', intentResult);
-    //         setDetectedIntentInfo(intentResult); // Store the result
-            
-    //         // Show toast if intent is actionable
-    //         if (intentResult.intent && intentResult.intent !== 'none' && intentResult.suggestedAction?.text) {
-    //           showIntentToast(intentResult);
-    //         }
-
-    //       } catch (error) {
-    //         // Silently log error but don't show to user as this is a background task
-    //         console.error('Failed to analyze email intent:', error);
-    //         setDetectedIntentInfo(null); // Clear previous intent on error
-    //       }
-    //     } else {
-    //       setDetectedIntentInfo(null); // Clear intent if no email ID
-    //     }
-    //   };
-      
-    //   // Debounce or delay the call slightly to avoid running immediately on screen transition
-    //   const timerId = setTimeout(() => {
-    //      analyzeEmailIntent();
-    //   }, 500); // Delay of 500ms
-
-    //   return () => clearTimeout(timerId); // Cleanup timer
-
-    // }, [currentEmail?.id]); // Removed showIntentToast from dependencies
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
     // --- Other Actions ---
     const handleStarToggle = async () => {

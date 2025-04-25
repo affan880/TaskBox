@@ -13,13 +13,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
-import { useTheme } from '../../theme/theme-context'; // Assuming theme context path
-import { DatePickerInput } from '@/components/ui/date-picker-input'; // Import the new component
+import { useTheme } from '../../theme/theme-context';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { useProjectStore } from '@/store/project-store';
+import { ProjectData, ProjectCreateInput } from '@/types/project';
 
 type FilterTab = 'Projects' | 'Completed' | 'Flag';
 
@@ -61,6 +64,21 @@ export function ProjectDetailScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Projects');
   const [flaggedItems, setFlaggedItems] = useState<Record<string, boolean>>({ f1: true, f2: true }); // Track flagged state locally
+  
+  // Project store
+  const { addProject, saveProjects, loadProjects, projects } = useProjectStore();
+  const [localProjects, setLocalProjects] = useState<ProjectData[]>([]);
+  
+  // Load projects on mount
+  useEffect(() => {
+    const initializeProjects = async () => {
+      await loadProjects();
+      const allProjects = useProjectStore.getState().projects;
+      setLocalProjects(allProjects);
+    };
+    
+    initializeProjects();
+  }, [loadProjects]);
 
   // --- Modal State ---
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -69,6 +87,7 @@ export function ProjectDetailScreen() {
   const [startDate, setStartDate] = useState<Date | null>(new Date()); // Default to today
   const [endDate, setEndDate] = useState<Date | null>(new Date());   // Default to today
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]); // Store IDs/color
+  const [dateError, setDateError] = useState<string | null>(null); // Track date validation errors
 
   // Dummy labels
   const availableLabels = [
@@ -80,24 +99,98 @@ export function ProjectDetailScreen() {
 
   const handleGoBack = () => navigation.goBack();
   const handleAddItem = () => setIsModalVisible(true);
-  const handleCloseModal = () => setIsModalVisible(false);
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    // Reset form state
+    setProjectName('');
+    setDescription('');
+    setStartDate(new Date());
+    setEndDate(new Date());
+    setSelectedLabels([]);
+    setDateError(null);
+  };
+
   const handleSetStartDate = (date: Date | null): void => {
     setStartDate(date);
+    // Validate end date if it exists
+    if (date && endDate && date > endDate) {
+      setDateError('Start date cannot be after end date');
+    } else {
+      setDateError(null);
+    }
   };
+
   const handleSetEndDate = (date: Date | null): void => {
-    // Optional: Add validation e.g., end date >= start date
     setEndDate(date);
+    // Validate against start date
+    if (date && startDate && date < startDate) {
+      setDateError('End date cannot be before start date');
+    } else {
+      setDateError(null);
+    }
   };
-  const handleCreateProject = () => {
-      console.log('Creating Project:', { projectName, description, startDate, endDate, selectedLabels });
-      // Add actual creation logic here (e.g., call API, update store)
-      handleCloseModal();
-      // Reset form state if needed
-      setProjectName('');
-      setDescription('');
+
+  const handleClearDate = (type: 'start' | 'end'): void => {
+    if (type === 'start') {
       setStartDate(null);
+    } else {
       setEndDate(null);
-      setSelectedLabels([]);
+    }
+    setDateError(null);
+  };
+
+  const handleCreateProject = async () => {
+    // Validate required fields
+    if (!projectName.trim()) {
+      Alert.alert('Error', 'Project name is required');
+      return;
+    }
+
+    // Validate dates
+    if (startDate && endDate && startDate > endDate) {
+      setDateError('Start date cannot be after end date');
+      return;
+    }
+
+    // Create project input data
+    const projectInput: ProjectCreateInput = {
+      title: projectName,
+      description: description,
+      startDate: startDate?.toISOString(),
+      endDate: endDate?.toISOString(),
+      labelColor: selectedLabels.length > 0 
+        ? availableLabels.find(l => l.id === selectedLabels[0])?.color 
+        : undefined
+    };
+    
+    try {
+      // Add project to store
+      const projectId = addProject(projectInput);
+      
+      // Save to storage
+      await saveProjects();
+      
+      // Refresh local projects list
+      const updatedProjects = useProjectStore.getState().projects;
+      setLocalProjects(updatedProjects);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        'Project created successfully!',
+        [{ text: 'OK' }]
+      );
+      
+      // Close modal
+      handleCloseModal();
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      Alert.alert(
+        'Error',
+        'Failed to create project. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // --- Toggle Label Selection ---
@@ -114,9 +207,31 @@ export function ProjectDetailScreen() {
     // Here you would also call an update function to persist the flag state
   };
 
-  const filteredData = dummyData[activeFilter].filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter projects based on the active filter and search query
+  const getFilteredProjects = () => {
+    if (localProjects.length === 0) return [];
+    
+    let filtered = localProjects;
+    
+    // Apply filters
+    if (activeFilter === 'Completed') {
+      filtered = filtered.filter(project => project.isCompleted);
+    } else if (activeFilter === 'Flag') {
+      // For flagged projects, you'd need to implement a proper flagging system
+      filtered = filtered.filter(project => flaggedItems[project.id]);
+    }
+    
+    // Apply search
+    if (searchQuery) {
+      filtered = filtered.filter(project => 
+        project.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  };
+  
+  const filteredProjects = getFilteredProjects();
 
   // Define styles inside the component
   const styles = StyleSheet.create({
@@ -191,35 +306,47 @@ export function ProjectDetailScreen() {
       card: {
           backgroundColor: isDark ? colors.background.secondary : '#FFFFFF',
           borderRadius: 12,
-          padding: 12,
+          padding: 16,
           marginBottom: 16,
           width: (SCREEN_WIDTH - 16 * 3) / NUM_COLUMNS, // Calculation for 2 columns with padding
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
+          shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
-          shadowRadius: 2,
+          shadowRadius: 4,
           elevation: 3,
-          minHeight: 150, // Ensure cards have a decent height
+          minHeight: 180, // Increase card height for better spacing
+      },
+      cardHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+      },
+      cardMenuButton: {
+          padding: 4,
       },
       cardIconContainer: {
-          width: 32,
-          height: 32,
-          borderRadius: 16,
+          width: 36,
+          height: 36,
+          borderRadius: 18,
           backgroundColor: colors.background.tertiary,
           justifyContent: 'center',
           alignItems: 'center',
-          marginBottom: 8,
       },
       cardTitle: {
           fontSize: 16,
           fontWeight: 'bold',
           color: colors.text.primary,
-          marginBottom: 8,
+          marginBottom: 12,
+      },
+      cardMetadataContainer: {
+          flex: 1, // Take up available space
+          marginBottom: 12,
       },
       cardRow: {
           flexDirection: 'row',
           alignItems: 'center',
-          marginBottom: 6,
+          marginBottom: 4,
       },
       cardLabel: {
           fontSize: 12,
@@ -231,9 +358,34 @@ export function ProjectDetailScreen() {
           fontWeight: '500',
           color: colors.text.primary,
       },
-      priorityHigh: { color: '#EF4444' }, // Example red for high priority
-      priorityMedium: { color: '#F59E0B' }, // Example orange for medium
-      priorityLow: { color: '#10B981' }, // Example green for low
+      priorityBadge: {
+          paddingVertical: 4,
+          paddingHorizontal: 10,
+          borderRadius: 12,
+          marginVertical: 4,
+      },
+      priorityText: {
+          fontSize: 10,
+          fontWeight: 'bold',
+          color: '#FFFFFF',
+      },
+      priorityHigh: { 
+          backgroundColor: '#EF4444',
+      },
+      priorityMedium: { 
+          backgroundColor: '#F59E0B',
+      },
+      priorityLow: { 
+          backgroundColor: '#10B981',
+      },
+      cardFooter: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 'auto', // Push to bottom
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.light,
+      },
       checkboxContainer: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -279,15 +431,6 @@ export function ProjectDetailScreen() {
           fontWeight: 'bold',
           marginLeft: 8,
       },
-      closeFlagButton: {
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          borderRadius: 12,
-          padding: 4,
-      },
-
       // *** MODAL STYLES START ***
       modalContainer: { 
           flex: 1,
@@ -369,6 +512,24 @@ export function ProjectDetailScreen() {
           color: colors.text.primary,
           marginLeft: 8,
       },
+      errorText: {
+          color: '#EF4444', // Red color for errors
+          fontSize: 12,
+          marginTop: 4,
+      },
+      dateWrapper: {
+          width: '48%', // Control width
+          position: 'relative',
+      },
+      clearDateButton: {
+          position: 'absolute',
+          right: 5,
+          top: 5,
+          zIndex: 1,
+          backgroundColor: 'rgba(0,0,0,0.05)',
+          borderRadius: 12,
+          padding: 2,
+      },
       labelsContainer: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -412,53 +573,186 @@ export function ProjectDetailScreen() {
           fontWeight: 'bold',
       },
       // *** MODAL STYLES END ***
+      emptyContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingVertical: 60,
+      },
+      emptyText: {
+          fontSize: 16,
+          color: colors.text.secondary,
+          marginTop: 12,
+          marginBottom: 24,
+      },
+      createEmptyButton: {
+          backgroundColor: colors.brand.primary,
+          paddingVertical: 12,
+          paddingHorizontal: 24,
+          borderRadius: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+      },
+      createEmptyButtonText: {
+          color: '#FFFFFF',
+          fontSize: 16,
+          fontWeight: 'bold',
+      },
+      cardDescription: {
+          fontSize: 13,
+          color: colors.text.secondary,
+          marginBottom: 12,
+      },
+      progressContainer: {
+          marginTop: 12,
+      },
+      progressRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 4,
+      },
+      progressText: {
+          fontSize: 12,
+          color: colors.text.secondary,
+      },
+      progressPercentage: {
+          fontSize: 12,
+          fontWeight: 'bold',
+          color: colors.text.secondary,
+      },
+      progressBar: {
+          height: 4,
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+          borderRadius: 2,
+          overflow: 'hidden',
+      },
+      progressFill: {
+          height: '100%',
+          backgroundColor: colors.brand.primary,
+          borderRadius: 2,
+      },
+      progressCompleted: {
+          backgroundColor: '#10B981', // Green color for completed
+      },
   });
 
-  const renderTaskCard = ({ item }: { item: ProjectTask }) => {
-    const priorityStyle =
-        item.priority === 'High' ? styles.priorityHigh :
-        item.priority === 'Medium' ? styles.priorityMedium : styles.priorityLow;
+  const renderTaskCard = ({ item }: { item: ProjectData }) => {
+    // Determine if project is flagged (you should implement a proper flagging mechanism)
     const isFlagged = activeFilter === 'Flag' && flaggedItems[item.id];
+    
+    // Check if project has a due date
+    const hasDueDate = !!item.endDate;
+    
+    // Format dates
+    const formattedStartDate = item.startDate 
+      ? new Date(item.startDate).toLocaleDateString() 
+      : 'Not set';
+      
+    const formattedEndDate = item.endDate
+      ? new Date(item.endDate).toLocaleDateString()
+      : 'Not set';
+    
+    // Calculate progress - for now we'll show a placeholder
+    const totalTasks = item.tasks.length;
+    // In a real app, you would fetch the tasks and determine completion status
+    const completedTasks = 0;
+    const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
     return (
-      <View style={styles.card}>
-        <View style={styles.cardIconContainer}>
-            {/* Placeholder Icon */}
-            <Icon name="description" size={18} color={colors.text.primary} />
-        </View>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <View style={styles.cardRow}>
-            <FeatherIcon name="clock" size={14} color={colors.text.secondary} />
-            <Text style={styles.cardLabel}>Deadline</Text>
-        </View>
-        <Text style={[styles.cardValue, { marginBottom: 4 }]}>{item.deadline}</Text>
-        <View style={styles.cardRow}>
-            <FeatherIcon name="alert-circle" size={14} color={colors.text.secondary} />
-            <Text style={styles.cardLabel}>Priority</Text>
-        </View>
-        <Text style={[styles.cardValue, priorityStyle, { marginBottom: 4 }]}>{item.priority}</Text>
-
-        <View style={styles.checkboxContainer}>
-          <TouchableOpacity style={[styles.checkbox, item.isDone && styles.checkboxChecked]}>
-            {item.isDone && <FeatherIcon name="check" size={12} color="#FFFFFF" />}
+      <TouchableOpacity 
+        style={[styles.card, item.labelColor ? { borderLeftColor: item.labelColor, borderLeftWidth: 4 } : null]}
+        onPress={() => navigation.navigate('TaskList', { projectId: item.id })}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.cardIconContainer}>
+            <Icon name="folder" size={18} color={colors.text.primary} />
+          </View>
+          <TouchableOpacity 
+            style={styles.cardMenuButton}
+            onPress={() => console.log('Menu for project', item.id)}
+          >
+            <Icon name="more-vert" size={18} color={colors.text.secondary} />
           </TouchableOpacity>
-          <Text style={styles.checkboxLabel}>{item.isDone ? 'Done' : 'Mark as done'}</Text>
+        </View>
+        
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        
+        {item.description ? (
+          <Text style={styles.cardDescription} numberOfLines={2}>
+            {item.description}
+          </Text>
+        ) : null}
+        
+        <View style={styles.cardMetadataContainer}>
+          {item.startDate && (
+            <View style={styles.cardRow}>
+              <FeatherIcon name="calendar" size={14} color={colors.text.secondary} />
+              <Text style={styles.cardLabel}>Start: {formattedStartDate}</Text>
+            </View>
+          )}
+          
+          {item.endDate && (
+            <View style={styles.cardRow}>
+              <FeatherIcon name="calendar" size={14} color={colors.text.secondary} />
+              <Text style={styles.cardLabel}>Due: {formattedEndDate}</Text>
+            </View>
+          )}
+          
+          <View style={styles.progressContainer}>
+            <View style={styles.progressRow}>
+              <Text style={styles.progressText}>
+                {totalTasks > 0 ? `${completedTasks}/${totalTasks} tasks` : 'No tasks yet'}
+              </Text>
+              {totalTasks > 0 && (
+                <Text style={styles.progressPercentage}>
+                  {Math.round(progressPercentage)}%
+                </Text>
+              )}
+            </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${progressPercentage}%` },
+                  item.isCompleted && styles.progressCompleted
+                ]} 
+              />
+            </View>
+          </View>
         </View>
 
-        {/* Flag Overlay - Shown only on Flag tab if item is flagged */}
+        <View style={styles.cardFooter}>
+          <TouchableOpacity 
+            style={[styles.checkbox, item.isCompleted && styles.checkboxChecked]}
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent card navigation
+              console.log('Toggle completion for', item.id);
+            }}
+          >
+            {item.isCompleted && <FeatherIcon name="check" size={12} color="#FFFFFF" />}
+          </TouchableOpacity>
+          <Text style={styles.checkboxLabel}>
+            {item.isCompleted ? 'Completed' : 'Mark as complete'}
+          </Text>
+        </View>
+
+        {/* Flag Overlay */}
         {isFlagged && (
-            <View style={styles.flagOverlay}>
-                <TouchableOpacity style={styles.flagButton} onPress={() => toggleFlag(item.id)}>
-                    <FeatherIcon name="flag" size={18} color="#4B0082" />
-                    <Text style={styles.flagButtonText}>Unflag</Text>
-                </TouchableOpacity>
-                {/* Optional: Close button for overlay itself */}
-                {/* <TouchableOpacity style={styles.closeFlagButton} onPress={() => toggleFlag(item.id)}>
-                    <FeatherIcon name="x" size={14} color="#FFFFFF" />
-                </TouchableOpacity> */}
-            </View>
+          <View style={styles.flagOverlay}>
+            <TouchableOpacity 
+              style={styles.flagButton} 
+              onPress={(e) => {
+                e.stopPropagation(); // Prevent card navigation
+                toggleFlag(item.id);
+              }}
+            >
+              <FeatherIcon name="flag" size={18} color="#4B0082" />
+              <Text style={styles.flagButtonText}>Unflag</Text>
+            </TouchableOpacity>
+          </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -505,14 +799,25 @@ export function ProjectDetailScreen() {
 
             {/* Task Grid */}
             <FlatList
-                data={filteredData}
+                data={filteredProjects}
                 renderItem={renderTaskCard}
                 keyExtractor={(item) => item.id}
                 numColumns={NUM_COLUMNS}
                 contentContainerStyle={styles.listContainer}
-                columnWrapperStyle={styles.columnWrapper}
+                columnWrapperStyle={filteredProjects.length > 0 ? styles.columnWrapper : undefined}
                 showsVerticalScrollIndicator={false}
-                // Add ListEmptyComponent if needed
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyContainer}>
+                    <Icon name="folder-open" size={60} color={colors.text.secondary} />
+                    <Text style={styles.emptyText}>No projects found</Text>
+                    <TouchableOpacity 
+                      style={styles.createEmptyButton}
+                      onPress={handleAddItem}
+                    >
+                      <Text style={styles.createEmptyButtonText}>Create Project</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
             />
         </View>
 
@@ -552,23 +857,47 @@ export function ProjectDetailScreen() {
                         <View style={styles.formSection}>
                             <Text style={styles.formLabel}>Calendar</Text>
                             <View style={styles.dateContainer}>
-                                {/* Use DatePickerInput for Start Date */}
-                                <DatePickerInput
-                                  label="Start Date"
-                                  value={startDate}
-                                  onChange={handleSetStartDate}
-                                  // Optional: set maximumDate={endDate}
-                                />
-                                {/* Add some space between pickers */}
-                                <View style={{ width: 16 }} />
-                                {/* Use DatePickerInput for End Date */}
-                                <DatePickerInput
-                                  label="End Date"
-                                  value={endDate}
-                                  onChange={handleSetEndDate}
-                                  minimumDate={startDate || undefined} // Pass startDate as minimumDate
-                                />
+                                {/* Start Date */}
+                                <View style={styles.dateWrapper}>
+                                    {startDate && (
+                                        <TouchableOpacity 
+                                            style={styles.clearDateButton}
+                                            onPress={() => handleClearDate('start')}
+                                        >
+                                            <FeatherIcon name="x" size={16} color={colors.text.secondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                    <DatePickerInput
+                                        label="Start Date"
+                                        value={startDate}
+                                        onChange={handleSetStartDate}
+                                        maximumDate={endDate || undefined}
+                                    />
+                                </View>
+                                
+                                {/* End Date */}
+                                <View style={styles.dateWrapper}>
+                                    {endDate && (
+                                        <TouchableOpacity 
+                                            style={styles.clearDateButton}
+                                            onPress={() => handleClearDate('end')}
+                                        >
+                                            <FeatherIcon name="x" size={16} color={colors.text.secondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                    <DatePickerInput
+                                        label="End Date"
+                                        value={endDate}
+                                        onChange={handleSetEndDate}
+                                        minimumDate={startDate || undefined}
+                                    />
+                                </View>
                             </View>
+                            
+                            {/* Show error message if dates are invalid */}
+                            {dateError && (
+                                <Text style={styles.errorText}>{dateError}</Text>
+                            )}
                         </View>
 
                         {/* Description */}
