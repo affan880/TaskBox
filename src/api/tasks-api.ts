@@ -93,7 +93,8 @@ export function toggleTaskCompletion(tasks: TaskData[], taskId: string): TaskDat
     task.id === taskId 
       ? { 
           ...task, 
-          isCompleted: !task.isCompleted, 
+          isCompleted: !task.isCompleted,
+          completedAt: !task.isCompleted ? new Date().toISOString() : undefined,
           updatedAt: new Date().toISOString() 
         } 
       : task

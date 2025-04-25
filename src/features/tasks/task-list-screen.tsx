@@ -48,6 +48,7 @@ export function TaskListScreen() {
     toggleTaskCompletion, 
     deleteTask, 
     saveTasks,
+    getTasksByProject,
     tasks
   } = useTaskStore();
   
@@ -65,7 +66,7 @@ export function TaskListScreen() {
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [isCreateMode, setIsCreateMode] = useState(true);
   
-  // Load project data
+  // Load project data if projectId is provided
   useEffect(() => {
     if (projectId) {
       loadProjectData();
@@ -87,7 +88,7 @@ export function TaskListScreen() {
   
   // Filter tasks based on active filter and search
   const getFilteredTasks = useCallback(() => {
-    let filtered = [...tasks];
+    let filtered = projectId ? getTasksByProject(projectId) : tasks;
     
     // Apply tab filter
     if (activeFilter === 'Completed') {
@@ -122,9 +123,31 @@ export function TaskListScreen() {
       }
       return 0;
     });
-  }, [tasks, activeFilter, searchQuery]);
-  
+  }, [projectId, getTasksByProject, tasks, activeFilter, searchQuery]);
+
   const filteredTasks = getFilteredTasks();
+  
+  // Calculate progress for all tasks or project tasks
+  const calculateProgress = () => {
+    if (!projectId) {
+      if (tasks.length === 0) return 0;
+      const completedTasks = tasks.filter(task => task.isCompleted).length;
+      return Math.round((completedTasks / tasks.length) * 100);
+    }
+    
+    if (!project || project.tasks.length === 0) return 0;
+    const totalTasks = project.tasks.length;
+    const completedTasks = project.tasks.filter(task => task.isCompleted).length;
+    return Math.round((completedTasks / totalTasks) * 100);
+  };
+  
+  const projectProgress = calculateProgress();
+  const completedTasksCount = projectId 
+    ? project?.tasks.filter(task => task.isCompleted).length || 0
+    : tasks.filter(task => task.isCompleted).length;
+  const totalTasksCount = projectId 
+    ? project?.tasks.length || 0
+    : tasks.length;
   
   // Task modal handlers
   const handleAddTask = () => {
@@ -175,21 +198,25 @@ export function TaskListScreen() {
           attachments: [],
         };
         
-        // Get the current tasks from the store
-        const { tasks } = useTaskStore.getState();
-        
-        // Use the tasks-api function to create the task with generated ID
-        const taskWithId = createTask(newTask, tasks);
-        
         // Add task to the store
         addTask(newTask);
         
+        // Get the current tasks to get the newly created task's ID
+        const { tasks } = useTaskStore.getState();
+        const createdTask = tasks[tasks.length - 1]; // Get the last task which is the one we just created
+        
         // Add to project
         const projectStore = useProjectStore.getState();
-        projectStore.addTaskToProject(projectId, taskWithId.id);
+        projectStore.addTaskToProject(projectId, createdTask.id);
         
-        await saveTasks();
-        await saveProjects();
+        // Save both stores
+        await Promise.all([
+          saveTasks(),
+          saveProjects()
+        ]);
+        
+        // Refresh project data to update the UI
+        loadProjectData();
       } else if (selectedTask) {
         // Update existing task
         updateTask(selectedTask.id, {
@@ -200,10 +227,9 @@ export function TaskListScreen() {
         });
         
         await saveTasks();
+        loadProjectData();
       }
       
-      // Refresh project data
-      loadProjectData();
       handleCloseTaskModal();
       
     } catch (error) {
@@ -253,19 +279,6 @@ export function TaskListScreen() {
   
   const handleGoBack = () => navigation.goBack();
   
-  // Calculate project progress
-  const calculateProgress = () => {
-    if (!project || project.tasks.length === 0) return 0;
-    
-    const totalTasks = project.tasks.length;
-    const completedTasks = project.tasks.filter(task => task.isCompleted).length;
-    return Math.round((completedTasks / totalTasks) * 100);
-  };
-  
-  const projectProgress = calculateProgress();
-  const completedTasksCount = project?.tasks.filter(task => task.isCompleted).length || 0;
-  const totalTasksCount = project?.tasks.length || 0;
-  
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -275,7 +288,7 @@ export function TaskListScreen() {
         </TouchableOpacity>
         
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
-          {project?.title || 'Tasks'}
+          {projectId ? (project?.title || 'Tasks') : 'All Tasks'}
         </Text>
         
         <TouchableOpacity onPress={handleAddTask} style={styles.addButton}>
@@ -283,8 +296,8 @@ export function TaskListScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* Project Info Card */}
-      {project && (
+      {/* Project Info Card - Only show if projectId is provided */}
+      {projectId && project && (
         <View style={[styles.projectCard, { backgroundColor: colors.surface.card }]}>
           <View style={styles.projectHeader}>
             <Text style={[styles.projectTitle, { color: colors.text.primary }]}>
@@ -323,6 +336,36 @@ export function TaskListScreen() {
             </Text>
           )}
           
+          <View style={styles.progressSection}>
+            <View style={styles.progressInfo}>
+              <Text style={[styles.progressText, { color: colors.text.secondary }]}>
+                {completedTasksCount} of {totalTasksCount} tasks completed
+              </Text>
+              <Text style={[styles.progressPercentage, { color: colors.text.primary }]}>
+                {projectProgress}%
+              </Text>
+            </View>
+            
+            <View style={[styles.progressBar, { backgroundColor: colors.border.light }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    backgroundColor: projectProgress === 100 
+                      ? colors.status.success 
+                      : colors.brand.primary,
+                    width: `${projectProgress}%` 
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Progress Section for All Tasks */}
+      {!projectId && (
+        <View style={[styles.projectCard, { backgroundColor: colors.surface.card }]}>
           <View style={styles.progressSection}>
             <View style={styles.progressInfo}>
               <Text style={[styles.progressText, { color: colors.text.secondary }]}>

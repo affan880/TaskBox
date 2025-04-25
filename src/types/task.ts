@@ -6,6 +6,7 @@ export type TaskData = {
   title: string;
   description?: string;
   isCompleted: boolean;
+  completedAt?: string;
   dueDate?: string;
   priority: TaskPriority;
   tags?: string[];

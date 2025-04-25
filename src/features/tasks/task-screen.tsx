@@ -11,20 +11,25 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useTheme } from '../../theme/theme-context';
-import { useTaskStore } from '../../store/task-store';
-import { useProjectStore } from '../../store/project-store';
-import { ProjectWithTasks } from '../../types/project';
-import type { TaskData, TaskPriority } from '../../types/task';
-import { TaskSummary } from '../../components/task-summary';
+import { useTheme } from '@/theme/theme-context';
+import { useTaskStore } from '@/store/task-store';
+import { useProjectStore } from '@/store/project-store';
+import { ProjectWithTasks } from '@/types/project';
+import type { TaskData, TaskPriority } from '@/types/task';
+import { TaskSummary } from '@/components/task-summary';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
+import { LineChart, PieChart, BarChart } from 'react-native-chart-kit';
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 // Define Tab type
 type ActiveTab = 'Overview' | 'Analytics';
@@ -35,16 +40,31 @@ type ProjectSectionProps = {
   styles: any; // Consider defining a more specific type for styles
   colors: any; // Replace 'any' with your actual theme colors type
   isDark: boolean;
-  onNavigate: () => void; // Add callback for navigation
+  onNavigate: (project?: ProjectWithTasks) => void; // Add callback for navigation
 };
 
 function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionProps): React.ReactElement {
-  const { projects } = useProjectStore();
+  const { projects, deleteProject } = useProjectStore();
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
   
   // Get the most recent project with tasks
   const recentProject = projects.length > 0 
     ? projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
     : null;
+
+  const handleDeleteProject = async () => {
+    if (!selectedProject) return;
+
+    try {
+      deleteProject(selectedProject.id);
+      setIsDeleteModalVisible(false);
+      setSelectedProject(null);
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      Alert.alert('Error', 'Failed to delete project. Please try again.');
+    }
+  };
 
   if (!recentProject) {
     return (
@@ -52,19 +72,19 @@ function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionPr
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
             <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Your project</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your project</Text>
           </View>
-          <TouchableOpacity onPress={onNavigate}>
+          <TouchableOpacity onPress={() => onNavigate()}>
             <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
-        <View style={styles.projectCard}>
-          <Text style={[styles.projectTitle, { textAlign: 'center' }]}>No projects yet</Text>
+        <View style={[styles.projectCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.projectTitle, { color: colors.text.primary, textAlign: 'center' }]}>No projects yet</Text>
           <TouchableOpacity 
-            style={[styles.addButton, { marginTop: 16, alignSelf: 'center' }]}
-            onPress={onNavigate}
+            style={[styles.addButton, { backgroundColor: colors.brand.primary, marginTop: 16, alignSelf: 'center' }]}
+            onPress={() => onNavigate()}
           >
-            <Text style={{ color: 'white', fontWeight: '600' }}>Create Project</Text>
+            <Text style={{ color: colors.text.inverse, fontWeight: '600' }}>Create Project</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -79,19 +99,19 @@ function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionPr
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
             <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Your project</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your project</Text>
           </View>
-          <TouchableOpacity onPress={onNavigate}>
+          <TouchableOpacity onPress={() => onNavigate()}>
             <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
-        <View style={styles.projectCard}>
-          <Text style={[styles.projectTitle, { textAlign: 'center' }]}>Project not found</Text>
+        <View style={[styles.projectCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.projectTitle, { color: colors.text.primary, textAlign: 'center' }]}>Project not found</Text>
           <TouchableOpacity 
-            style={[styles.addButton, { marginTop: 16, alignSelf: 'center' }]}
-            onPress={onNavigate}
+            style={[styles.addButton, { backgroundColor: colors.brand.primary, marginTop: 16, alignSelf: 'center' }]}
+            onPress={() => onNavigate()}
           >
-            <Text style={{ color: 'white', fontWeight: '600' }}>Create Project</Text>
+            <Text style={{ color: colors.text.inverse, fontWeight: '600' }}>Create Project</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -107,42 +127,87 @@ function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionPr
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleContainer}>
           <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-          <Text style={styles.sectionTitle}>Your project</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your project</Text>
         </View>
-        <TouchableOpacity onPress={onNavigate}>
-          <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => {
+              setSelectedProject(projectWithTasks);
+              setIsDeleteModalVisible(true);
+            }}
+            style={{ marginRight: 16 }}
+          >
+            <FeatherIcon name="trash-2" size={20} color={colors.status.error} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onNavigate(projectWithTasks)}>
+            <FeatherIcon name="chevron-right" size={24} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.projectCard}>
+      <View style={[styles.projectCard, { backgroundColor: colors.surface.primary }]}>
         <View style={styles.projectCardTopRow}>
-          <Text style={styles.projectTitle}>{projectWithTasks.title}</Text>
-          {/* Remove avatars section since it's not in the project type */}
+          <Text style={[styles.projectTitle, { color: colors.text.primary }]}>{projectWithTasks.title}</Text>
         </View>
         <View style={styles.dateContainer}>
           <View style={styles.dateItem}>
             <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-            <Text style={styles.dateText}>
+            <Text style={[styles.dateText, { color: colors.text.secondary }]}>
               {projectWithTasks.startDate ? new Date(projectWithTasks.startDate).toLocaleDateString() : 'No start date'}
             </Text>
           </View>
-          <Text style={styles.dateSeparator}>→</Text>
+          <Text style={[styles.dateSeparator, { color: colors.text.tertiary }]}>→</Text>
           <View style={styles.dateItem}>
             <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-            <Text style={styles.dateText}>
+            <Text style={[styles.dateText, { color: colors.text.secondary }]}>
               {projectWithTasks.endDate ? new Date(projectWithTasks.endDate).toLocaleDateString() : 'No end date'}
             </Text>
           </View>
         </View>
         <View style={styles.progressBarContainer}>
-          <Text style={styles.progressText}>{progressPercent}</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: progressPercent }]} />
+          <Text style={[styles.progressText, { color: colors.text.primary }]}>{progressPercent}</Text>
+          <View style={[styles.progressTrack, { backgroundColor: colors.surface.secondary }]}>
+            <View style={[styles.progressFill, { width: progressPercent, backgroundColor: colors.brand.primary }]} />
           </View>
-          <Text style={styles.taskCountText}>
+          <Text style={[styles.taskCountText, { color: colors.text.secondary }]}>
             {`${completedTasks}/${totalTasks} tasks`}
           </Text>
         </View>
       </View>
+
+      {/* Delete Project Modal */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.surface.primary }]}>
+            <Text style={[styles.deleteModalTitle, { color: colors.text.primary }]}>
+              Delete Project
+            </Text>
+            <Text style={[styles.deleteModalText, { color: colors.text.secondary }]}>
+              Are you sure you want to delete this project? This action cannot be undone and will delete all associated tasks.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <Button
+                variant="outline"
+                onPress={() => setIsDeleteModalVisible(false)}
+                style={styles.deleteModalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onPress={handleDeleteProject}
+                style={styles.deleteModalButton}
+              >
+                Delete
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -168,11 +233,11 @@ function RecentTasksSection({ styles, colors, isDark }: RecentTasksSectionProps)
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
             <FeatherIcon name="list" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Your recent tasks</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your recent tasks</Text>
           </View>
         </View>
-        <View style={styles.recentTaskCard}>
-          <Text style={[styles.recentTaskTitle, { textAlign: 'center' }]}>No pending tasks</Text>
+        <View style={[styles.recentTaskCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.recentTaskTitle, { color: colors.text.primary, textAlign: 'center' }]}>No pending tasks</Text>
         </View>
       </View>
     );
@@ -183,24 +248,26 @@ function RecentTasksSection({ styles, colors, isDark }: RecentTasksSectionProps)
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleContainer}>
           <FeatherIcon name="list" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-          <Text style={styles.sectionTitle}>Your recent tasks</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your recent tasks</Text>
         </View>
       </View>
-      <View style={styles.recentTaskCard}>
-        <View style={styles.recentTaskIconContainer}>
+      <View style={[styles.recentTaskCard, { backgroundColor: colors.surface.primary }]}>
+        <View style={[styles.recentTaskIconContainer, { backgroundColor: colors.surface.secondary }]}>
           <Icon 
             name={recentTask.priority === 'high' ? 'priority-high' : 
                   recentTask.priority === 'medium' ? 'priority-medium' : 
                   'priority-low'} 
             size={24} 
-            color={colors.text.primary} 
+            color={recentTask.priority === 'high' ? colors.status.error :
+                   recentTask.priority === 'medium' ? colors.status.warning :
+                   colors.status.success} 
           />
         </View>
         <View style={styles.recentTaskInfo}>
-          <Text style={styles.recentTaskTitle}>{recentTask.title}</Text>
+          <Text style={[styles.recentTaskTitle, { color: colors.text.primary }]}>{recentTask.title}</Text>
           <View style={styles.recentTaskDeadlineContainer}>
             <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
-            <Text style={styles.recentTaskDeadlineText}>
+            <Text style={[styles.recentTaskDeadlineText, { color: colors.text.secondary }]}>
               {recentTask.dueDate ? `Due ${new Date(recentTask.dueDate).toLocaleDateString()}` : 'No due date'}
             </Text>
           </View>
@@ -222,6 +289,213 @@ function TaskSummarySection({ styles, colors, isDark, tasks }: { styles: any, co
       </View>
       
       <TaskSummary tasks={tasks} compact={true} />
+    </View>
+  );
+}
+
+// *** AnalyticsSection Component ***
+function AnalyticsSection({ styles, colors, isDark, tasks }: { styles: any, colors: any, isDark: boolean, tasks: TaskData[] }): React.ReactElement {
+  const { projects } = useProjectStore();
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
+
+  // Calculate completion rate
+  const completionRate = React.useMemo(() => {
+    const completedTasks = tasks.filter(task => task.isCompleted).length;
+    return tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
+  }, [tasks]);
+
+  // Calculate tasks by priority
+  const tasksByPriority = React.useMemo(() => {
+    const priorityCounts = {
+      high: 0,
+      medium: 0,
+      low: 0,
+    };
+    tasks.forEach(task => {
+      if (task.priority) {
+        priorityCounts[task.priority]++;
+      }
+    });
+    return priorityCounts;
+  }, [tasks]);
+
+  // Calculate tasks by project
+  const tasksByProject = React.useMemo(() => {
+    const projectCounts = new Map<string, number>();
+    projects.forEach(project => {
+      const projectTasks = tasks.filter(task => project.tasks.includes(task.id));
+      projectCounts.set(project.title, projectTasks.length);
+    });
+    return Array.from(projectCounts.entries()).map(([name, count]) => ({
+      name,
+      count,
+    }));
+  }, [tasks, projects]);
+
+  // Calculate daily completion trends
+  const dailyCompletions = React.useMemo(() => {
+    const days = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 365;
+    const lastDays = Array.from({ length: days }, (_, i) => {
+      const date = subDays(new Date(), i);
+      return {
+        date: format(date, 'MMM dd'),
+        count: tasks.filter(task => 
+          task.isCompleted && 
+          task.completedAt && 
+          parseISO(task.completedAt) >= startOfDay(date) &&
+          parseISO(task.completedAt) <= endOfDay(date)
+        ).length
+      };
+    }).reverse();
+    return lastDays;
+  }, [tasks, timeRange]);
+
+  // Chart configurations
+  const chartConfig = {
+    backgroundGradientFrom: colors.surface.primary,
+    backgroundGradientTo: colors.surface.primary,
+    color: (opacity = 1) => isDark ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
+    strokeWidth: 2,
+    barPercentage: 0.5,
+    useShadowColorFromDataset: false,
+  };
+
+  const screenWidth = Dimensions.get('window').width;
+
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <FeatherIcon name="bar-chart-2" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Analytics</Text>
+        </View>
+        <View style={styles.timeRangeContainer}>
+          {(['week', 'month', 'year'] as const).map((range) => (
+            <TouchableOpacity
+              key={range}
+              style={[
+                styles.timeRangeButton,
+                { borderColor: colors.border.light },
+                timeRange === range && [
+                  styles.activeTimeRangeButton,
+                  { 
+                    borderColor: colors.brand.primary,
+                    backgroundColor: `${colors.brand.primary}20`
+                  }
+                ]
+              ]}
+              onPress={() => setTimeRange(range)}
+            >
+              <Text 
+                style={[
+                  styles.timeRangeButtonText,
+                  { color: colors.text.secondary },
+                  timeRange === range && { color: colors.brand.primary }
+                ]}
+              >
+                {range.charAt(0).toUpperCase() + range.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Overview Section */}
+      <View style={styles.analyticsSection}>
+        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Overview</Text>
+        <View style={styles.metricsContainer}>
+          <View style={[styles.metricCard, { backgroundColor: colors.surface.primary }]}>
+            <Text style={[styles.metricValue, { color: colors.text.primary }]}>
+              {tasks.length}
+            </Text>
+            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>
+              Total Tasks
+            </Text>
+          </View>
+          <View style={[styles.metricCard, { backgroundColor: colors.surface.primary }]}>
+            <Text style={[styles.metricValue, { color: colors.text.primary }]}>
+              {completionRate.toFixed(1)}%
+            </Text>
+            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>
+              Completion Rate
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Task Distribution by Priority */}
+      <View style={styles.analyticsSection}>
+        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Task Distribution</Text>
+        <PieChart
+          data={[
+            {
+              name: 'High',
+              population: tasksByPriority.high,
+              color: colors.status.error,
+              legendFontColor: colors.text.primary,
+            },
+            {
+              name: 'Medium',
+              population: tasksByPriority.medium,
+              color: colors.status.warning,
+              legendFontColor: colors.text.primary,
+            },
+            {
+              name: 'Low',
+              population: tasksByPriority.low,
+              color: colors.status.success,
+              legendFontColor: colors.text.primary,
+            },
+          ]}
+          width={screenWidth - 32}
+          height={220}
+          chartConfig={chartConfig}
+          accessor="population"
+          backgroundColor="transparent"
+          paddingLeft="15"
+          absolute
+        />
+      </View>
+
+      {/* Daily Completion Trends */}
+      <View style={styles.analyticsSection}>
+        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Completion Trends</Text>
+        <LineChart
+          data={{
+            labels: dailyCompletions.map(day => day.date),
+            datasets: [{
+              data: dailyCompletions.map(day => day.count)
+            }]
+          }}
+          width={screenWidth - 32}
+          height={220}
+          chartConfig={chartConfig}
+          bezier
+          style={styles.chart}
+        />
+      </View>
+
+      {/* Tasks by Project */}
+      {tasksByProject.length > 0 && (
+        <View style={styles.analyticsSection}>
+          <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Tasks by Project</Text>
+          <BarChart
+            data={{
+              labels: tasksByProject.map(item => item.name),
+              datasets: [{
+                data: tasksByProject.map(item => item.count)
+              }]
+            }}
+            width={screenWidth - 32}
+            height={220}
+            chartConfig={chartConfig}
+            style={styles.chart}
+            showValuesOnTopOfBars
+            yAxisLabel=""
+            yAxisSuffix=""
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -368,11 +642,14 @@ export function TaskScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
   
-  const { tasks, isLoading, initialized, loadTasks, addTask, saveTasks } = useTaskStore();
+  const { tasks, isLoading, initialized, loadTasks, addTask, saveTasks, deleteTask } = useTaskStore();
+  const { projects, deleteProject } = useProjectStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('Overview');
   const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskData | null>(null);
   
   // Task form state
   const [taskTitle, setTaskTitle] = useState('');
@@ -389,14 +666,14 @@ export function TaskScreen() {
   const handleRefresh = async (): Promise<void> => {
     try {
       await loadTasks();
-    } finally {
-      // Can add logic here if needed (e.g., stop loading indicator)
+    } catch (error) {
+      Alert.alert('Error', 'Failed to refresh tasks. Please try again.');
     }
   };
 
   // Navigation handlers
-  const navigateToProjectDetail = (): void => {
-    navigation.navigate('ProjectDetail');
+  const navigateToProjectDetail = (projectId?: string): void => {
+    navigation.navigate('ProjectDetail', { projectId });
   };
 
   const navigateToTaskList = (): void => {
@@ -444,8 +721,22 @@ export function TaskScreen() {
   };
 
   const handleTaskPress = (task: TaskData) => {
-    // TODO: Navigate to task detail screen
-    console.log('Task pressed:', task);
+    setSelectedTask(task);
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleDeleteTask = async () => {
+    if (!selectedTask) return;
+
+    try {
+      deleteTask(selectedTask.id);
+      await saveTasks();
+      setIsDeleteModalVisible(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      Alert.alert('Error', 'Failed to delete task. Please try again.');
+    }
   };
 
   const handleToggleComplete = async (taskId: string) => {
@@ -878,6 +1169,85 @@ export function TaskScreen() {
       fontSize: 16,
       fontWeight: '600',
     },
+    analyticsSection: {
+      marginBottom: 24,
+    },
+    analyticsSectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      marginBottom: 16,
+    },
+    metricsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 16,
+    },
+    metricCard: {
+      flex: 1,
+      padding: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    metricValue: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 4,
+    },
+    metricLabel: {
+      fontSize: 14,
+    },
+    chart: {
+      marginVertical: 8,
+      borderRadius: 16,
+    },
+    deleteModalContent: {
+      padding: 20,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    deleteModalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 16,
+    },
+    deleteModalText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginBottom: 20,
+    },
+    deleteModalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 16,
+    },
+    deleteModalButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+    },
+    timeRangeContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    timeRangeButton: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    activeTimeRangeButton: {
+      borderWidth: 1.5,
+    },
+    timeRangeButtonText: {
+      fontSize: 14,
+      fontWeight: '500',
+    },
   });
 
   return (
@@ -885,20 +1255,23 @@ export function TaskScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Tasks</Text>
+            <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tasks</Text>
             <TouchableOpacity style={styles.headerTitleIcon}>
               <FeatherIcon name="chevron-down" size={20} color={colors.text.primary} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
-            <FeatherIcon name="plus" size={20} color="#ffffff" />
+          <TouchableOpacity 
+            style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
+            onPress={handleAddTask}
+          >
+            <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
           </TouchableOpacity>
         </View>
         
-        <View style={styles.searchBarContainer}>
+        <View style={[styles.searchBarContainer, { backgroundColor: colors.surface.secondary }]}>
           <FeatherIcon name="search" size={20} color={colors.text.tertiary} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text.primary }]}
             placeholder="Search tasks..."
             placeholderTextColor={colors.text.tertiary}
             value={searchQuery}
@@ -906,20 +1279,21 @@ export function TaskScreen() {
           />
         </View>
         
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { borderBottomColor: colors.border.light }]}>
           {['Overview', 'Analytics'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[
                 styles.tabButton,
-                activeTab === tab && styles.activeTabButton,
+                activeTab === tab && [styles.activeTabButton, { borderBottomColor: colors.brand.primary }],
               ]}
               onPress={() => setActiveTab(tab as ActiveTab)}
             >
               <Text
                 style={[
                   styles.tabButtonText,
-                  activeTab === tab && styles.activeTabButtonText,
+                  { color: colors.text.secondary },
+                  activeTab === tab && { color: colors.brand.primary },
                 ]}
               >
                 {tab}
@@ -959,9 +1333,12 @@ export function TaskScreen() {
             </TouchableOpacity>
           </>
         ) : (
-          <View style={{ padding: 16 }}>
-            <TaskSummary tasks={tasks} />
-          </View>
+          <AnalyticsSection 
+            styles={styles} 
+            colors={colors} 
+            isDark={isDark} 
+            tasks={tasks} 
+          />
         )}
       </ScrollView>
       
@@ -996,7 +1373,7 @@ export function TaskScreen() {
                   style={[
                     styles.formInput,
                     { 
-                      backgroundColor: colors.background.secondary, 
+                      backgroundColor: colors.surface.secondary, 
                       color: colors.text.primary,
                       borderColor: colors.border.light
                     }
@@ -1018,7 +1395,7 @@ export function TaskScreen() {
                     styles.formInput,
                     styles.formTextArea,
                     { 
-                      backgroundColor: colors.background.secondary, 
+                      backgroundColor: colors.surface.secondary, 
                       color: colors.text.primary,
                       borderColor: colors.border.light
                     }
@@ -1105,10 +1482,45 @@ export function TaskScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.surface.primary }]}>
+            <Text style={[styles.deleteModalTitle, { color: colors.text.primary }]}>
+              Delete Task
+            </Text>
+            <Text style={[styles.deleteModalText, { color: colors.text.secondary }]}>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <Button
+                variant="outline"
+                onPress={() => setIsDeleteModalVisible(false)}
+                style={styles.deleteModalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onPress={handleDeleteTask}
+                style={styles.deleteModalButton}
+              >
+                Delete
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       {isLoading && (
-        <View style={styles.loadingOverlay}>
-          {/* Add loading indicator */}
+        <View style={[styles.loadingOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
         </View>
       )}
     </SafeAreaView>
