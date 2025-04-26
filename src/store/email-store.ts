@@ -1,203 +1,233 @@
 import { create } from 'zustand';
-import { Email, EmailPriority } from '../types/email';
-import { fetchEmails, sendEmail, updateEmail, deleteEmail } from '../api/gmail-api';
-<<<<<<< HEAD
+import { Email } from '../types/email';
 import { loadCategories, loadLastSelectedCategory, saveLastSelectedCategory } from '../lib/storage/category-storage';
-import { EmailFilter } from '../utils/email-filters';
-=======
 
-type EmailFilter = {
-  isRead?: boolean;
-  isStarred?: boolean;
-  priority?: EmailPriority;
-  searchText?: string;
-  labels?: string[];
+// Define EmailPriority enum
+export enum EmailPriority {
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+// Define EmailFilter type
+export type EmailFilter = {
+  search: string;
+  status: 'all' | 'read' | 'unread';
+  priority: 'all' | EmailPriority;
+  category?: string;  // Make category optional in the filter type
 };
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
 
-type EmailStore = {
+// Default filter
+const defaultFilter: EmailFilter = {
+  search: '',
+  status: 'all',
+  priority: 'all',
+};
+
+// API client type definitions
+type ApiResponse<T> = {
+  data: T;
+  status: number;
+  message?: string;
+};
+
+// API client setup
+const api = {
+  get: async <T>(url: string): Promise<ApiResponse<T>> => {
+    // Implement actual API call
+    const response: ApiResponse<T> = { data: [] as unknown as T, status: 200 };
+    return response;
+  },
+  post: async <T>(url: string, data: any): Promise<ApiResponse<T>> => {
+    // Implement actual API call
+    return { data: [] as unknown as T, status: 200 };
+  },
+  patch: async (url: string, data?: any): Promise<void> => {
+    // Implement actual API call
+  },
+  delete: async (url: string): Promise<void> => {
+    // Implement actual API call
+  }
+};
+
+type EmailState = {
   // State
   emails: Email[];
   isLoading: boolean;
   error: string | null;
-  filters: EmailFilter;
-<<<<<<< HEAD
+  filter: EmailFilter | null;
+  selectedCategory: string | null;
   categories: string[];
-  selectedCategory: string;
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-  
+  priorityCount: Record<EmailPriority, number>;
+};
+
+type EmailActions = {
   // Actions
-  fetchEmails: () => Promise<void>;
+  fetchEmails: (filter?: EmailFilter) => Promise<void>;
   sendEmail: (emailData: Omit<Email, 'id' | 'createdAt'>) => Promise<Email>;
   markAsRead: (emailId: string, isRead: boolean) => Promise<void>;
   toggleStar: (emailId: string) => Promise<void>;
   deleteEmail: (emailId: string) => Promise<void>;
   setFilters: (filters: Partial<EmailFilter>) => void;
   resetFilters: () => void;
-<<<<<<< HEAD
   fetchCategories: () => Promise<void>;
   setSelectedCategory: (category: string) => Promise<void>;
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
+  sortEmails: () => void;
 };
 
-export const useEmailStore = create<EmailStore>((set, get) => ({
+type EmailStore = EmailState & EmailActions;
+
+// Helper function to get error message
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return 'An unexpected error occurred';
+}
+
+export const useEmailStore = create<EmailStore>()((set, get) => ({
   // Initial state
   emails: [],
   isLoading: false,
   error: null,
-  filters: {},
-<<<<<<< HEAD
+  filter: null,
+  selectedCategory: null,
   categories: [],
-  selectedCategory: 'All',
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-  
+  priorityCount: {
+    [EmailPriority.HIGH]: 0,
+    [EmailPriority.MEDIUM]: 0,
+    [EmailPriority.LOW]: 0,
+  },
+
   // Actions
-  fetchEmails: async () => {
-    set({ isLoading: true, error: null });
+  fetchEmails: async (filter?: EmailFilter) => {
+    set({ isLoading: true });
     try {
-      const emails = await fetchEmails();
-      set({ emails, isLoading: false });
+      const url = filter ? `/emails?${new URLSearchParams(filter as Record<string, string>)}` : '/emails';
+      const response = await api.get<Email[]>(url);
+      if (response?.data) {
+        set({ emails: response.data, error: null });
+      }
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch emails', 
-        isLoading: false 
-      });
+      set({ error: 'Failed to fetch emails' });
+    } finally {
+      set({ isLoading: false });
     }
   },
   
   sendEmail: async (emailData) => {
     set({ isLoading: true, error: null });
     try {
-<<<<<<< HEAD
-      const newEmail = await sendEmail(
-        emailData.recipients.map(r => r.email).join(','), 
-        emailData.subject, 
-        emailData.body || ''
-      );
-=======
-      const newEmail = await sendEmail(emailData);
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-      set(state => ({ 
-        emails: [newEmail, ...state.emails],
-        isLoading: false 
+      const email = await api.post<Email>('/emails', emailData);
+      set((state) => ({
+        emails: [...state.emails, email.data],
+        isLoading: false,
       }));
-      return newEmail;
+      return email.data;
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to send email', 
-        isLoading: false 
-      });
+      set({ error: getErrorMessage(error), isLoading: false });
       throw error;
     }
   },
   
   markAsRead: async (emailId, isRead) => {
     try {
-<<<<<<< HEAD
-      // Add to UNREAD label if not read, remove if read
-      const addLabelIds = isRead ? [] : ['UNREAD'];
-      const removeLabelIds = isRead ? ['UNREAD'] : [];
-      
-      await updateEmail(emailId, addLabelIds, removeLabelIds);
-=======
-      await updateEmail(emailId, { isRead });
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-      set(state => ({
-        emails: state.emails.map(email => 
+      await api.patch(`/emails/${emailId}`, { isRead });
+      set((state) => ({
+        emails: state.emails.map((email) =>
           email.id === emailId ? { ...email, isRead } : email
-        )
+        ),
       }));
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to update email'
-      });
+      set({ error: getErrorMessage(error) });
     }
   },
   
   toggleStar: async (emailId) => {
-    const { emails } = get();
-    const email = emails.find(e => e.id === emailId);
-    if (!email) return;
-    
-    const isStarred = !email.isStarred;
-    
     try {
-<<<<<<< HEAD
-      // Add to STARRED label if starred, remove if not starred
-      const addLabelIds = isStarred ? ['STARRED'] : [];
-      const removeLabelIds = isStarred ? [] : ['STARRED'];
+      const email = get().emails.find((e) => e.id === emailId);
+      if (!email) return;
       
-      await updateEmail(emailId, addLabelIds, removeLabelIds);
-=======
-      await updateEmail(emailId, { isStarred });
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-      set(state => ({
-        emails: state.emails.map(email => 
-          email.id === emailId ? { ...email, isStarred } : email
-        )
+      await api.patch(`/emails/${emailId}/star`);
+      set((state) => ({
+        emails: state.emails.map((email) =>
+          email.id === emailId
+            ? { ...email, isStarred: !email.isStarred }
+            : email
+        ),
       }));
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to star email'
-      });
+      set({ error: getErrorMessage(error) });
     }
   },
   
   deleteEmail: async (emailId) => {
     try {
-      await deleteEmail(emailId);
-      set(state => ({
-        emails: state.emails.filter(email => email.id !== emailId)
+      await api.delete(`/emails/${emailId}`);
+      set((state) => ({
+        emails: state.emails.filter((email) => email.id !== emailId),
       }));
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to delete email'
-      });
+      set({ error: getErrorMessage(error) });
     }
   },
   
-  setFilters: (filters) => {
-    set(state => ({
-      filters: { ...state.filters, ...filters }
+  setFilters: (filters: Partial<EmailFilter>) => {
+    set((state) => ({
+      filter: { ...(state.filter ?? defaultFilter), ...filters }
     }));
   },
   
   resetFilters: () => {
-    set({ filters: {} });
-<<<<<<< HEAD
+    set({
+      filter: defaultFilter
+    });
   },
-
+  
   fetchCategories: async () => {
+    set({ isLoading: true, error: null });
     try {
       const categories = await loadCategories();
       const lastSelected = await loadLastSelectedCategory('All');
       set({ categories, selectedCategory: lastSelected });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to load categories'
-      });
+      set({ error: getErrorMessage(error), isLoading: false });
     }
   },
-
+  
   setSelectedCategory: async (category) => {
     try {
       await saveLastSelectedCategory(category);
-      set({ 
+      set((state) => ({ 
         selectedCategory: category,
-        filters: {
-          ...get().filters,
-          category
-        }
-      });
+        filter: { ...(state.filter ?? defaultFilter), category }
+      }));
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to set category'
       });
     }
-=======
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
-  }
+  },
+  
+  sortEmails: () => {
+    set((state) => {
+      const sortedEmails = [...state.emails].sort((a: Email, b: Email) => {
+        // Sort by priority (HIGH > MEDIUM > LOW)
+        const priorityOrder: Record<EmailPriority, number> = {
+          [EmailPriority.HIGH]: 3,
+          [EmailPriority.MEDIUM]: 2,
+          [EmailPriority.LOW]: 1
+        };
+        
+        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // Then sort by read status (unread first)
+        if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+
+        // Finally sort by creation date
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      return { emails: sortedEmails };
+    });
+  },
 }));

@@ -502,6 +502,7 @@ export function EmailDetailScreen() {
           console.log('Generating new summary for email:', emailId);
           try {
             const response = await summarizeEmailContent(currentEmail?.body || '');
+            console.log('Summary response:', response);
             
             if (response && response.summary) {
               // Cache the summary for future use
@@ -859,9 +860,11 @@ export function EmailDetailScreen() {
                         margin: 0,
                         overflow: 'hidden',
                         padding: 8,
+                        minHeight: 100,
+                        flex: 0,
                       }]}>
                         {summaryHtml && (
-                          <View style={styles.summaryIndicator}>
+                          <View style={[styles.summaryIndicator, { zIndex: 1 }]}>
                             <Text style={styles.summaryIndicatorText}>AI Summary</Text>
                             <TouchableOpacity
                               style={styles.viewOriginalButton}
@@ -872,7 +875,43 @@ export function EmailDetailScreen() {
                           </View>
                         )}
                         <AutoHeightWebView
-                          html={summaryHtml || emailBody || '<div></div>'}
+                          html={`
+                            <html>
+                              <head>
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                                <style>
+                                  * { 
+                                    font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                                    line-height: 1.5;
+                                    font-size: 16px;
+                                  }
+                                  body {
+                                    margin: 0;
+                                    padding: 0;
+                                    min-height: auto !important;
+                                    height: auto !important;
+                                    background-color: ${gmailTheme.surface};
+                                    color: ${gmailTheme.text.primary};
+                                  }
+                                  div {
+                                    min-height: auto !important;
+                                    height: auto !important;
+                                  }
+                                  img {
+                                    max-width: 100%;
+                                    height: auto;
+                                  }
+                                  pre {
+                                    white-space: pre-wrap;
+                                    word-wrap: break-word;
+                                  }
+                                </style>
+                              </head>
+                              <body>
+                                ${summaryHtml || emailBody || '<div></div>'}
+                              </body>
+                            </html>
+                          `}
                         />
                       </View>
                       

@@ -38,6 +38,23 @@ export type EmailIntentResponse = {
 }
 
 /**
+ * API response type for the email generation endpoint
+ */
+export type EmailGenerationResponse = {
+  subject?: string;
+  body?: string;
+  html?: string;
+}
+
+export type EmailGenerationRequest = {
+  subject?: string;
+  body?: string;
+  recipientEmail?: string;
+  tone?: string;
+  prompt?: string; // For chat-based enhancements
+}
+
+/**
  * Analyzes emails using the backend API
  * @param count Optional number of emails to analyze
  * @param days Optional number of days to analyze
@@ -188,6 +205,49 @@ export async function detectEmailIntent(messageId: string): Promise<EmailIntentR
     return responseData;
   } catch (error) {
     console.error('Error detecting email intent:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generates email content using the backend API
+ * @param params The parameters for email generation
+ * @returns The generated email content from the API
+ */
+export async function generateEmailContent(params: EmailGenerationRequest): Promise<EmailGenerationResponse> {
+  if (DEBUG) console.log('📍 API Call - Generating email content with params:', params);
+  try {
+    // Get the access token
+    const accessToken = await getAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    // Make the POST request to the generation endpoint
+    const response = await fetch(`${BASE_URL}/api/generate-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...params,
+        accessToken,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API error response:', errorText);
+      throw new Error(`Email generation API error (${response.status}): ${errorText}`);
+    }
+    
+    const responseData = await response.json();
+    if (DEBUG) console.log('Email generation response:', responseData);
+    
+    return responseData;
+  } catch (error) {
+    console.error('Error generating email:', error);
     throw error;
   }
 } 

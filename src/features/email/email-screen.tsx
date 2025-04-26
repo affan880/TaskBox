@@ -5,6 +5,8 @@ import {
   StyleSheet, 
   Animated,
   Alert,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import { useEmailActions } from './hooks/use-email-actions';
 import { useAutoCategorization } from './hooks/use-auto-categorization';
@@ -15,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getCurrentScreenTitle } from 'src/lib/utils/utils';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { 
   EmailHeader,
   EmailList,
@@ -25,6 +28,7 @@ import {
   CategoryFilterBar,
 } from './components';
 import { useSharedValue } from 'react-native-reanimated';
+import { useEmailStore } from '@/store/email-store';
 
 type RootStackParamList = {
   ReadEmail: { email: EmailData };
@@ -73,7 +77,7 @@ export function EmailScreen() {
     gmailError,
     handleRefresh,
     handleLoadMore,
-    getEmailDetails, 
+    getEmailDetails,
     archiveEmail,
     deleteEmail,
     markAsUnread,
@@ -91,6 +95,8 @@ export function EmailScreen() {
     clearSearch,
   } = useEmailActions();
 
+  const { sortEmails } = useEmailStore();
+
   // Screen state for UI elements
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState(false);
@@ -101,6 +107,8 @@ export function EmailScreen() {
 
   // --- State for Category Filter ---
   const [selectedCategory, setSelectedCategory] = useState<string>(
+
+      
     emailCategories[0] // Default to the first category
   );
 
@@ -128,22 +136,10 @@ export function EmailScreen() {
   const screenTitle = useMemo(() => getCurrentScreenTitle(currentScreenName), [currentScreenName]);
 
   // Replace direct API calls with cached categorization
-  const handleSmartSort = useCallback(async () => {
-    if (__DEV__) console.log(`Smart Sort triggered for category: ${selectedCategory}`);
-    
-    try {
-      // Use the force analysis function from our hook
-      await forceAnalysis();
-      
-      // We'll get updates via the hook's state
-    } catch (error) {
-      console.error('Error during smart sort:', error);
-      Alert.alert(
-        'Smart Sort Failed', 
-        'There was a problem analyzing your emails. Please try again later.'
-      );
-    }
-  }, [selectedCategory, forceAnalysis]);
+  const handleSmartSort = React.useCallback(() => {
+    forceAnalysis();
+    sortEmails();
+  }, [sortEmails]);
 
   // Helper function to get emails for a specific category
   const getEmailsForCategory = useCallback((categoryName: string): EmailData[] => {
@@ -185,7 +181,7 @@ export function EmailScreen() {
     
     try {
       const emailDetails = await getEmailDetails(emailId);
-      
+      console.log('emailDetails', emailDetails);
       if (emailDetails) {
         // Mark as read when opening email
         if (emailDetails.isUnread) {
@@ -358,11 +354,11 @@ export function EmailScreen() {
         <EmailHeader 
           insets={insets} 
           screenTitle={screenTitle}
-          onProfilePress={handleProfilePress}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           onSearchSubmit={handleSearchSubmit}
           onClearSearch={handleClearSearch}
+          onSmartSort={handleSmartSort}
         />
         
         {/* Enhanced CategoryFilterBar with counts */}
@@ -374,6 +370,46 @@ export function EmailScreen() {
           isAnalyzing={isAnalyzing}
           isFirstLoad={!initialLoadComplete && !hasInitializedFromCache}
         />
+
+        {/* Action Bar for Multi-select Mode */}
+        {isMultiSelectMode && (
+          <View style={[styles.actionBar, { 
+            backgroundColor: colors.surface.primary,
+            borderBottomColor: colors.border.light,
+          }]}>
+            <View style={styles.actionBarLeft}>
+              <Text style={[styles.actionBarText, { color: colors.text.primary }]}>
+                {selectedEmails.length} selected
+              </Text>
+            </View>
+            <View style={styles.actionBarRight}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleMarkAsRead(selectedEmails)}
+              >
+                <Icon name="email-check" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleMarkAsUnread(selectedEmails)}
+              >
+                <Icon name="email-outline" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => handleDelete(selectedEmails)}
+              >
+                <Icon name="delete" size={24} color={colors.status.error} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={handleCloseMultiSelect}
+              >
+                <Icon name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Simplified EmailList rendering logic */}
         <EmailList
@@ -435,5 +471,30 @@ export function EmailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    zIndex: 1,
+  },
+  actionBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBarText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 16,
   },
 }); 

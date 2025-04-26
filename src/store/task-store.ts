@@ -15,17 +15,23 @@ import { useProjectStore } from './project-store';
 
 const storage = new MMKV();
 
-interface TaskState {
+// Error types for better error handling
+type TaskError = {
+  code: 'LOAD_ERROR' | 'SAVE_ERROR' | 'UPDATE_ERROR' | 'DELETE_ERROR';
+  message: string;
+};
+
+type TaskState = {
   tasks: TaskData[];
   isLoading: boolean;
   initialized: boolean;
   isUpdating: Record<string, boolean>;
   
   // Actions
-  addTask: (task: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTask: (taskId: string, updates: Partial<Omit<TaskData, 'id' | 'createdAt'>>) => void;
-  deleteTask: (taskId: string) => void;
-  toggleTaskCompletion: (taskId: string) => void;
+  addTask: (task: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateTask: (taskId: string, updates: Partial<Omit<TaskData, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
+  toggleTaskCompletion: (taskId: string) => Promise<void>;
   loadTasks: () => Promise<void>;
   saveTasks: () => Promise<void>;
   getTasksByProject: (projectId: string) => TaskData[];

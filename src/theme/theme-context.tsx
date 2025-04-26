@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { COLORS, DARK_COLORS, ColorTheme } from './colors';
 import { getItem, setItem } from 'src/lib/storage/storage';
+import { useColorScheme } from 'react-native';
 
 type ThemeType = 'light' | 'dark' | 'system';
 
@@ -25,23 +26,29 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setThemeState] = React.useState<ThemeType>(() => {
-    try {
-      // Force light theme by default
-      const savedTheme = getItem<ThemeType>('theme', 'light');
-      return savedTheme || 'light';
-    } catch (error) {
-      console.error('Error getting theme from storage:', error);
-      return 'light';
-    }
-  });
-  const [systemIsDark, setSystemIsDark] = React.useState(false);
+  const systemColorScheme = useColorScheme();
+  const [theme, setThemeState] = React.useState<ThemeType>('system');
+  
+  // Load saved theme
+  React.useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await getItem<ThemeType>('theme');
+        if (savedTheme) {
+          setThemeState(savedTheme);
+        }
+      } catch (error) {
+        console.error('Error getting theme from storage:', error);
+      }
+    };
+    loadTheme();
+  }, []);
   
   // Determine if the current theme is dark
   const isDark = React.useMemo(() => {
-    if (theme === 'system') return systemIsDark;
+    if (theme === 'system') return systemColorScheme === 'dark';
     return theme === 'dark';
-  }, [theme, systemIsDark]);
+  }, [theme, systemColorScheme]);
   
   // Get the appropriate color theme
   const colors = React.useMemo(() => {
@@ -55,7 +62,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       setItem('theme', newTheme);
     } catch (error) {
       console.error('Error setting theme in storage:', error);
-      // Still update the state even if storage fails
       setThemeState(newTheme);
     }
   }, []);
@@ -63,34 +69,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   // Toggle between light and dark
   const toggleTheme = React.useCallback(() => {
     if (theme === 'system') {
-      setTheme(systemIsDark ? 'light' : 'dark');
+      setTheme(systemColorScheme === 'dark' ? 'light' : 'dark');
     } else {
       setTheme(theme === 'light' ? 'dark' : 'light');
     }
-  }, [theme, systemIsDark, setTheme]);
-  
-  // Listen for system theme changes
-  React.useEffect(() => {
-    // This is a simplified version - in a real app you would use
-    // Appearance.addChangeListener to detect system theme changes
-    // For now, we'll just detect based on time of day as an example
-    const checkSystemTheme = () => {
-      const hours = new Date().getHours();
-      setSystemIsDark(hours < 6 || hours >= 20);
-    };
-    
-    checkSystemTheme();
-    const intervalId = setInterval(checkSystemTheme, 1000 * 60); // Check every minute
-    
-    return () => clearInterval(intervalId);
-  }, []);
-  
-  // Force light theme on initial load
-  React.useEffect(() => {
-    if (isDark) {
-      setTheme('light');
-    }
-  }, []);
+  }, [theme, systemColorScheme, setTheme]);
   
   const value = React.useMemo(() => ({
     theme,

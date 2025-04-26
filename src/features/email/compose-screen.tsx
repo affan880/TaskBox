@@ -14,8 +14,10 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Animated,
-  Pressable
+  Pressable,
+  Dimensions
 } from 'react-native';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/theme-context';
@@ -24,6 +26,9 @@ import RNBlobUtil from 'react-native-blob-util';
 import { EmailAttachment } from '@/types/email';
 import { useGmail } from '@/hooks/use-gmail';
 import { ChipInput } from '@/components/ui/chip-input';
+import { Image } from '@/components';
+import { Button } from '@/components/ui/button';
+import { summarizeEmailContent, generateEmailContent } from '@/api/email-analysis-api';
 
 /**
  * Normalizes a file URI to ensure it's correctly formatted for React Native Blob Util
@@ -121,6 +126,15 @@ async function verifyFileAccessible(uri: string, filename: string): Promise<bool
   }
 }
 
+// Add EmailGenerationRequest type at the top of the file
+type EmailGenerationRequest = {
+  subject?: string;
+  body?: string;
+  recipientEmail?: string;
+  tone?: string;
+  prompt?: string; // Add prompt field for chat enhancements
+};
+
 export function ComposeScreen() {
   const navigation = useNavigation();
   const { colors } = useTheme();
@@ -151,22 +165,48 @@ export function ComposeScreen() {
   const subjectInputRef = useRef<TextInput>(null);
   const contentInputRef = useRef<TextInput>(null);
 
+  // Remove email generation states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedSubject, setGeneratedSubject] = useState<string | null>(null);
+  const [generatedBody, setGeneratedBody] = useState<string | null>(null);
+  const [showGeneratedSubject, setShowGeneratedSubject] = useState(false);
+  const [showGeneratedBody, setShowGeneratedBody] = useState(false);
+  
+  // Bottom sheet ref and state
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<Array<{
+    type: 'user' | 'assistant';
+    message: string;
+  }>>([]);
+
+  // Snap points for bottom sheet (40%, 80% of screen height)
+  const snapPoints = React.useMemo(() => ['40%', '80%'], []);
+
+  const handleSheetChanges = useCallback((index: number) => {
+    setIsBottomSheetOpen(index !== -1);
+  }, []);
+
   // Monitor keyboard visibility
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+    const keyboardWillShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const keyboardWillHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardDidShowListener = Keyboard.addListener(keyboardWillShow, (event) => {
       setIsKeyboardVisible(true);
       Animated.timing(toolbarHeight, {
         toValue: 44,
-        duration: 300,
+        duration: Platform.OS === 'ios' ? event.duration : 250,
         useNativeDriver: false
       }).start();
     });
     
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+    const keyboardDidHideListener = Keyboard.addListener(keyboardWillHide, (event) => {
       setIsKeyboardVisible(false);
       Animated.timing(toolbarHeight, {
         toValue: 0,
-        duration: 250,
+        duration: Platform.OS === 'ios' ? event.duration : 200,
         useNativeDriver: false
       }).start();
     });
@@ -356,9 +396,14 @@ export function ComposeScreen() {
 
     try {
       // Prepare recipient strings (joined with commas)
-      const toField = recipients.join(',');
-      const ccField = ccRecipients.length > 0 ? ccRecipients.join(',') : undefined;
-      const bccField = bccRecipients.length > 0 ? bccRecipients.join(',') : undefined;
+      const toField = [...recipients];
+      if (ccRecipients.length > 0) {
+        toField.push(`CC: ${ccRecipients.join(',')}`);
+      }
+      if (bccRecipients.length > 0) {
+        toField.push(`BCC: ${bccRecipients.join(',')}`);
+      }
+      const finalToField = toField.join(',');
       
       // Log attachment details before sending
       if (attachments.length > 0) {
@@ -398,8 +443,8 @@ export function ComposeScreen() {
         }
       }
       
-      // Send email using Gmail API (enhanced with CC/BCC support)
-      const success = await sendEmail(toField, subject, content, attachments, ccField, bccField);
+      // Send email using Gmail API
+      const success = await sendEmail(finalToField, subject, content, attachments);
       
       setIsSending(false);
       
@@ -491,201 +536,440 @@ export function ComposeScreen() {
     </View>
   );
 
+  // Function to send chat message
+  const handleSendChat = async () => {
+    if (!chatMessage.trim()) return;
+
+    // Add user message to chat
+    setChatHistory(prev => [...prev, { type: 'user', message: chatMessage }]);
+    const userMessage = chatMessage;
+    setChatMessage('');
+
+    try {
+      setIsGenerating(true);
+      const response = await generateEmailContent({
+        subject: subject || undefined,
+        body: content || undefined,
+        recipientEmail: recipients[0],
+        tone: 'professional',
+        prompt: userMessage
+      });
+
+      if (response) {
+        // Add assistant response to chat
+        setChatHistory(prev => [...prev, { 
+          type: 'assistant', 
+          message: response.body || response.subject || 'No suggestion generated' 
+        }]);
+
+        // Update suggestions if provided
+        if (response.subject) {
+          setGeneratedSubject(response.subject);
+          setShowGeneratedSubject(true);
+        }
+        if (response.body) {
+          setGeneratedBody(response.body);
+          setShowGeneratedBody(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating enhancement:', error);
+      Alert.alert('Error', 'Failed to generate enhancement');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Render chat message
+  const renderChatMessage = ({ type, message }: { type: 'user' | 'assistant', message: string }) => (
+    <View style={[
+      styles.chatMessage,
+      type === 'user' ? styles.userMessage : styles.assistantMessage
+    ]}>
+      <Text style={[
+        styles.chatMessageText,
+        { color: type === 'user' ? '#FFFFFF' : colors.text.primary }
+      ]}>
+        {message}
+      </Text>
+    </View>
+  );
+
+  // Render suggestion in bottom sheet
+  const renderSuggestionInSheet = (
+    type: 'subject' | 'body',
+    content: string,
+    onAccept: () => void,
+    onReject: () => void
+  ) => (
+    <View style={styles.sheetSuggestionContainer}>
+      <Text style={[styles.suggestionLabel, { color: colors.text.secondary }]}>
+        Suggested {type === 'subject' ? 'Subject Line' : 'Message'}
+      </Text>
+      <Text style={[styles.generatedText, { color: colors.text.primary }]}>
+        {content}
+      </Text>
+      <View style={styles.generatedActions}>
+        <TouchableOpacity 
+          style={[styles.actionButton, { backgroundColor: `${colors.brand.primary}10` }]}
+          onPress={() => {
+            onAccept();
+            bottomSheetRef.current?.collapse();
+          }}
+        >
+          <Icon name="check" size={16} color={colors.brand.primary} />
+          <Text style={[styles.actionButtonText, { color: colors.brand.primary }]}>
+            Use
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
+          onPress={() => {
+            onReject();
+            bottomSheetRef.current?.collapse();
+          }}
+        >
+          <Icon name="close" size={16} color={colors.text.tertiary} />
+          <Text style={[styles.actionButtonText, { color: colors.text.tertiary }]}>
+            Skip
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Handle generate email with bottom sheet
+  const handleGenerateEmail = async () => {
+    if (!subject && !content) {
+      Alert.alert('Error', 'Please enter either subject or content to generate suggestions');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await generateEmailContent({
+        subject: subject || undefined,
+        body: content || undefined,
+        recipientEmail: recipients[0],
+        tone: 'professional'
+      });
+
+      if (response) {
+        if (response.subject) {
+          setGeneratedSubject(response.subject);
+          setShowGeneratedSubject(true);
+        }
+        if (response.body) {
+          setGeneratedBody(response.body);
+          setShowGeneratedBody(true);
+        }
+        // Open bottom sheet to show suggestions
+        bottomSheetRef.current?.expand();
+      }
+    } catch (error) {
+      console.error('Error generating email:', error);
+      Alert.alert('Error', 'Failed to generate suggestions');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Add functions to handle accept/reject generated content
+  const handleAcceptSubject = () => {
+    if (generatedSubject) {
+      setSubject(generatedSubject);
+      setShowGeneratedSubject(false);
+      setGeneratedSubject(null);
+    }
+  };
+
+  const handleRejectSubject = () => {
+    setShowGeneratedSubject(false);
+    setGeneratedSubject(null);
+  };
+
+  const handleAcceptBody = () => {
+    if (generatedBody) {
+      setContent(generatedBody);
+      setShowGeneratedBody(false);
+      setGeneratedBody(null);
+    }
+  };
+
+  const handleRejectBody = () => {
+    setShowGeneratedBody(false);
+    setGeneratedBody(null);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -200}
       >
-        <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => navigation.goBack()}
-            accessibilityLabel="Back to inbox"
-          >
-            <Icon name="arrow-back" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-          
-          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>New Message</Text>
-          
-          <View style={styles.headerActions}>
+        <View style={{ flex: 1 }}>
+          <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
             <TouchableOpacity 
               style={styles.headerButton} 
-              onPress={handleAddAttachment}
-              disabled={isSending}
-              accessibilityLabel="Add attachment"
+              onPress={() => navigation.goBack()}
+              accessibilityLabel="Back to inbox"
             >
-              <Icon name="attach-file" size={24} color={colors.text.primary} />
+              <Icon name="arrow-back" size={24} color={colors.text.primary} />
             </TouchableOpacity>
             
-            <TouchableOpacity 
-              style={[
-                styles.sendButton, 
-                { backgroundColor: colors.brand.primary },
-                (isSending || isUploading) && { opacity: 0.7 }
-              ]} 
-              onPress={handleSend}
-              disabled={isSending || isUploading || recipients.length === 0}
-              accessibilityLabel="Send email"
-            >
-              {isSending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Icon name="send" size={18} color="#FFFFFF" style={styles.sendIcon} />
-                  <Text style={styles.sendButtonText}>Send</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text.primary }]}>New Message</Text>
+            
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={styles.headerButton} 
+                onPress={handleAddAttachment}
+                disabled={isSending}
+                accessibilityLabel="Add attachment"
+              >
+                <Icon name="attach-file" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton, 
+                  { backgroundColor: colors.brand.primary },
+                  (isSending || isUploading) && { opacity: 0.7 }
+                ]} 
+                onPress={handleSend}
+                disabled={isSending || isUploading || recipients.length === 0}
+                accessibilityLabel="Send email"
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="send" size={18} color="#FFFFFF" style={styles.sendIcon} />
+                    <Text style={styles.sendButtonText}>Send</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
-          {/* Recipients field with chip input */}
-          <View style={styles.recipientContainer}>
-            <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>To:</Text>
-            <View style={styles.chipInputContainer}>
-              <ChipInput
-                values={recipients}
-                onChangeValues={setRecipients}
-                placeholder="Enter email addresses"
-                inputStyle={[styles.chipInput, { color: colors.text.primary }]}
-                chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
-                chipTextStyle={{ color: colors.brand.primary }}
-                validate={(email) => {
-                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                  return emailRegex.test(email);
-                }}
-                autoFocus
+          <ScrollView 
+            style={styles.formContainer} 
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ 
+              flexGrow: 1,
+              paddingBottom: isKeyboardVisible ? 44 : 0 
+            }}
+          >
+            {/* Recipients field with chip input */}
+            <View style={styles.recipientContainer}>
+              <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>To:</Text>
+              <View style={styles.chipInputContainer}>
+                <ChipInput
+                  values={recipients}
+                  onChangeValues={setRecipients}
+                  placeholder="Enter email addresses"
+                  inputStyle={[styles.chipInput, { color: colors.text.primary }]}
+                  chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
+                  chipTextStyle={{ color: colors.brand.primary }}
+                  validate={(email) => {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    return emailRegex.test(email);
+                  }}
+                  autoFocus
+                />
+              </View>
+              <TouchableOpacity 
+                style={styles.ccBccButton}
+                onPress={() => setShowCcBcc(prev => !prev)}
+              >
+                <Text style={{ color: colors.brand.primary }}>
+                  {showCcBcc ? 'Hide CC/BCC' : 'CC/BCC'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* CC and BCC fields (conditionally shown) */}
+            {showCcBcc && (
+              <>
+                <View style={styles.recipientContainer}>
+                  <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Cc:</Text>
+                  <View style={styles.chipInputContainer}>
+                    <ChipInput
+                      values={ccRecipients}
+                      onChangeValues={setCcRecipients}
+                      placeholder="Carbon copy recipients"
+                      inputStyle={[styles.chipInput, { color: colors.text.primary }]}
+                      chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
+                      chipTextStyle={{ color: colors.brand.primary }}
+                      validate={(email) => {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        return emailRegex.test(email);
+                      }}
+                    />
+                  </View>
+                </View>
+                
+                <View style={styles.recipientContainer}>
+                  <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Bcc:</Text>
+                  <View style={styles.chipInputContainer}>
+                    <ChipInput
+                      values={bccRecipients}
+                      onChangeValues={setBccRecipients}
+                      placeholder="Blind carbon copy recipients"
+                      inputStyle={[styles.chipInput, { color: colors.text.primary }]}
+                      chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
+                      chipTextStyle={{ color: colors.brand.primary }}
+                      validate={(email) => {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        return emailRegex.test(email);
+                      }}
+                    />
+                  </View>
+                </View>
+              </>
+            )}
+
+            <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+
+            {/* Subject field */}
+            <View style={styles.subjectContainer}>
+              <TextInput
+                ref={subjectInputRef}
+                style={[styles.subjectInput, { color: colors.text.primary }]}
+                value={subject}
+                onChangeText={setSubject}
+                placeholder="Subject"
+                placeholderTextColor={colors.text.tertiary}
+                returnKeyType="next"
+                onSubmitEditing={() => contentInputRef.current?.focus()}
               />
             </View>
-            <TouchableOpacity 
-              style={styles.ccBccButton}
-              onPress={() => setShowCcBcc(prev => !prev)}
+
+            <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+            
+            {/* Attachments section */}
+            {attachments.length > 0 && (
+              <View style={styles.attachmentsContainer}>
+                <Text style={[styles.attachmentsTitle, { color: colors.text.secondary }]}>
+                  Attachments ({attachments.length})
+                </Text>
+                <View style={styles.attachmentsList}>
+                  {attachments.map(renderAttachmentItem)}
+                </View>
+              </View>
+            )}
+
+            {/* Message content */}
+            <View style={styles.contentContainer}>
+              <TextInput
+                ref={contentInputRef}
+                style={[
+                  styles.contentInput, 
+                  { color: colors.text.primary }
+                ]}
+                value={content}
+                onChangeText={setContent}
+                placeholder="Write your message here..."
+                placeholderTextColor={colors.text.tertiary}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
+
+          {/* Generate button */}
+          <Animated.View 
+            style={[
+              styles.keyboardToolbar, 
+              { 
+                height: toolbarHeight,
+                borderTopColor: colors.border.light,
+                backgroundColor: colors.background.primary,
+                borderTopWidth: 1,
+              }
+            ]}
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={handleGenerateEmail}
+              disabled={isGenerating}
             >
-              <Text style={{ color: colors.brand.primary }}>
-                {showCcBcc ? 'Hide CC/BCC' : 'CC/BCC'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              {isGenerating ? 'Generating...' : 'Generate Suggestions'}
+            </Button>
+          </Animated.View>
 
-          {/* CC and BCC fields (conditionally shown) */}
-          {showCcBcc && (
-            <>
-              <View style={styles.recipientContainer}>
-                <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Cc:</Text>
-                <View style={styles.chipInputContainer}>
-                  <ChipInput
-                    values={ccRecipients}
-                    onChangeValues={setCcRecipients}
-                    placeholder="Carbon copy recipients"
-                    inputStyle={[styles.chipInput, { color: colors.text.primary }]}
-                    chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
-                    chipTextStyle={{ color: colors.brand.primary }}
-                    validate={(email) => {
-                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                      return emailRegex.test(email);
-                    }}
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.recipientContainer}>
-                <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Bcc:</Text>
-                <View style={styles.chipInputContainer}>
-                  <ChipInput
-                    values={bccRecipients}
-                    onChangeValues={setBccRecipients}
-                    placeholder="Blind carbon copy recipients"
-                    inputStyle={[styles.chipInput, { color: colors.text.primary }]}
-                    chipStyle={{ backgroundColor: `${colors.brand.primary}20` }}
-                    chipTextStyle={{ color: colors.brand.primary }}
-                    validate={(email) => {
-                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                      return emailRegex.test(email);
-                    }}
-                  />
-                </View>
-              </View>
-            </>
-          )}
+          {/* Bottom Sheet for suggestions and chat */}
+          <BottomSheet
+            ref={bottomSheetRef}
+            index={-1}
+            snapPoints={snapPoints}
+            onChange={handleSheetChanges}
+            enablePanDownToClose
+            backdropComponent={(props) => (
+              <BottomSheetBackdrop
+                {...props}
+                appearsOnIndex={0}
+                disappearsOnIndex={-1}
+              />
+            )}
+          >
+            <View style={styles.bottomSheetContent}>
+              {/* Suggestions Section */}
+              <ScrollView style={styles.suggestionsScroll}>
+                {showGeneratedSubject && generatedSubject && 
+                  renderSuggestionInSheet(
+                    'subject',
+                    generatedSubject,
+                    handleAcceptSubject,
+                    handleRejectSubject
+                  )
+                }
+                {showGeneratedBody && generatedBody && 
+                  renderSuggestionInSheet(
+                    'body',
+                    generatedBody,
+                    handleAcceptBody,
+                    handleRejectBody
+                  )
+                }
+                
+                {/* Chat History */}
+                {chatHistory.map((msg, index) => (
+                  <View key={index} style={styles.chatMessageContainer}>
+                    {renderChatMessage(msg)}
+                  </View>
+                ))}
+              </ScrollView>
 
-          <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-          {/* Subject field */}
-          <View style={styles.subjectContainer}>
-            <TextInput
-              ref={subjectInputRef}
-              style={[styles.subjectInput, { color: colors.text.primary }]}
-              value={subject}
-              onChangeText={setSubject}
-              placeholder="Subject"
-              placeholderTextColor={colors.text.tertiary}
-              returnKeyType="next"
-              onSubmitEditing={() => contentInputRef.current?.focus()}
-            />
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-          
-          {/* Attachments section */}
-          {attachments.length > 0 && (
-            <View style={styles.attachmentsContainer}>
-              <Text style={[styles.attachmentsTitle, { color: colors.text.secondary }]}>
-                Attachments ({attachments.length})
-              </Text>
-              <View style={styles.attachmentsList}>
-                {attachments.map(renderAttachmentItem)}
+              {/* Chat Input */}
+              <View style={styles.chatInputContainer}>
+                <TextInput
+                  style={[styles.chatInput, { color: colors.text.primary }]}
+                  value={chatMessage}
+                  onChangeText={setChatMessage}
+                  placeholder="Ask for enhancements..."
+                  placeholderTextColor={colors.text.tertiary}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    { backgroundColor: colors.brand.primary }
+                  ]}
+                  onPress={handleSendChat}
+                  disabled={isGenerating || !chatMessage.trim()}
+                >
+                  {isGenerating ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Icon name="send" size={20} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-          )}
-
-          {/* Message content */}
-          <View style={styles.contentContainer}>
-            <TextInput
-              ref={contentInputRef}
-              style={[
-                styles.contentInput, 
-                { color: colors.text.primary }
-              ]}
-              value={content}
-              onChangeText={setContent}
-              placeholder="Write your message here..."
-              placeholderTextColor={colors.text.tertiary}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-        </ScrollView>
-        
-        {/* Keyboard toolbar */}
-        <Animated.View 
-          style={[
-            styles.keyboardToolbar, 
-            { height: toolbarHeight, borderTopColor: colors.border.light }
-          ]}
-        >
-          <TouchableOpacity style={styles.toolbarButton} onPress={handleAddAttachment}>
-            <Icon name="attach-file" size={22} color={colors.brand.primary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.toolbarButton}>
-            <Icon name="format-bold" size={22} color={colors.text.secondary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.toolbarButton}>
-            <Icon name="format-italic" size={22} color={colors.text.secondary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.toolbarButton}>
-            <Icon name="format-list-bulleted" size={22} color={colors.text.secondary} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.toolbarButton} onPress={() => Keyboard.dismiss()}>
-            <Icon name="keyboard-hide" size={22} color={colors.text.secondary} />
-          </TouchableOpacity>
-        </Animated.View>
+          </BottomSheet>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -716,6 +1000,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   recipientContainer: {
     flexDirection: 'row',
@@ -742,25 +1027,29 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    marginVertical: 2,
+    marginVertical: 0,
   },
   subjectContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 0,
   },
   subjectInput: {
     fontSize: 16,
-    paddingVertical: 4,
+    paddingVertical: 12,
+    color: '#6B7280',
   },
   contentContainer: {
     flex: 1,
-    padding: 16,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 16,
   },
   contentInput: {
     fontSize: 16,
-    minHeight: 200,
+    minHeight: 80,
     textAlignVertical: 'top',
+    paddingVertical: 12,
+    color: '#6B7280',
   },
   sendButton: {
     flexDirection: 'row',
@@ -828,14 +1117,95 @@ const styles = StyleSheet.create({
   },
   keyboardToolbar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
     paddingHorizontal: 8,
     justifyContent: 'space-around',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  toolbarButton: {
-    padding: 8,
-    borderRadius: 8,
+  bottomSheetContent: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  suggestionsScroll: {
+    flex: 1,
+    padding: 16,
+  },
+  sheetSuggestionContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8EAED',
+  },
+  suggestionLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  generatedText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  generatedActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  actionButtonText: {
+    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8EAED',
+    backgroundColor: '#FFFFFF',
+  },
+  chatInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    fontSize: 16,
+  },
+  chatMessageContainer: {
+    marginVertical: 8,
+  },
+  chatMessage: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 16,
+    marginVertical: 4,
+  },
+  userMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2563EB',
+    borderBottomRightRadius: 4,
+  },
+  assistantMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F4F6',
+    borderBottomLeftRadius: 4,
+  },
+  chatMessageText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 }); 
