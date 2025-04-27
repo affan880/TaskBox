@@ -1,6 +1,5 @@
 import { getAccessToken } from '@/lib/utils/email-attachments';
 import { BASE_URL } from '@/lib/env/api-config';
-import type { EmailData } from 'src/types/email';
 
 // Debug flag - only log in development mode
 const DEBUG = __DEV__ && false; // Set to true for verbose debugging

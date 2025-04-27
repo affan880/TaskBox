@@ -1,7 +1,7 @@
-import { gmail_v1 } from '@googleapis/gmail';
+
 import { getAllSnoozedEmails, removeSnoozeData } from './snooze-storage';
 
-export async function handleSnoozedEmails(gmail: gmail_v1.Gmail) {
+export async function handleSnoozedEmails(gmail: any) {
   try {
     const snoozedEmails = await getAllSnoozedEmails();
     const now = new Date();
@@ -35,7 +35,7 @@ export async function handleSnoozedEmails(gmail: gmail_v1.Gmail) {
 }
 
 // Function to check snoozed emails periodically
-export function startSnoozeHandler(gmail: gmail_v1.Gmail) {
+export function startSnoozeHandler(gmail: any) {
   // Check every minute
   const interval = setInterval(() => {
     handleSnoozedEmails(gmail).catch(console.error);

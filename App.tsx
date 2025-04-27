@@ -5,8 +5,11 @@
  * @format
  */
 
+import 'react-native-gesture-handler'; // MUST BE FIRST
+
 import * as React from 'react';
 import { StatusBar, AppState, AppStateStatus } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Import the wrapper
 import { AppNavigator } from '@/navigation/app-navigator';
 import { useAuthStore, type AuthState } from '@/store/auth-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -87,16 +90,19 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <SafeAreaProvider>
-          <ThemeProvider>
-            <StatusBar barStyle="dark-content" />
-            <AppNavigator />
-            <Toast />
-          </ThemeProvider>
-        </SafeAreaProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    // Wrap the entire app content with GestureHandlerRootView
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <ThemeProvider>
+              <StatusBar barStyle="dark-content" />
+              <AppNavigator />
+              <Toast />
+            </ThemeProvider>
+          </SafeAreaProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }

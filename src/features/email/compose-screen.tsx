@@ -4,9 +4,9 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView,
+  TextInput as RNTextInput,
+  TouchableOpacity as RNTouchableOpacity,
+  ScrollView as RNScrollView,
   SafeAreaView,
   Alert,
   ActivityIndicator,
@@ -17,7 +17,8 @@ import {
   Pressable,
   Dimensions
 } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, TouchableOpacity as BottomSheetTouchableOpacity } from '@gorhom/bottom-sheet';
+import { ScrollView as GestureHandlerScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/theme-context';
@@ -29,6 +30,11 @@ import { ChipInput } from '@/components/ui/chip-input';
 import { Image } from '@/components';
 import { Button } from '@/components/ui/button';
 import { summarizeEmailContent, generateEmailContent } from '@/api/email-analysis-api';
+
+// Restore aliases for standard components if needed outside the sheet
+const TextInput = RNTextInput;
+const TouchableOpacity = RNTouchableOpacity;
+const ScrollView = RNScrollView;
 
 /**
  * Normalizes a file URI to ensure it's correctly formatted for React Native Blob Util
@@ -161,9 +167,9 @@ export function ComposeScreen() {
   const toolbarHeight = useRef(new Animated.Value(0)).current;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
-  // References for TextInputs to allow focusing
-  const subjectInputRef = useRef<TextInput>(null);
-  const contentInputRef = useRef<TextInput>(null);
+  // References for TextInputs
+  const subjectInputRef = useRef<RNTextInput>(null);
+  const contentInputRef = useRef<RNTextInput>(null);
 
   // Remove email generation states
   const [isGenerating, setIsGenerating] = useState(false);
@@ -182,9 +188,11 @@ export function ComposeScreen() {
   }>>([]);
 
   // Snap points for bottom sheet (40%, 80% of screen height)
-  const snapPoints = React.useMemo(() => ['40%', '80%'], []);
+  // TEMPORARY: Use fixed pixel values for debugging
+  const snapPoints = React.useMemo(() => [250, 500], []);
 
   const handleSheetChanges = useCallback((index: number) => {
+    console.log('[Sheet Callback] handleSheetChanges index:', index);
     setIsBottomSheetOpen(index !== -1);
   }, []);
 
@@ -595,56 +603,74 @@ export function ComposeScreen() {
     </View>
   );
 
-  // Render suggestion in bottom sheet
+  // Render suggestion in bottom sheet - Add safety check for content
   const renderSuggestionInSheet = (
     type: 'subject' | 'body',
-    content: string,
+    content: string | null, // Allow null just in case
     onAccept: () => void,
     onReject: () => void
-  ) => (
-    <View style={styles.sheetSuggestionContainer}>
-      <Text style={[styles.suggestionLabel, { color: colors.text.secondary }]}>
-        Suggested {type === 'subject' ? 'Subject Line' : 'Message'}
-      </Text>
-      <Text style={[styles.generatedText, { color: colors.text.primary }]}>
-        {content}
-      </Text>
-      <View style={styles.generatedActions}>
-        <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: `${colors.brand.primary}10` }]}
-          onPress={() => {
-            onAccept();
-            bottomSheetRef.current?.collapse();
-          }}
-        >
-          <Icon name="check" size={16} color={colors.brand.primary} />
-          <Text style={[styles.actionButtonText, { color: colors.brand.primary }]}>
-            Use
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
-          onPress={() => {
-            onReject();
-            bottomSheetRef.current?.collapse();
-          }}
-        >
-          <Icon name="close" size={16} color={colors.text.tertiary} />
-          <Text style={[styles.actionButtonText, { color: colors.text.tertiary }]}>
-            Skip
-          </Text>
-        </TouchableOpacity>
+  ) => {
+    // Prevent rendering if content is not a valid string
+    if (typeof content !== 'string' || !content.trim()) {
+      return null;
+    }
+    
+    return (
+      <View style={styles.sheetSuggestionContainer}>
+        <Text style={[styles.suggestionLabel, { color: colors.text.secondary }]}>
+          Suggested {type === 'subject' ? 'Subject Line' : 'Message'}
+        </Text>
+        <Text style={[styles.generatedText, { color: colors.text.primary }]}>
+          {content} {/* Now we know it's a non-empty string */}
+        </Text>
+        <View style={styles.generatedActions}>
+          <BottomSheetTouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: `${colors.brand.primary}10` }]}
+            onPress={() => {
+              onAccept();
+              bottomSheetRef.current?.collapse();
+            }}
+          >
+            <Icon name="check" size={16} color={colors.brand.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.brand.primary }]}>
+              Use
+            </Text>
+          </BottomSheetTouchableOpacity>
+          <BottomSheetTouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: colors.background.tertiary }]}
+            onPress={() => {
+              onReject();
+              bottomSheetRef.current?.collapse();
+            }}
+          >
+            <Icon name="close" size={16} color={colors.text.tertiary} />
+            <Text style={[styles.actionButtonText, { color: colors.text.tertiary }]}>
+              Skip
+            </Text>
+          </BottomSheetTouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
+
+  // Effect to open bottom sheet when suggestions are ready
+  useEffect(() => {
+    console.log('[Effect Check] Running. showSubject:', showGeneratedSubject, 'hasSubject:', !!generatedSubject, 'showBody:', showGeneratedBody, 'hasBody:', !!generatedBody);
+    if ((showGeneratedSubject && generatedSubject) || (showGeneratedBody && generatedBody)) {
+      requestAnimationFrame(() => {
+        if (bottomSheetRef.current) {
+            console.log('[Effect Action] Attempting to expand bottom sheet...');
+            bottomSheetRef.current.expand();
+        } else {
+            console.log('[Effect Warning] Bottom sheet ref is null when trying to expand.');
+        }
+      });
+    }
+  }, [showGeneratedSubject, generatedSubject, showGeneratedBody, generatedBody]);
 
   // Handle generate email with bottom sheet
   const handleGenerateEmail = async () => {
-    if (!subject && !content) {
-      Alert.alert('Error', 'Please enter either subject or content to generate suggestions');
-      return;
-    }
-
+    console.log('[Generate Button] Clicked. Fetching suggestions...');
     setIsGenerating(true);
     try {
       const response = await generateEmailContent({
@@ -654,20 +680,33 @@ export function ComposeScreen() {
         tone: 'professional'
       });
 
+      console.log('[API Response] Received:', response);
+
       if (response) {
+        let shouldShowSubject = false;
+        let shouldShowBody = false;
+
         if (response.subject) {
+          console.log('[API Success] Setting generated subject.');
           setGeneratedSubject(response.subject);
-          setShowGeneratedSubject(true);
+          shouldShowSubject = true; // Set flag locally first
         }
         if (response.body) {
+          console.log('[API Success] Setting generated body.');
           setGeneratedBody(response.body);
-          setShowGeneratedBody(true);
+          shouldShowBody = true; // Set flag locally first
         }
-        // Open bottom sheet to show suggestions
-        bottomSheetRef.current?.expand();
+        
+        // Update visibility flags AFTER setting content
+        if (shouldShowSubject) setShowGeneratedSubject(true);
+        if (shouldShowBody) setShowGeneratedBody(true);
+
+      } else {
+         console.log('[API Info] No suggestions were generated.');
+         Alert.alert('Info', 'No suggestions were generated.');
       }
     } catch (error) {
-      console.error('Error generating email:', error);
+      console.error('[API Error] Error generating email:', error);
       Alert.alert('Error', 'Failed to generate suggestions');
     } finally {
       setIsGenerating(false);
@@ -898,79 +937,80 @@ export function ComposeScreen() {
               {isGenerating ? 'Generating...' : 'Generate Suggestions'}
             </Button>
           </Animated.View>
-
-          {/* Bottom Sheet for suggestions and chat */}
-          <BottomSheet
-            ref={bottomSheetRef}
-            index={-1}
-            snapPoints={snapPoints}
-            onChange={handleSheetChanges}
-            enablePanDownToClose
-            backdropComponent={(props) => (
-              <BottomSheetBackdrop
-                {...props}
-                appearsOnIndex={0}
-                disappearsOnIndex={-1}
-              />
-            )}
-          >
-            <View style={styles.bottomSheetContent}>
-              {/* Suggestions Section */}
-              <ScrollView style={styles.suggestionsScroll}>
-                {showGeneratedSubject && generatedSubject && 
-                  renderSuggestionInSheet(
-                    'subject',
-                    generatedSubject,
-                    handleAcceptSubject,
-                    handleRejectSubject
-                  )
-                }
-                {showGeneratedBody && generatedBody && 
-                  renderSuggestionInSheet(
-                    'body',
-                    generatedBody,
-                    handleAcceptBody,
-                    handleRejectBody
-                  )
-                }
-                
-                {/* Chat History */}
-                {chatHistory.map((msg, index) => (
-                  <View key={index} style={styles.chatMessageContainer}>
-                    {renderChatMessage(msg)}
-                  </View>
-                ))}
-              </ScrollView>
-
-              {/* Chat Input */}
-              <View style={styles.chatInputContainer}>
-                <TextInput
-                  style={[styles.chatInput, { color: colors.text.primary }]}
-                  value={chatMessage}
-                  onChangeText={setChatMessage}
-                  placeholder="Ask for enhancements..."
-                  placeholderTextColor={colors.text.tertiary}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    { backgroundColor: colors.brand.primary }
-                  ]}
-                  onPress={handleSendChat}
-                  disabled={isGenerating || !chatMessage.trim()}
-                >
-                  {isGenerating ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Icon name="send" size={20} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </BottomSheet>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Bottom Sheet */}
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={0} // Keep open by default for debugging
+        snapPoints={snapPoints} // Using fixed values now
+        onChange={handleSheetChanges}
+        enablePanDownToClose
+        animateOnMount={true}
+        backgroundStyle={{ backgroundColor: colors.background.primary }}
+        handleIndicatorStyle={{ backgroundColor: colors.border.light, width: 40, height: 4 }}
+      >
+        <GestureHandlerScrollView 
+          style={[styles.suggestionsScroll, { backgroundColor: 'cyan' }]} 
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          {/* Debug Text */}
+          <Text style={{ color: 'black', padding: 20 }}>Suggestions Area - Visible?</Text>
+          
+          {/* Stricter Conditional Rendering */}
+          {showGeneratedSubject && typeof generatedSubject === 'string' && generatedSubject.trim() && 
+            renderSuggestionInSheet(
+              'subject',
+              generatedSubject,
+              handleAcceptSubject,
+              handleRejectSubject
+            )
+          }
+          {showGeneratedBody && typeof generatedBody === 'string' && generatedBody.trim() && 
+            renderSuggestionInSheet(
+              'body',
+              generatedBody,
+              handleAcceptBody,
+              handleRejectBody
+            )
+          }
+          
+          {/* Chat History - Assume renderChatMessage is safe or add checks there too */}
+          {chatHistory.map((msg, index) => (
+            <View key={index} style={styles.chatMessageContainer}>
+              {renderChatMessage(msg)}
+            </View>
+          ))}
+
+        </GestureHandlerScrollView>
+
+        {/* Chat Input Area */}
+        <View style={[styles.chatInputContainer, { borderTopColor: colors.border.light }]}>
+          <TextInput
+            style={[styles.chatInput, { color: colors.text.primary }]}
+            value={chatMessage}
+            onChangeText={setChatMessage}
+            placeholder="Ask for enhancements..."
+            placeholderTextColor={colors.text.tertiary}
+            multiline
+          />
+          <BottomSheetTouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: colors.brand.primary, padding: 8, marginLeft: 8 }
+            ]}
+            onPress={handleSendChat}
+            disabled={isGenerating || !chatMessage.trim()}
+          >
+            {isGenerating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Icon name="send" size={20} color="#FFFFFF" />
+            )}
+          </BottomSheetTouchableOpacity>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -1124,11 +1164,10 @@ const styles = StyleSheet.create({
   },
   bottomSheetContent: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   suggestionsScroll: {
-    flex: 1,
-    padding: 16,
+    flex: 1, 
+    // backgroundColor: 'cyan' // Style is now applied inline for clarity
   },
   sheetSuggestionContainer: {
     backgroundColor: '#F8F9FA',
