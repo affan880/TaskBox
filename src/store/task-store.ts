@@ -15,11 +15,6 @@ import { useProjectStore } from './project-store';
 
 const storage = new MMKV();
 
-// Error types for better error handling
-type TaskError = {
-  code: 'LOAD_ERROR' | 'SAVE_ERROR' | 'UPDATE_ERROR' | 'DELETE_ERROR';
-  message: string;
-};
 
 type TaskState = {
   tasks: TaskData[];
@@ -46,8 +41,8 @@ export const useTaskStore = create<TaskState>()(
       initialized: false,
       isUpdating: {},
       
-      addTask: (taskData) => {
-        const newTask = createTask(taskData, get().tasks);
+      addTask: async (taskData) => {
+        const newTask = await createTask(taskData, get().tasks);
         
         set((state) => ({
           tasks: [...state.tasks, newTask]
