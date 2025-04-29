@@ -31,7 +31,7 @@ export function EmailHeader({
       style={[
         styles.container,
         {
-          paddingTop: insets.top,
+          paddingTop: insets.top + 20,
           backgroundColor: colors.background?.primary ?? '#ffffff',
           borderBottomColor: colors.border?.light ?? '#e1e1e1',
         },

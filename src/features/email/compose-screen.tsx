@@ -26,6 +26,7 @@ import { useGmail } from '@/hooks/use-gmail';
 import { Button } from '@/components/ui/button';
 import { RecipientFields } from './components/recipient-fields';
 import { SuggestionModal } from './components/suggestion-modal';
+import * as ImagePicker from 'react-native-image-picker';
 
 // Restore aliases for standard components if needed outside the sheet
 const TextInput = RNTextInput;
@@ -112,6 +113,17 @@ async function verifyFileAccessible(uri: string, filename: string): Promise<bool
   }
 }
 
+// Add these options near the top of the component
+const imagePickerConfig = {
+  mediaType: 'mixed',
+  quality: 1,
+  includeBase64: false,
+  presentationStyle: 'fullScreen',
+  selectionLimit: 0,
+  saveToPhotos: true,
+  includeExtra: true,
+};
+
 export function ComposeScreen() {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
@@ -161,7 +173,7 @@ export function ComposeScreen() {
 
     const keyboardDidShowListener = Keyboard.addListener(keyboardWillShow, (event) => {
       setIsKeyboardVisible(true);
-      setKeyboardHeight(event.endCoordinates.height);
+      setKeyboardHeight(50);
       Animated.timing(toolbarHeight, {
         toValue: 44,
         duration: Platform.OS === 'ios' ? event.duration : 250,
@@ -449,12 +461,84 @@ export function ComposeScreen() {
     setIsSuggestionModalVisible(true);
   };
 
+  // Replace the camera handler
+  const handleCameraPress = () => {
+    const options = {
+      ...imagePickerConfig,
+      mediaType: 'photo',
+      cameraType: 'back',
+    };
+
+    ImagePicker.launchCamera(options, (response) => {
+      console.log('Camera Response:', response);
+      
+      if (response.didCancel) {
+        console.log('User cancelled camera');
+        return;
+      }
+
+      if (response.errorCode) {
+        console.error('Camera Error:', response.errorMessage);
+        Alert.alert('Error', response.errorMessage || 'Failed to capture image');
+        return;
+      }
+
+      if (response.assets && response.assets.length > 0) {
+        const asset = response.assets[0];
+        const newAttachment = {
+          id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          uri: asset.uri,
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || `camera_${Date.now()}.jpg`,
+          size: asset.fileSize || 0,
+        };
+
+        setAttachments(prev => [...prev, newAttachment]);
+      }
+    });
+  };
+
+  // Replace the gallery handler
+  const handleGalleryPress = () => {
+    const options = {
+      ...imagePickerConfig,
+      selectionLimit: 0,
+    };
+
+    ImagePicker.launchImageLibrary(options, (response) => {
+      console.log('Gallery Response:', response);
+      
+      if (response.didCancel) {
+        console.log('User cancelled gallery picker');
+        return;
+      }
+
+      if (response.errorCode) {
+        console.error('Gallery Error:', response.errorMessage);
+        Alert.alert('Error', response.errorMessage || 'Failed to select images');
+        return;
+      }
+
+      if (response.assets && response.assets.length > 0) {
+        const newAttachments = response.assets.map(asset => ({
+          id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          uri: asset.uri,
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || `image_${Date.now()}.jpg`,
+          size: asset.fileSize || 0,
+        }));
+
+        setAttachments(prev => [...prev, ...newAttachments]);
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -200}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
       >
         <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
           <View style={[styles.header, { 
@@ -472,15 +556,51 @@ export function ComposeScreen() {
             <Text style={[styles.headerTitle, { color: colors.text.primary }]}>New Message</Text>
             
             <View style={styles.headerActions}>
-              <TouchableOpacity 
-                style={styles.headerButton} 
+              <TouchableOpacity
+                style={[
+                  styles.toolbarButton,
+                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                ]}
                 onPress={handleFilePick}
                 disabled={isSending}
-                accessibilityLabel="Add attachment"
               >
-                <Icon name="attach-file" size={24} color={colors.text.primary} />
+                <Icon 
+                  name="attach-file" 
+                  size={24} 
+                  color={isDark ? colors.text.primary : colors.text.secondary} 
+                />
               </TouchableOpacity>
               
+              {/* <TouchableOpacity
+                style={[
+                  styles.toolbarButton,
+                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                ]}
+                onPress={handleCameraPress}
+                disabled={isSending}
+              >
+                <Icon 
+                  name="camera-alt" 
+                  size={24} 
+                  color={isDark ? colors.text.primary : colors.text.secondary} 
+                />
+              </TouchableOpacity> */}
+{/* 
+              <TouchableOpacity
+                style={[
+                  styles.toolbarButton,
+                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                ]}
+                onPress={handleGalleryPress}
+                disabled={isSending}
+              >
+                <Icon 
+                  name="photo-library" 
+                  size={24} 
+                  color={isDark ? colors.text.primary : colors.text.secondary} 
+                />
+              </TouchableOpacity> */}
+
               <TouchableOpacity 
                 style={[
                   styles.sendButton, 
@@ -495,8 +615,7 @@ export function ComposeScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Icon name="send" size={18} color="#FFFFFF" style={styles.sendIcon} />
-                    <Text style={styles.sendButtonText}>Send</Text>
+                    <Icon name="send" size={24} color="#FFFFFF" style={[styles.sendIcon,  { backgroundColor: colors.brand.primary }]} />
                   </>
                 )}
               </TouchableOpacity>
@@ -508,7 +627,7 @@ export function ComposeScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ 
               flexGrow: 1,
-              paddingBottom: isKeyboardVisible ? (Platform.OS === 'ios' ? 44 : keyboardHeight + 60) : 0 
+              paddingBottom: Platform.OS === 'ios' ? 60 : keyboardHeight + 60
             }}
           >
             <RecipientFields
@@ -576,54 +695,91 @@ export function ComposeScreen() {
             </View>
           </ScrollView>
 
-          {/* Generate button */}
+          {/* Keyboard toolbar */}
           {isKeyboardVisible && (
-            <Animated.View 
+            <View 
               style={[
                 styles.keyboardToolbar, 
                 { 
-                  height: Platform.OS === 'ios' ? 60 : 56,
-                  backgroundColor: colors.background.primary,
+                  backgroundColor: isDark ? colors.background.primary : colors.background.primary,
                   position: 'absolute',
-                  bottom: Platform.OS === 'ios' ? 0 : keyboardHeight - 80,
+                  bottom: Platform.OS === 'ios' ? keyboardHeight : 30,
                   left: 0,
                   right: 0,
-                  zIndex: 1000,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.border.light,
-                  shadowColor: isDark ? '#000' : '#000',
-                  shadowOffset: { width: 0, height: -2 },
-                  shadowOpacity: isDark ? 0.2 : 0.1,
+                  borderTopColor: isDark ? colors.border.dark : colors.border.light,
                 }
               ]}
             >
-              <View style={[styles.toolbarContent, { paddingBottom: Platform.OS === 'ios' ? 8 : 0 }]}>
+              <View style={styles.toolbarContent}>
+                <View style={styles.toolbarSection}>
+                  <TouchableOpacity
+                    style={[
+                      styles.toolbarButton,
+                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                    ]}
+                    onPress={handleFilePick}
+                    disabled={isSending}
+                  >
+                    <Icon 
+                      name="attach-file" 
+                      size={24} 
+                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.toolbarButton,
+                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                    ]}
+                    onPress={handleCameraPress}
+                    disabled={isSending}
+                  >
+                    <Icon 
+                      name="camera-alt" 
+                      size={24} 
+                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.toolbarButton,
+                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                    ]}
+                    onPress={handleGalleryPress}
+                    disabled={isSending}
+                  >
+                    <Icon 
+                      name="photo-library" 
+                      size={24} 
+                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
                   style={[
                     styles.generateButton,
                     {
                       backgroundColor: colors.brand.primary,
-                      borderRadius: 12,
-                      paddingVertical: 10,
-                      paddingHorizontal: 20,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: '92%',
-                      maxWidth: 400,
-                      elevation: Platform.OS === 'android' ? 2 : 0,
-                      shadowColor: isDark ? '#000' : '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: isDark ? 0.3 : 0.15,
+                      paddingHorizontal: 16,
+                      height: 40,
+                      borderRadius: 20,
+                      opacity: isSending ? 0.7 : 1,
                     }
                   ]}
                   onPress={handleGenerateEmail}
+                  disabled={isSending}
                 >
                   <Image 
                     source={require('@/assets/images/feather.png')}
                     style={{ 
-                      width: 18, 
-                      height: 18, 
+                      width: 20, 
+                      height: 20, 
                       marginRight: 8,
                       tintColor: '#FFFFFF'
                     }}
@@ -635,14 +791,31 @@ export function ComposeScreen() {
                       color: '#FFFFFF', 
                       fontWeight: '600',
                       fontSize: 15,
-                      letterSpacing: 0.3,
                     }
                   ]}>
-                    Generate with AI
+                    AI Generate
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[
+                    styles.sendButton,
+                    { 
+                      backgroundColor: colors.brand.primary,
+                      opacity: isSending ? 0.7 : 1,
+                    }
+                  ]} 
+                  onPress={handleSend}
+                  disabled={isSending || isUploading || recipients.length === 0}
+                >
+                  {isSending ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Icon name="send" size={24} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -682,6 +855,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 15,
   },
   formContainer: {
     flex: 1,
@@ -736,12 +910,16 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   sendButton: {
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sendIcon: {
     marginRight: 4,
@@ -816,22 +994,44 @@ const styles = StyleSheet.create({
     backgroundColor: Platform.OS === 'android' ? '#F3F4F6' : 'transparent',
   },
   keyboardToolbar: {
+    borderTopWidth: 1,
+    height: Platform.OS === 'ios' ? 50 : 60,
+    paddingVertical: Platform.OS === 'ios' ? 6 : 8,
     paddingHorizontal: 16,
-    justifyContent: 'center',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 4,
   },
   toolbarContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
+    justifyContent: 'space-between',
   },
-  generateButton: {
+  toolbarSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  toolbarButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+  },
+  generateButton: {
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   generateButtonText: {
-    textAlign: 'center',
     includeFontPadding: false,
     textAlignVertical: 'center',
   },

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { storageConfig } from '@/lib/storage/storage';
-import { ProjectData, ProjectCreateInput, ProjectWithTasks } from '../types/project';
+import { Project, ProjectCreateInput, ProjectWithTasks } from '../types/project';
 import { TaskData } from '../types/task';
 import { 
   loadProjects as loadProjectsFromApi, 
@@ -14,25 +14,19 @@ import {
 } from '../api/projects-api';
 import { useTaskStore } from './task-store';
 
-type Project = {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
 type ProjectStore = {
   projects: Project[];
   selectedProjectId: string | null;
-  addProject: (project: Project) => void;
-  updateProject: (project: Project) => void;
-  deleteProject: (projectId: string) => void;
+  addProject: (project: Project) => Project;
+  updateProject: (id: string, project: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => void;
   setSelectedProject: (projectId: string | null) => void;
-  getProject: (projectId: string) => Project | null;
-  getProjectWithTasks: (projectId: string) => ProjectWithTasks | null;
+  getProject: (id: string) => Promise<Project>;
+  getAllProjects: () => Project[];
+  getAllProjectsWithTasks: () => ProjectWithTasks[];
   addTaskToProject: (projectId: string, taskId: string) => void;
   removeTaskFromProject: (projectId: string, taskId: string) => void;
+  getProjectWithTasks: (id: string) => ProjectWithTasks | null;
 };
 
 export const useProjectStore = create<ProjectStore>()(
@@ -40,44 +34,65 @@ export const useProjectStore = create<ProjectStore>()(
     (set, get) => ({
       projects: [],
       selectedProjectId: null,
-      addProject: (project) =>
+      addProject: (project) => {
+        const newProject = {
+          ...project,
+          id: `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
         set((state) => ({
-          projects: [...state.projects, project],
-        })),
-      updateProject: (project) =>
+          projects: [...state.projects, newProject],
+          selectedProjectId: newProject.id,
+        }));
+
+        return newProject;
+      },
+      updateProject: async (id, project) => {
         set((state) => ({
           projects: state.projects.map((p) =>
-            p.id === project.id ? project : p
+            p.id === id
+              ? {
+                  ...p,
+                  ...project,
+                  updatedAt: new Date().toISOString(),
+                }
+              : p
           ),
-        })),
-      deleteProject: (projectId) =>
+        }));
+      },
+      deleteProject: (id) => {
         set((state) => ({
-          projects: state.projects.filter((p) => p.id !== projectId),
+          projects: state.projects.filter((p) => p.id !== id),
           selectedProjectId:
-            state.selectedProjectId === projectId
+            state.selectedProjectId === id
               ? null
-              : state.selectedProjectId,
-        })),
+              : state.selectedProjectId
+        }));
+      },
       setSelectedProject: (projectId) =>
         set(() => ({
           selectedProjectId: projectId,
         })),
-      getProject: (projectId) => {
-        const state = get();
-        return state.projects.find(p => p.id === projectId) || null;
+      getProject: async (id) => {
+        const project = get().projects.find((p) => p.id === id);
+        if (!project) {
+          throw new Error('Project not found');
+        }
+        return project;
       },
-      getProjectWithTasks: (projectId) => {
-        const state = get();
-        const project = state.projects.find(p => p.id === projectId);
-        if (!project) return null;
+      getAllProjects: () => {
+        return get().projects;
+      },
+      getAllProjectsWithTasks: () => {
+        const { projects } = get();
+        const { getTasksByProject } = useTaskStore.getState();
         
-        const taskStore = useTaskStore.getState();
-        const tasks = taskStore.tasks.filter(t => t.projectId === projectId);
-        
-        return {
+        return projects.map(project => ({
           ...project,
-          tasks
-        };
+          tasks: getTasksByProject(project.id, project.taskIds || [])
+        }));
       },
       addTaskToProject: (projectId, taskId) => {
         const state = get();
@@ -104,6 +119,18 @@ export const useProjectStore = create<ProjectStore>()(
               : p
           ),
         }));
+      },
+      getProjectWithTasks: (id: string) => {
+        const project = get().projects.find((p) => p.id === id);
+        if (!project) return null;
+        
+        const { getTasksByProject } = useTaskStore.getState();
+        const tasks = getTasksByProject(id, project.taskIds || []);
+        
+        return {
+          ...project,
+          tasks
+        };
       },
     }),
     {

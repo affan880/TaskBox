@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use Mate
 import { useTheme } from 'src/theme/theme-context';
 import { useAuthStore } from 'src/store/auth-store';
 import { AuthNavigator } from './auth-navigator';
-import { ProfileScreen } from 'src/features/profile/profile-screen';
+import { ProfileNavigator } from '@/features/profile/navigation/profile-navigator';
 import { EmailDrawerNavigator } from './email-drawer-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TaskScreen } from 'src/features/tasks/task-screen';
@@ -26,6 +26,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmailScreen } from 'src/features/email/email-screen';
 import { ComposeScreen } from 'src/features/email/compose-screen';
 import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
+import { AllTasksScreen } from 'src/features/tasks/all-tasks-screen';
+import { TaskCreationScreen } from '@/features/tasks/task-creation-screen';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -35,13 +37,19 @@ export type RootStackParamList = {
   TaskList: undefined;
   Compose: undefined;
   ReadEmail: { email: any };
+  EditProfile: undefined;
+  Language: undefined;
+  Feedback: undefined;
+  About: undefined;
+  AllTasks: undefined;
+  TaskCreation: undefined;
 };
 
 // Updated Tab Param List for the new design
 export type MainTabParamList = {
   Email: undefined; // Will represent the left (menu) icon
   Home: undefined;  // Will represent the center (home) icon - Map Tasks here for now
-  Following: undefined; // Will represent the right (people) icon - Map Profile here for now
+  Profile: undefined; // Will represent the right (people) icon - Map Profile here for now
 };
 
 // Add specific screen props if needed, otherwise keep simple
@@ -124,7 +132,7 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
   const tabConfig: { [key: string]: { focusedIcon: string; unfocusedIcon: string; label?: string } } = {
     Email: { focusedIcon: 'email', unfocusedIcon: 'email-outline', label: 'Inbox' },
     Home: { focusedIcon: 'format-list-checks', unfocusedIcon: 'format-list-bulleted', label: 'Tasks' },
-    Following: { focusedIcon: 'account-circle', unfocusedIcon: 'account-circle-outline', label: 'Profile' },
+    Profile: { focusedIcon: 'account-circle', unfocusedIcon: 'account-circle-outline', label: 'Profile' },
   };
 
   return (
@@ -166,7 +174,7 @@ export const MainTabNavigator = React.memo(() => {
   const routes = [
     { key: 'inbox', name: 'Email', component: EmailScreen },
     { key: 'tasks', name: 'Home', component: TaskScreen },
-    { key: 'profile', name: 'Following', component: ProfileScreen as React.ComponentType },
+    { key: 'profile', name: 'Profile', component: ProfileNavigator },
   ];
 
   // Navigate PagerView when a tab is pressed
@@ -241,6 +249,14 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
           <Stack.Screen 
             name="TaskList" 
             component={TaskListScreen} 
+          />
+          <Stack.Screen 
+            name="AllTasks" 
+            component={AllTasksScreen} 
+          />
+          <Stack.Screen 
+            name="TaskCreation" 
+            component={TaskCreationScreen} 
           />
           <Stack.Screen 
             name="Compose" 

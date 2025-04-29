@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { storageConfig } from '@/lib/storage';
-import { TaskData } from '@/types/task';
-import { ProjectData } from '../types/project';
+import type { TaskData } from '@/types/task';
 import { 
   loadTasks as loadTasksFromApi, 
   saveTasks as saveTasksToApi,
@@ -27,6 +26,7 @@ type TaskState = {
   saveTasks: () => Promise<void>;
   getTasks: () => Promise<TaskData[]>;
   getTasksByProject: (projectId: string, projectTasks: string[]) => TaskData[];
+  getAllTasks: () => TaskData[];
   setUpdating: (taskId: string, isUpdating: boolean) => void;
 };
 
@@ -38,24 +38,43 @@ export const useTaskStore = create<TaskState>()(
       initialized: false,
       isUpdating: {},
       
-      addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
+      addTask: (task) => {
+        set((state) => ({ 
+          tasks: [...state.tasks, task] 
+        }));
+        // Save tasks after adding
+        get().saveTasks();
+      },
       
-      updateTask: (id, task) =>
+      updateTask: (id, task) => {
         set((state) => ({
           tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...task } : t)),
-        })),
+        }));
+        // Save tasks after updating
+        get().saveTasks();
+      },
       
-      deleteTask: (id) =>
+      deleteTask: (id) => {
         set((state) => ({
           tasks: state.tasks.filter((t) => t.id !== id),
-        })),
+        }));
+        // Save tasks after deleting
+        get().saveTasks();
+      },
       
-      toggleTaskCompletion: (id) =>
+      toggleTaskCompletion: (id) => {
         set((state) => ({
           tasks: state.tasks.map((t) =>
-            t.id === id ? { ...t, completedAt: t.completedAt ? undefined : new Date().toISOString() } : t
+            t.id === id ? { 
+              ...t, 
+              isCompleted: !t.isCompleted,
+              completedAt: !t.isCompleted ? new Date().toISOString() : undefined 
+            } : t
           ),
-        })),
+        }));
+        // Save tasks after toggling
+        get().saveTasks();
+      },
       
       loadTasks: async () => {
         try {
@@ -95,7 +114,15 @@ export const useTaskStore = create<TaskState>()(
 
       getTasksByProject: (projectId: string, projectTasks: string[]): TaskData[] => {
         const { tasks } = get();
+        if (!projectTasks || !Array.isArray(projectTasks)) {
+          return [];
+        }
         return tasks.filter(task => projectTasks.includes(task.id));
+      },
+
+      getAllTasks: () => {
+        const { tasks } = get();
+        return tasks;
       },
 
       setUpdating: (taskId: string, isUpdating: boolean) => {

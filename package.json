@@ -46,6 +46,7 @@
     "react-native-file-viewer": "^2.1.5",
     "react-native-gesture-handler": "^2.25.0",
     "react-native-image-cache-wrapper": "^1.0.7",
+    "react-native-image-picker": "^8.2.0",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-mmkv": "^2.12.2",
     "react-native-pager-view": "^6.7.0",

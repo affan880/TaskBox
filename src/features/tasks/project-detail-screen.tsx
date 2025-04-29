@@ -22,8 +22,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { useProjectStore } from '@/store/project-store';
-import { ProjectData, ProjectCreateInput, ProjectWithTasks } from '@/types/project';
+import { useProjectStore } from '@/store/project-store'; 
+import { ProjectCreateInput, ProjectWithTasks } from '@/types/project';
 import { Button } from '@/components/ui/button';
 
 type RootStackParamList = {
@@ -65,6 +65,13 @@ const dummyData: Record<FilterTab, ProjectTask[]> = {
 
 const NUM_COLUMNS = 2;
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+// Update ProjectWithTasks type to include all required properties
+type ExtendedProjectWithTasks = ProjectWithTasks & {
+  startDate?: string;
+  endDate?: string;
+  labelColor?: string;
+};
 
 const styles = StyleSheet.create({
   container: { 
@@ -369,19 +376,18 @@ export function ProjectDetailScreen() {
   const [flaggedItems, setFlaggedItems] = useState<Record<string, boolean>>({});
   
   // Project store
-  const { addProject, saveProjects, loadProjects, deleteProject, getAllProjectsWithTasks, updateProject } = useProjectStore();
-  const [localProjects, setLocalProjects] = useState<ProjectWithTasks[]>([]);
+  const { addProject, deleteProject, getAllProjectsWithTasks, updateProject } = useProjectStore();
+  const [localProjects, setLocalProjects] = useState<ExtendedProjectWithTasks[]>([]);
   
   // Load projects on mount
   useEffect(() => {
     const initializeProjects = async () => {
-      await loadProjects();
       const projectsWithTasks = getAllProjectsWithTasks();
       setLocalProjects(projectsWithTasks);
     };
     
     initializeProjects();
-  }, [loadProjects, getAllProjectsWithTasks]);
+  }, [getAllProjectsWithTasks]);
 
   // --- Modal State ---
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -457,25 +463,25 @@ export function ProjectDetailScreen() {
 
     // Create project input data
     const projectInput: ProjectCreateInput = {
-      title: projectName,
-      description: description,
+      title: projectName.trim(),
+      description: description.trim(),
       startDate: startDate?.toISOString(),
-      endDate: endDate?.toISOString(),
-      labelColor: selectedLabels.length > 0 
-        ? availableLabels.find(l => l.id === selectedLabels[0])?.color 
-        : undefined
+      endDate: endDate?.toISOString()
     };
     
     try {
       // Add project to store
-      const projectId = addProject(projectInput);
-      
-      // Save to storage
-      await saveProjects();
+      const newProject = addProject(projectInput);
       
       // Refresh local projects list
       const projectsWithTasks = getAllProjectsWithTasks();
       setLocalProjects(projectsWithTasks);
+      
+      // Close modal
+      handleCloseModal();
+
+      // Navigate to the task list screen with the new project ID
+      navigation.navigate('TaskList', { projectId: newProject.id });
       
       // Show success message
       Alert.alert(
@@ -483,9 +489,6 @@ export function ProjectDetailScreen() {
         'Project created successfully!',
         [{ text: 'OK' }]
       );
-      
-      // Close modal
-      handleCloseModal();
     } catch (error) {
       console.error('Failed to create project:', error);
       Alert.alert(
@@ -511,7 +514,6 @@ export function ProjectDetailScreen() {
           onPress: async () => {
             try {
               deleteProject(projectId);
-              await saveProjects();
               const projectsWithTasks = getAllProjectsWithTasks();
               setLocalProjects(projectsWithTasks);
             } catch (error) {
@@ -579,7 +581,7 @@ export function ProjectDetailScreen() {
   
   const filteredProjects = getFilteredProjects();
 
-  const renderTaskCard = ({ item }: { item: ProjectWithTasks }) => {
+  const renderTaskCard = ({ item }: { item: ExtendedProjectWithTasks }) => {
     const isFlagged = activeFilter === 'Flag' && flaggedItems[item.id];
     const hasDueDate = !!item.endDate;
     const formattedStartDate = item.startDate 

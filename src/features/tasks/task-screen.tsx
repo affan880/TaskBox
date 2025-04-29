@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -30,23 +30,29 @@ import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { LineChart, PieChart, BarChart } from 'react-native-chart-kit';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { NavigationProp } from '@react-navigation/native';
 
 // Define Tab type
 type ActiveTab = 'Overview' | 'Analytics';
 
 // *** ProjectSection Component ***
 // Define styles type for props if needed, or pass individual style objects
+type ExtendedProjectWithTasks = ProjectWithTasks & {
+  startDate?: string;
+  endDate?: string;
+};
+
 type ProjectSectionProps = {
-  styles: any; // Consider defining a more specific type for styles
-  colors: any; // Replace 'any' with your actual theme colors type
+  styles: any;
+  colors: any;
   isDark: boolean;
-  onNavigate: (project?: ProjectWithTasks) => void; // Add callback for navigation
+  onNavigate: (project?: ExtendedProjectWithTasks) => void;
 };
 
 function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionProps): React.ReactElement {
   const { projects, deleteProject } = useProjectStore();
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ExtendedProjectWithTasks | null>(null);
   
   // Get the most recent project with tasks
   const recentProject = projects.length > 0 
@@ -92,7 +98,7 @@ function ProjectSection({ styles, colors, isDark, onNavigate }: ProjectSectionPr
   }
 
   // Get project with tasks
-  const projectWithTasks = useProjectStore.getState().getProjectWithTasks(recentProject.id);
+  const projectWithTasks = useProjectStore.getState().getProjectWithTasks(recentProject.id) as ExtendedProjectWithTasks;
   if (!projectWithTasks) {
     return (
       <View style={styles.sectionContainer}>
@@ -323,7 +329,7 @@ function AnalyticsSection({ styles, colors, isDark, tasks }: { styles: any, colo
   const tasksByProject = React.useMemo(() => {
     const projectCounts = new Map<string, number>();
     projects.forEach(project => {
-      const projectTasks = tasks.filter(task => project.tasks.includes(task.id));
+      const projectTasks = tasks.filter(task => project.taskIds.includes(task.id));
       projectCounts.set(project.title, projectTasks.length);
     });
     return Array.from(projectCounts.entries()).map(([name, count]) => ({
@@ -638,8 +644,125 @@ function TaskListSection({ styles, colors, isDark, tasks, onTaskPress, onToggleC
   );
 }
 
+// *** UpcomingTasksSection Component ***
+function UpcomingTasksSection({ styles, colors, isDark, tasks }: { styles: any, colors: any, isDark: boolean, tasks: TaskData[] }): React.ReactElement {
+  // Filter and sort tasks by due date
+  const upcomingTasks = useMemo(() => {
+    const now = new Date();
+    return tasks
+      .filter(task => !task.isCompleted && task.dueDate)
+      .sort((a, b) => {
+        const dateA = new Date(a.dueDate!);
+        const dateB = new Date(b.dueDate!);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(0, 3); // Show only the next 3 upcoming tasks
+  }, [tasks]);
+
+  if (upcomingTasks.length === 0) {
+    return (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <FeatherIcon name="clock" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Upcoming Tasks</Text>
+          </View>
+        </View>
+        <View style={[styles.upcomingTasksEmpty, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.upcomingTasksEmptyText, { color: colors.text.secondary }]}>
+            No upcoming tasks
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <FeatherIcon name="clock" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Upcoming Tasks</Text>
+        </View>
+      </View>
+      
+      {upcomingTasks.map((task) => {
+        const dueDate = new Date(task.dueDate!);
+        const daysUntilDue = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        
+        return (
+          <View
+            key={task.id}
+            style={[styles.upcomingTaskCard, { backgroundColor: colors.surface.primary }]}
+          >
+            <View style={styles.upcomingTaskHeader}>
+              <View style={styles.upcomingTaskTitleContainer}>
+                <Text style={[styles.upcomingTaskTitle, { color: colors.text.primary }]}>
+                  {task.title}
+                </Text>
+                <View style={[
+                  styles.upcomingTaskPriority,
+                  { 
+                    backgroundColor: 
+                      task.priority === 'high' ? `${colors.status.error}20` :
+                      task.priority === 'medium' ? `${colors.status.warning}20` :
+                      `${colors.status.success}20`
+                  }
+                ]}>
+                  <Text style={[
+                    styles.upcomingTaskPriorityText,
+                    { 
+                      color: 
+                        task.priority === 'high' ? colors.status.error :
+                        task.priority === 'medium' ? colors.status.warning :
+                        colors.status.success
+                    }
+                  ]}>
+                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={styles.upcomingTaskFooter}>
+              <View style={styles.upcomingTaskDateContainer}>
+                <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
+                <Text style={[styles.upcomingTaskDate, { color: colors.text.secondary }]}>
+                  {dueDate.toLocaleDateString()}
+                </Text>
+              </View>
+              
+              <Text style={[
+                styles.upcomingTaskDueText,
+                { 
+                  color: daysUntilDue <= 1 ? colors.status.error :
+                         daysUntilDue <= 3 ? colors.status.warning :
+                         colors.status.success
+                }
+              ]}>
+                {daysUntilDue === 0 ? 'Due today' :
+                 daysUntilDue === 1 ? 'Due tomorrow' :
+                 `Due in ${daysUntilDue} days`}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+type RootStackParamList = {
+  TaskList: { tasks: TaskData[] };
+  ProjectDetail: { projectId?: string };
+  TaskCreation: undefined;
+  AllTasks: undefined;
+};
+
+type NavigationPropType = NavigationProp<RootStackParamList>;
+
 export function TaskScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NavigationPropType>();
   const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<ActiveTab>('Overview');
   const [tasks, setTasks] = useState<TaskData[]>([]);
@@ -1191,17 +1314,73 @@ export function TaskScreen() {
       fontSize: 16,
       textAlign: 'center',
     },
+    upcomingTasksEmpty: {
+      padding: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    upcomingTasksEmptyText: {
+      fontSize: 16,
+      textAlign: 'center',
+    },
+    upcomingTaskCard: {
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 8,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    upcomingTaskHeader: {
+      marginBottom: 12,
+    },
+    upcomingTaskTitleContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    upcomingTaskTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      flex: 1,
+      marginRight: 8,
+    },
+    upcomingTaskPriority: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    upcomingTaskPriorityText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    upcomingTaskFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    upcomingTaskDateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    upcomingTaskDate: {
+      fontSize: 14,
+      marginLeft: 6,
+    },
+    upcomingTaskDueText: {
+      fontSize: 14,
+      fontWeight: '500',
+    },
   });
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
             <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tasks</Text>
-            <TouchableOpacity style={styles.headerTitleIcon}>
-              <FeatherIcon name="chevron-down" size={20} color={colors.text.primary} />
-            </TouchableOpacity>
           </View>
           <TouchableOpacity 
             style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
@@ -1211,7 +1390,7 @@ export function TaskScreen() {
           </TouchableOpacity>
         </View>
         
-        <View style={[styles.searchBarContainer, { backgroundColor: colors.surface.secondary }]}>
+        {/* <View style={[styles.searchBarContainer, { backgroundColor: colors.surface.secondary }]}>
           <FeatherIcon name="search" size={20} color={colors.text.tertiary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text.primary }]}
@@ -1220,7 +1399,7 @@ export function TaskScreen() {
             value={''}
             onChangeText={() => {}}
           />
-        </View>
+        </View> */}
         
         <View style={[styles.tabsContainer, { borderBottomColor: colors.border.light }]}>
           {['Overview', 'Analytics'].map((tab) => (
@@ -1263,11 +1442,23 @@ export function TaskScreen() {
               isDark={isDark} 
               tasks={tasks} 
             />
+            <UpcomingTasksSection 
+              styles={styles} 
+              colors={colors} 
+              isDark={isDark} 
+              tasks={tasks} 
+            />
             <ProjectSection 
               styles={styles} 
               colors={colors} 
               isDark={isDark} 
-              onNavigate={(projectId?: string) => navigation.navigate('ProjectDetail', { projectId })} 
+              onNavigate={(project) => {
+                if (project) {
+                  navigation.navigate('ProjectDetail', { projectId: project.id });
+                } else {
+                  navigation.navigate('ProjectDetail', {});
+                }
+              }} 
             />
             <RecentTasksSection 
               styles={styles} 
@@ -1276,7 +1467,9 @@ export function TaskScreen() {
             />
             <TouchableOpacity 
               style={[styles.viewAllButton, { backgroundColor: colors.brand.primary }]}
-              onPress={() => navigation.navigate('TaskList')}
+              onPress={() => {
+                navigation.navigate('AllTasks');
+              }}
             >
               <Text style={[styles.viewAllButtonText, { color: colors.text.inverse }]}>
                 View All Tasks
@@ -1295,3 +1488,4 @@ export function TaskScreen() {
     </SafeAreaView>
   );
 } 
+
