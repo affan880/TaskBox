@@ -5,29 +5,29 @@ import { useTheme } from '@/theme/theme-context';
 import { TaskData, TaskPriority } from '@/types/task';
 
 type TaskSummaryProps = {
-  tasks: TaskData[];
+  tasks?: TaskData[];
   style?: ViewStyle;
   compact?: boolean;
 };
 
-export function TaskSummary({ tasks, style, compact = false }: TaskSummaryProps) {
+export function TaskSummary({ tasks = [], style, compact = false }: TaskSummaryProps) {
   const { colors, isDark } = useTheme();
   
   // Calculate statistics
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(task => task.isCompleted).length;
+  const totalTasks = tasks?.length || 0;
+  const completedTasks = tasks?.filter(task => task.isCompleted).length || 0;
   const incompleteTasks = totalTasks - completedTasks;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   
   // Count tasks by priority
   const priorityCount = {
-    high: tasks.filter(task => task.priority === 'high').length,
-    medium: tasks.filter(task => task.priority === 'medium').length,
-    low: tasks.filter(task => task.priority === 'low').length
+    high: tasks?.filter(task => task.priority === 'high').length || 0,
+    medium: tasks?.filter(task => task.priority === 'medium').length || 0,
+    low: tasks?.filter(task => task.priority === 'low').length || 0
   };
   
   // Find closest due task (excluding completed)
-  const pendingTasks = tasks.filter(task => !task.isCompleted && task.dueDate);
+  const pendingTasks = tasks?.filter(task => !task.isCompleted && task.dueDate) || [];
   const closestDueTask = pendingTasks.length > 0 
     ? pendingTasks.reduce((closest, task) => {
         if (!closest.dueDate) return task;

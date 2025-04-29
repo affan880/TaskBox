@@ -1,38 +1,36 @@
-import { MMKV } from 'react-native-mmkv';
+import { storageConfig } from '@/lib/storage/storage';
 
-const storage = new MMKV();
-const SNOOZE_KEY_PREFIX = '@email_snooze_';
+const SNOOZE_STORAGE_KEY = 'snooze-settings';
 
-type SnoozeData = {
-  emailIds: string[];
-  snoozeTime: string;
-  labelId: string;
+type SnoozeSettings = {
+  duration: number;
+  timestamp: number;
 };
 
-export async function storeSnoozeData(data: SnoozeData): Promise<void> {
-  const key = `${SNOOZE_KEY_PREFIX}${data.emailIds.join('_')}`;
-  storage.set(key, JSON.stringify(data));
+export async function saveSnoozeSettings(settings: SnoozeSettings): Promise<void> {
+  try {
+    await storageConfig.setItem(SNOOZE_STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error('Failed to save snooze settings:', error);
+    throw error;
+  }
 }
 
-export async function getSnoozeData(emailIds: string[]): Promise<SnoozeData | null> {
-  const key = `${SNOOZE_KEY_PREFIX}${emailIds.join('_')}`;
-  const data = storage.getString(key);
-  return data ? JSON.parse(data) : null;
+export async function getSnoozeSettings(): Promise<SnoozeSettings | null> {
+  try {
+    const settings = await storageConfig.getItem(SNOOZE_STORAGE_KEY);
+    return settings ? JSON.parse(settings) : null;
+  } catch (error) {
+    console.error('Failed to get snooze settings:', error);
+    return null;
+  }
 }
 
-export async function removeSnoozeData(emailIds: string[]): Promise<void> {
-  const key = `${SNOOZE_KEY_PREFIX}${emailIds.join('_')}`;
-  storage.delete(key);
-}
-
-export async function getAllSnoozedEmails(): Promise<SnoozeData[]> {
-  const allKeys = storage.getAllKeys();
-  const snoozeKeys = allKeys.filter(key => key.startsWith(SNOOZE_KEY_PREFIX));
-  
-  return snoozeKeys
-    .map(key => {
-      const data = storage.getString(key);
-      return data ? JSON.parse(data) : null;
-    })
-    .filter((data): data is SnoozeData => data !== null);
+export async function clearSnoozeSettings(): Promise<void> {
+  try {
+    await storageConfig.removeItem(SNOOZE_STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear snooze settings:', error);
+    throw error;
+  }
 } 

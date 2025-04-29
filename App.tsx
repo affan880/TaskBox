@@ -8,16 +8,22 @@
 import 'react-native-gesture-handler'; // MUST BE FIRST
 
 import * as React from 'react';
-import { StatusBar, AppState, AppStateStatus } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Import the wrapper
+import { StatusBar, AppState, AppStateStatus, LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppNavigator } from '@/navigation/app-navigator';
 import { useAuthStore, type AuthState } from '@/store/auth-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/theme-context';
-import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { ErrorBoundary } from '@/components/ui/error-boundary'; 
 import { AuthProvider } from '@/lib/auth/auth-provider';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
+
+// Ignore specific warnings
+LogBox.ignoreLogs([
+  'Sending `onAnimatedValueUpdate` with no listeners registered',
+  'Non-serializable values were found in the navigation state',
+]);
 
 // --- Google Sign-In Configuration ---
 // IMPORTANT: Configure Google Sign-In here *before* AuthProvider mounts.

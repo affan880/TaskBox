@@ -22,7 +22,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TaskScreen } from 'src/features/tasks/task-screen';
 import { ProjectDetailScreen } from '@/features/tasks/project-detail-screen';
 import { TaskListScreen } from '@/features/tasks/task-list-screen';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Needed for positioning
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import { EmailScreen } from 'src/features/email/email-screen';
+import { ComposeScreen } from 'src/features/email/compose-screen';
+import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -30,6 +33,8 @@ export type RootStackParamList = {
   Auth: undefined;
   ProjectDetail: undefined;
   TaskList: undefined;
+  Compose: undefined;
+  ReadEmail: { email: any };
 };
 
 // Updated Tab Param List for the new design
@@ -153,13 +158,13 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
 });
 
 // --- Main Swipeable Tab Navigator ---
-function MainTabNavigator() {
+export const MainTabNavigator = React.memo(() => {
   const [activeIndex, setActiveIndex] = React.useState(0);
   const pagerRef = React.useRef<PagerView>(null);
 
   // Define the order and components for the pager
   const routes = [
-    { key: 'inbox', name: 'Email', component: EmailDrawerNavigator },
+    { key: 'inbox', name: 'Email', component: EmailScreen },
     { key: 'tasks', name: 'Home', component: TaskScreen },
     { key: 'profile', name: 'Following', component: ProfileScreen as React.ComponentType },
   ];
@@ -195,10 +200,10 @@ function MainTabNavigator() {
       />
     </View>
   );
-}
+});
 
 // --- Navigation Root (Authentication Logic) ---
-function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
+export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) => {
   const { user, isLoading, initialized, setUser } = useAuthStore();
   const { colors } = useTheme();
   const didForceAuth = React.useRef(false);
@@ -237,6 +242,19 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
             name="TaskList" 
             component={TaskListScreen} 
           />
+          <Stack.Screen 
+            name="Compose" 
+            component={ComposeScreen}
+            options={{
+              presentation: 'modal',
+              animation: 'slide_from_bottom',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="ReadEmail"
+            component={EmailDetailScreen}
+          />
         </>
       ) : (
         <Stack.Screen
@@ -246,10 +264,10 @@ function NavigationRoot({ forceAuthScreen, onNavigated }: { forceAuthScreen?: bo
       )}
     </Stack.Navigator>
   );
-}
+});
 
 // --- App Navigator Export ---
-export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) {
+export const AppNavigator = React.memo(({ forceAuthScreen, onNavigated }: { forceAuthScreen?: boolean; onNavigated?: () => void }) => {
   const { colors } = useTheme();
   
   // Create a complete theme object with required fonts property
@@ -301,7 +319,7 @@ export function AppNavigator({ forceAuthScreen, onNavigated }: { forceAuthScreen
       </NavigationContainer>
     </GestureHandlerRootView>
   );
-}
+});
 
 // --- Styles ---
 const styles = StyleSheet.create({

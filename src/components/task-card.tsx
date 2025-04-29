@@ -16,6 +16,7 @@ type TaskCardProps = {
   onPress?: (taskId: string) => void;
   onLongPress?: (taskId: string) => void;
   onToggleComplete?: (taskId: string) => void;
+  onDelete?: (taskId: string) => void;
   isSelected?: boolean;
   hideDetails?: boolean;
 };
@@ -25,6 +26,7 @@ export function TaskCard({
   onPress,
   onLongPress,
   onToggleComplete,
+  onDelete,
   isSelected = false,
   hideDetails = false
 }: TaskCardProps) {
@@ -52,6 +54,13 @@ export function TaskCard({
     e.stopPropagation();
     if (onToggleComplete) {
       onToggleComplete(task.id);
+    }
+  };
+
+  const handleDelete = (e: any) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(task.id);
     }
   };
 
@@ -101,15 +110,26 @@ export function TaskCard({
           {task.title}
         </Text>
         
-        <View
-          style={[
-            styles.priorityBadge,
-            { backgroundColor: priorityColors[task.priority] },
-          ]}
-        >
-          <Text style={styles.priorityText}>
-            {task.priority.charAt(0).toUpperCase()}
-          </Text>
+        <View style={styles.headerRight}>
+          <View
+            style={[
+              styles.priorityBadge,
+              { backgroundColor: priorityColors[task.priority] },
+            ]}
+          >
+            <Text style={styles.priorityText}>
+              {task.priority.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          
+          {onDelete && (
+            <TouchableOpacity
+              onPress={handleDelete}
+              style={styles.deleteButton}
+            >
+              <Icon name="delete" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -196,6 +216,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   priorityBadge: {
     width: 20,
     height: 20,
@@ -208,6 +232,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  deleteButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   description: {
     fontSize: 14,

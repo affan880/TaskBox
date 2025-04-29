@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { ChipInput } from '@/components/ui/chip-input';
 import { useTheme } from '@/theme/theme-context';
 
@@ -27,50 +27,57 @@ export function RecipientFields({
   showCcBcc,
   setShowCcBcc,
 }: RecipientFieldsProps): React.ReactElement {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   // Define styles using StyleSheet
   const styles = StyleSheet.create({
     container: {
-      // No specific container styles needed, rows handle padding
+      backgroundColor: colors.background.primary,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+      minHeight: Platform.OS === 'ios' ? 44 : 48,
+      backgroundColor: colors.background.primary,
     },
     label: {
       width: 40,
-      fontSize: 16,
+      fontSize: Platform.OS === 'ios' ? 16 : 15,
       fontWeight: '500',
       color: colors.text.secondary,
+      marginRight: Platform.OS === 'android' ? 8 : 0,
     },
     chipInputContainer: {
       flex: 1,
-      minHeight: 40,
+      minHeight: Platform.OS === 'ios' ? 40 : 44,
     },
     chipInput: {
-      fontSize: 16,
+      fontSize: Platform.OS === 'ios' ? 16 : 15,
       color: colors.text.primary,
       flex: 1,
+      paddingVertical: Platform.OS === 'android' ? 8 : 0,
     },
     ccBccButton: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      marginLeft: 8, // Add some spacing
+      paddingHorizontal: 12,
+      paddingVertical: Platform.OS === 'ios' ? 4 : 8,
+      marginLeft: 8,
     },
     ccBccButtonText: {
       color: colors.brand.primary,
+      fontSize: Platform.OS === 'ios' ? 14 : 13,
+      fontWeight: '500',
     },
     divider: {
       height: 1,
       backgroundColor: colors.border.light,
     },
     chipStyle: {
-      backgroundColor: `${colors.brand.primary}20`,
+      backgroundColor: isDark ? `${colors.brand.primary}30` : `${colors.brand.primary}15`,
+      marginVertical: Platform.OS === 'android' ? 2 : 0,
+      borderRadius: Platform.OS === 'ios' ? 16 : 20,
     },
-    // chipTextStyle prop removed earlier due to errors
   });
 
   const validateEmail = (email: string): boolean => {

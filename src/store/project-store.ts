@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
+import { persist } from 'zustand/middleware';
+import { storageConfig } from '@/lib/storage/storage';
 import { ProjectData, ProjectCreateInput, ProjectWithTasks } from '../types/project';
 import { TaskData } from '../types/task';
 import { 
@@ -14,225 +14,101 @@ import {
 } from '../api/projects-api';
 import { useTaskStore } from './task-store';
 
-const storage = new MMKV();
+type Project = {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
-interface ProjectState {
-  projects: ProjectData[];
+type ProjectStore = {
+  projects: Project[];
   selectedProjectId: string | null;
-  isLoading: boolean;
-  initialized: boolean;
-  isUpdating: Record<string, boolean>;
-  
-  // Actions
-  addProject: (project: ProjectCreateInput) => string; // Returns the new project ID
-  updateProject: (projectId: string, updates: Partial<Omit<ProjectData, 'id' | 'createdAt'>>) => void;
+  addProject: (project: Project) => void;
+  updateProject: (project: Project) => void;
   deleteProject: (projectId: string) => void;
   setSelectedProject: (projectId: string | null) => void;
+  getProject: (projectId: string) => Project | null;
+  getProjectWithTasks: (projectId: string) => ProjectWithTasks | null;
   addTaskToProject: (projectId: string, taskId: string) => void;
   removeTaskFromProject: (projectId: string, taskId: string) => void;
-  loadProjects: () => Promise<void>;
-  saveProjects: () => Promise<void>;
-  getProjectWithTasks: (projectId: string) => ProjectWithTasks | null;
-  getAllProjectsWithTasks: () => ProjectWithTasks[];
-  setUpdating: (projectId: string, isUpdating: boolean) => void;
-}
+};
 
-export const useProjectStore = create<ProjectState>()(
+export const useProjectStore = create<ProjectStore>()(
   persist(
     (set, get) => ({
       projects: [],
       selectedProjectId: null,
-      isLoading: false,
-      initialized: false,
-      isUpdating: {},
-      
-      addProject: (projectData) => {
-        const newProject = createProject(projectData, get().projects);
-        
+      addProject: (project) =>
         set((state) => ({
-          projects: [...state.projects, newProject]
-        }));
-        
-        get().saveProjects();
-        return newProject.id;
-      },
-      
-      updateProject: async (projectId, updates) => {
-        const previousProjects = get().projects;
-        const updatedProjects = updateProjectInApi(get().projects, projectId, updates);
-        
+          projects: [...state.projects, project],
+        })),
+      updateProject: (project) =>
         set((state) => ({
-          projects: updatedProjects,
-          isUpdating: { ...state.isUpdating, [projectId]: true }
-        }));
-        
-        try {
-          await get().saveProjects();
-        } catch (error) {
-          set((state) => ({
-            projects: previousProjects,
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-        }
-      },
-      
-      deleteProject: async (projectId) => {
-        const previousProjects = get().projects;
-        const updatedProjects = deleteProjectFromApi(get().projects, projectId);
-        
+          projects: state.projects.map((p) =>
+            p.id === project.id ? project : p
+          ),
+        })),
+      deleteProject: (projectId) =>
         set((state) => ({
-          projects: updatedProjects,
-          selectedProjectId: state.selectedProjectId === projectId ? null : state.selectedProjectId,
-          isUpdating: { ...state.isUpdating, [projectId]: true }
-        }));
-        
-        try {
-          await get().saveProjects();
-        } catch (error) {
-          set((state) => ({
-            projects: previousProjects,
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-        }
+          projects: state.projects.filter((p) => p.id !== projectId),
+          selectedProjectId:
+            state.selectedProjectId === projectId
+              ? null
+              : state.selectedProjectId,
+        })),
+      setSelectedProject: (projectId) =>
+        set(() => ({
+          selectedProjectId: projectId,
+        })),
+      getProject: (projectId) => {
+        const state = get();
+        return state.projects.find(p => p.id === projectId) || null;
       },
-      
-      setSelectedProject: (projectId) => {
-        set({ selectedProjectId: projectId });
-      },
-      
-      addTaskToProject: async (projectId, taskId) => {
-        const previousProjects = get().projects;
-        const updatedProjects = addTaskToProjectInApi(get().projects, projectId, taskId);
-        
-        set((state) => ({
-          projects: updatedProjects,
-          isUpdating: { ...state.isUpdating, [projectId]: true }
-        }));
-        
-        try {
-          await get().saveProjects();
-        } catch (error) {
-          set((state) => ({
-            projects: previousProjects,
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-        }
-      },
-      
-      removeTaskFromProject: async (projectId, taskId) => {
-        const previousProjects = get().projects;
-        const updatedProjects = removeTaskFromProjectInApi(get().projects, projectId, taskId);
-        
-        set((state) => ({
-          projects: updatedProjects,
-          isUpdating: { ...state.isUpdating, [projectId]: true }
-        }));
-        
-        try {
-          await get().saveProjects();
-        } catch (error) {
-          set((state) => ({
-            projects: previousProjects,
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [projectId]: false }
-          }));
-        }
-      },
-      
-      loadProjects: async () => {
-        set({ isLoading: true });
-        
-        try {
-          const projects = await loadProjectsFromApi();
-          set({ projects, initialized: true });
-        } catch (error) {
-          console.error('Failed to load projects:', error);
-          set({ projects: [], initialized: true });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-      
-      saveProjects: async () => {
-        try {
-          const { projects } = get();
-          await saveProjectsToApi(projects);
-        } catch (error) {
-          console.error('Failed to save projects:', error);
-          throw error;
-        }
-      },
-
       getProjectWithTasks: (projectId) => {
-        const { projects } = get();
-        const project = projects.find(p => p.id === projectId);
-        
+        const state = get();
+        const project = state.projects.find(p => p.id === projectId);
         if (!project) return null;
         
-        const tasks = useTaskStore.getState().tasks;
-        const projectTasks = tasks.filter(task => project.tasks.includes(task.id));
+        const taskStore = useTaskStore.getState();
+        const tasks = taskStore.tasks.filter(t => t.projectId === projectId);
         
         return {
           ...project,
-          tasks: projectTasks
+          tasks
         };
       },
-      
-      getAllProjectsWithTasks: () => {
-        const { projects } = get();
-        const tasks = useTaskStore.getState().tasks;
+      addTaskToProject: (projectId, taskId) => {
+        const state = get();
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) return;
         
-        return projects.map(project => {
-          const projectTasks = tasks.filter(task => project.tasks.includes(task.id));
-          return {
-            ...project,
-            tasks: projectTasks
-          };
-        });
-      },
-
-      setUpdating: (projectId: string, isUpdating: boolean) => {
         set((state) => ({
-          isUpdating: {
-            ...state.isUpdating,
-            [projectId]: isUpdating
-          }
+          projects: state.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, taskIds: [...(p.taskIds || []), taskId] }
+              : p
+          ),
         }));
-      }
+      },
+      removeTaskFromProject: (projectId, taskId) => {
+        const state = get();
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) return;
+        
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, taskIds: p.taskIds?.filter(id => id !== taskId) || [] }
+              : p
+          ),
+        }));
+      },
     }),
     {
-      name: 'project-store',
-      storage: createJSONStorage(() => ({
-        getItem: (name) => {
-          const value = storage.getString(name);
-          return value ? JSON.parse(value) : null;
-        },
-        setItem: (name, value) => {
-          storage.set(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          storage.delete(name);
-        },
-      })),
+      name: 'project-storage',
+      storage: storageConfig,
     }
   )
 ); 

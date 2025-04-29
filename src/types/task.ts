@@ -3,14 +3,15 @@
  */
 export type TaskData = {
   id: string;
+  projectId: string;
   title: string;
   description?: string;
   isCompleted: boolean;
   completedAt?: string;
   dueDate?: string;
   priority: TaskPriority;
-  tags?: string[];
-  attachments?: TaskAttachment[];
+  tags: string[];
+  attachments: string[];
   createdAt: string;
   updatedAt: string;
 };

@@ -1,5 +1,6 @@
 import { getAccessToken } from '@/lib/utils/email-attachments';
 import { BASE_URL } from '@/lib/env/api-config';
+import { EventSourcePolyfill } from 'react-native-sse';
 
 // Debug flag - only log in development mode
 const DEBUG = __DEV__ && false; // Set to true for verbose debugging
@@ -106,7 +107,6 @@ export async function analyzeEmails(count?: number, days?: number, category?: st
       },
       body: JSON.stringify(requestBody),
     });
-    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API error response:', errorText);
@@ -116,6 +116,7 @@ export async function analyzeEmails(count?: number, days?: number, category?: st
     const responseData = await response.json();
     if (DEBUG) console.log('Email analysis response:', responseData);
     
+    console.log('🔍 Response_______________/analyze-emails:', responseData);
     return responseData;
   } catch (error) {
     console.error('Error analyzing emails:', error);
@@ -245,6 +246,123 @@ export async function generateEmailContent(params: EmailGenerationRequest): Prom
     if (DEBUG) console.log('Email generation response:', responseData);
     
     return responseData;
+  } catch (error) {
+    console.error('Error generating email:', error);
+    throw error;
+  }
+} 
+
+// --- Streaming Email Generation with Revisions (SSE) ---
+
+export type EmailRevisionRequest = {
+  message: string;
+  context?: string;
+};
+
+export type EmailRevisionChunk = {
+  content: string;
+  timestamp: string;
+  revisionNumber: number;
+};
+
+export async function streamGenerateEmailWithRevisionsSSE(
+  request: EmailRevisionRequest,
+  onChunk: (chunk: EmailRevisionChunk) => void,
+  onError: (error: Error) => void,
+  onComplete: () => void
+): Promise<void> {
+  try {
+    const eventSource = new EventSourcePolyfill(`${BASE_URL}/api/generate-email-with-revisions`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: request.message,
+        context: request.context,
+        tone: 'professional',
+        isRevision: false,
+        previousEmailsLength: 0
+      }),
+    });
+
+    eventSource.onmessage = (event) => {
+      try {
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (err) {
+          console.error('Invalid JSON in SSE message:', event.data);
+          onError(new Error('Invalid server response format'));
+          eventSource.close();
+          return;
+        }
+        
+        if (data.status === 'complete') {
+          eventSource.close();
+          onComplete();
+        } else if (data.revision) {
+          onChunk(data.revision);
+        } else if (data.error) {
+          onError(new Error(data.error));
+          eventSource.close();
+        }
+      } catch (err) {
+        console.error('Error processing SSE message:', err);
+        onError(new Error('Failed to process server response'));
+        eventSource.close();
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('EventSource error:', err);
+      onError(new Error('Connection error occurred'));
+      eventSource.close();
+    };
+
+    // Return cleanup function
+    return () => {
+      eventSource.close();
+    };
+  } catch (err) {
+    console.error('Error setting up EventSource:', err);
+    onError(new Error('Failed to start email generation'));
+    throw err;
+  }
+}
+
+export async function generateEmailWithRevisions(
+  request: EmailRevisionRequest
+): Promise<{ response: string }> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/generate-email-with-revisions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: request.message,
+        context: request.context,
+        tone: 'professional',
+        isRevision: false,
+        previousEmailsLength: 0
+      }),
+    });
+
+    let responseData;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      responseData = await response.json();
+    } else {
+      const text = await response.text();
+      console.error('Non-JSON response:', text);
+      throw new Error('Server returned non-JSON response');
+    }
+
+    if (!response.ok) {
+      throw new Error(responseData?.message || `Failed to generate email: ${response.status}`);
+    }
+
+    return { response: responseData.response };
   } catch (error) {
     console.error('Error generating email:', error);
     throw error;

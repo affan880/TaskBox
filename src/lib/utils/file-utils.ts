@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import RNBlobUtil from 'react-native-blob-util';
+import type { Attachment } from '@/types';
 
 /**
  * Normalizes file URIs for consistent handling across platforms
@@ -113,9 +114,11 @@ export async function verifyFileAccessible(uri: string, filename: string): Promi
  * Formats file size for display
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 /**
@@ -149,4 +152,57 @@ export async function deleteFile(uri: string): Promise<boolean> {
     console.error('Error deleting file:', error);
     return false;
   }
+}
+
+export async function downloadAttachment(attachment: Attachment): Promise<void> {
+  try {
+    const { uri } = attachment;
+    const response = await RNBlobUtil.config({
+      fileCache: true,
+      appendExt: attachment.type.split('/')[1],
+    }).fetch('GET', uri);
+
+    const filePath = response.path();
+    console.log('File downloaded to:', filePath);
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    throw error;
+  }
+}
+
+export async function uploadAttachment(filePath: string, info: Record<string, any> = {}): Promise<void> {
+  try {
+    await RNBlobUtil.fetch(
+      'POST',
+      'YOUR_UPLOAD_ENDPOINT',
+      {
+        'Content-Type': 'multipart/form-data',
+      },
+      [
+        { name: 'file', filename: filePath.split('/').pop(), data: RNBlobUtil.wrap(filePath) },
+        { name: 'info', data: JSON.stringify(info) },
+      ]
+    );
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+}
+
+export function getMimeType(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    txt: 'text/plain',
+  };
+
+  return mimeTypes[extension || ''] || 'application/octet-stream';
 } 

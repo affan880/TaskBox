@@ -1,16 +1,17 @@
 import * as React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { View, TouchableOpacity } from 'react-native';
+import { Text } from '@/components/ui';
 import { useTheme } from '@/theme/theme-context';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
-interface ComposeHeaderProps {
+type Props = {
   onBack: () => void;
   onAddAttachment: () => void;
   onSend: () => void;
   isSending: boolean;
   isUploading: boolean;
   canSend: boolean;
-}
+};
 
 export function ComposeHeader({
   onBack,
@@ -19,88 +20,43 @@ export function ComposeHeader({
   isSending,
   isUploading,
   canSend,
-}: ComposeHeaderProps): React.ReactElement {
+}: Props) {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
-      <TouchableOpacity 
-        style={styles.headerButton} 
-        onPress={onBack}
-        accessibilityLabel="Back to inbox"
-      >
-        <Icon name="arrow-back" size={24} color={colors.text.primary} />
-      </TouchableOpacity>
-      
-      <Text style={[styles.headerTitle, { color: colors.text.primary }]}>New Message</Text>
-      
-      <View style={styles.headerActions}>
-        <TouchableOpacity 
-          style={styles.headerButton}
+    <View
+      className="flex-row items-center justify-between border-b px-4 py-3"
+      style={{ borderBottomColor: colors.border.primary }}
+    >
+      <View className="flex-row items-center">
+        <TouchableOpacity
+          onPress={onBack}
+          className="rounded-full p-2 active:bg-neutral-100"
+        >
+          <Icon name="arrow-back" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <Text className="ml-3 text-lg font-semibold">New Message</Text>
+      </View>
+
+      <View className="flex-row items-center space-x-4">
+        <TouchableOpacity
           onPress={onAddAttachment}
-          disabled={isSending}
-          accessibilityLabel="Add attachment"
+          disabled={isUploading}
+          className="rounded-full p-2 active:bg-neutral-100"
         >
           <Icon name="attach-file" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[
-            styles.sendButton, 
-            { backgroundColor: colors.brand.primary },
-            (isSending || isUploading || !canSend) && { opacity: 0.7 }
-          ]} 
+
+        <TouchableOpacity
           onPress={onSend}
-          disabled={isSending || isUploading || !canSend}
-          accessibilityLabel="Send email"
+          disabled={!canSend || isSending}
+          className={`rounded-full p-2 ${
+            canSend ? 'active:bg-neutral-100' : 'opacity-50'
+          }`}
         >
-          {isSending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Icon name="send" size={18} color="#FFFFFF" style={styles.sendIcon} />
-              <Text style={styles.sendButtonText}>Send</Text>
-            </>
-          )}
+          <Icon name="send" size={24} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sendButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  sendIcon: {
-    marginRight: 4,
-  },
-  sendButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-}); 
+} 

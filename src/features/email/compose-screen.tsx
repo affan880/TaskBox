@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Animated,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,7 +24,6 @@ import RNBlobUtil from 'react-native-blob-util';
 import { EmailAttachment } from '@/types/email';
 import { useGmail } from '@/hooks/use-gmail';
 import { Button } from '@/components/ui/button';
-import { generateEmailContent } from '@/api/email-analysis-api';
 import { RecipientFields } from './components/recipient-fields';
 import { SuggestionModal } from './components/suggestion-modal';
 
@@ -46,50 +46,34 @@ function normalizeFileUri(uri: string): string {
 /**
  * Creates a local copy of a file, ensuring it's accessible for upload/download operations
  */
-async function createLocalFileCopy(sourceUri: string, filename: string): Promise<string | null> {
+const createLocalCopy = async (uri: string, fileName: string): Promise<string> => {
   try {
-    // Ensure filename is properly sanitized
-    const sanitizedFilename = filename.replace(/[\/\\?%*:|"<>]/g, '_');
+    console.log('[ComposeScreen] Creating local copy of:', fileName);
     
-    // Create app-specific storage location
-    const targetDir = `${RNBlobUtil.fs.dirs.DocumentDir}/EmailAttachments`;
-    
-    // Ensure directory exists
-    const dirExists = await RNBlobUtil.fs.exists(targetDir);
-    if (!dirExists) {
-      await RNBlobUtil.fs.mkdir(targetDir);
+    if (Platform.OS === 'android' && uri.startsWith('content://')) {
+      // For Android content URIs
+      const destPath = `${RNBlobUtil.fs.dirs.CacheDir}/${fileName}`;
+      
+      // First check if the file already exists in cache
+      const exists = await RNBlobUtil.fs.exists(destPath);
+      if (exists) {
+        console.log('[ComposeScreen] File already exists in cache:', destPath);
+        return `file://${destPath}`;
+      }
+
+      // Copy the file from content URI to app's cache directory
+      const result = await RNBlobUtil.fs.cp(uri, destPath);
+      console.log('[ComposeScreen] File copied successfully to:', result);
+      return `file://${destPath}`;
     }
     
-    // Create target path with timestamp to avoid conflicts
-    const timestamp = Date.now();
-    const targetPath = `${targetDir}/${timestamp}-${sanitizedFilename}`;
-    
-    // Normalize source URI
-    const normalizedSourceUri = normalizeFileUri(sourceUri);
-    
-    // Check if source file exists
-    const sourceExists = await RNBlobUtil.fs.exists(normalizedSourceUri);
-    if (!sourceExists) {
-      console.error(`Source file does not exist: ${normalizedSourceUri} (original: ${sourceUri})`);
-      return null;
-    }
-    
-    // Copy file to secure location
-    await RNBlobUtil.fs.cp(normalizedSourceUri, targetPath);
-    
-    // Verify copy succeeded
-    const targetExists = await RNBlobUtil.fs.exists(targetPath);
-    if (!targetExists) {
-      console.error(`Failed to copy file to ${targetPath}`);
-      return null;
-    }
-    
-    return targetPath;
+    // For iOS or other file URIs, return as is
+    return uri;
   } catch (error) {
-    console.error('Error creating local file copy:', error);
-    return null;
+    console.error('[ComposeScreen] Error creating local copy:', error);
+    throw new Error(`Failed to create local copy: ${error.message}`);
   }
-}
+};
 
 /**
  * Verifies that a file at the given URI is accessible and valid
@@ -130,7 +114,7 @@ async function verifyFileAccessible(uri: string, filename: string): Promise<bool
 
 export function ComposeScreen() {
   const navigation = useNavigation();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { sendEmail } = useGmail();
   
   // Email recipients state
@@ -158,13 +142,6 @@ export function ComposeScreen() {
   const subjectInputRef = useRef<RNTextInput>(null);
   const contentInputRef = useRef<RNTextInput>(null);
 
-  // Remove email generation states
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedSubject, setGeneratedSubject] = useState<string | null>(null);
-  const [generatedBody, setGeneratedBody] = useState<string | null>(null);
-  const [showGeneratedSubject, setShowGeneratedSubject] = useState(false);
-  const [showGeneratedBody, setShowGeneratedBody] = useState(false);
-  
   // Add state for standard modal
   const [isSuggestionModalVisible, setIsSuggestionModalVisible] = useState(false);
 
@@ -174,13 +151,17 @@ export function ComposeScreen() {
     message: string;
   }>>([]);
 
-  // Monitor keyboard visibility
+  // Add keyboard height tracking
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+
+  // Update keyboard event listeners
   useEffect(() => {
     const keyboardWillShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const keyboardWillHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const keyboardDidShowListener = Keyboard.addListener(keyboardWillShow, (event) => {
       setIsKeyboardVisible(true);
+      setKeyboardHeight(event.endCoordinates.height);
       Animated.timing(toolbarHeight, {
         toValue: 44,
         duration: Platform.OS === 'ios' ? event.duration : 250,
@@ -190,6 +171,7 @@ export function ComposeScreen() {
     
     const keyboardDidHideListener = Keyboard.addListener(keyboardWillHide, (event) => {
       setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
       Animated.timing(toolbarHeight, {
         toValue: 0,
         duration: Platform.OS === 'ios' ? event.duration : 200,
@@ -213,162 +195,85 @@ export function ComposeScreen() {
     setAttachments([]);
   }, []);
 
-  const handleAddAttachment = async () => {
+  const handleFilePick = async () => {
     try {
-      const results = await DocumentPicker.pick({
+      const result = await DocumentPicker.pick({
         type: [DocumentPicker.types.allFiles],
         allowMultiSelection: true,
       });
-      
-      console.log(`[ComposeScreen] Picked ${results.length} files`);
-      setIsUploading(true);
-      
-      for (const file of results) {
-        console.log(`[ComposeScreen] Processing file: ${file.name}, URI: ${file.uri}, type: ${file.type}, size: ${file.size}`);
-        const attachmentId = `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        setCurrentUploadId(attachmentId);
-        
-        // Check for unsupported file types (especially Apple-specific formats)
-        const fileExtension = file.name ? file.name.split('.').pop()?.toLowerCase() : '';
-        const unsupportedExtensions = ['pages', 'numbers', 'keynote'];
-        
-        if (fileExtension && unsupportedExtensions.includes(fileExtension)) {
-          Alert.alert(
-            'Unsupported File Type',
-            `The file "${file.name}" is in ${fileExtension.toUpperCase()} format which cannot be properly attached to emails. Please convert it to a compatible format like PDF or DOCX.`
-          );
-          continue; // Skip this file
-        }
-        
-        // Add placeholder attachment while processing
-        const tempAttachment: EmailAttachment = {
-          id: attachmentId,
-          name: file.name || 'Unnamed file',
-          uri: file.uri, // Temporary URI
-          type: file.type || 'application/octet-stream',
-          size: file.size || 0,
-          createdAt: new Date().toISOString(),
-          isUploading: true,
-        };
-        
-        setAttachments(prev => [...prev, tempAttachment]);
-        
-        // Simulate upload progress
-        let progress = 0;
-        const interval = setInterval(() => {
-          progress += 10;
-          setUploadProgress(progress);
-          if (progress >= 90) {
-            clearInterval(interval);
-          }
-        }, 150);
-        
-        try {
-          // Create a local copy of the file to ensure it's accessible
-          console.log(`[ComposeScreen] Creating local copy of: ${file.name}`);
-          const localFilePath = await createLocalFileCopy(file.uri, file.name || 'unnamed_file');
+
+      console.log('[ComposeScreen] Picked', result.length, 'files');
+
+      const newAttachments = await Promise.all(
+        result.map(async (file) => {
+          console.log('[ComposeScreen] Processing file:', file.name, ', URI:', file.uri, ', type:', file.type, ', size:', file.size);
           
-          if (!localFilePath) {
-            // Failed to copy file, show error and continue with next attachment
-            setAttachments(prev => prev.filter(a => a.id !== attachmentId));
-            clearInterval(interval);
-            Alert.alert('Error', `Couldn't process the file "${file.name}". The file may be inaccessible.`);
-            continue;
-          }
-          
-          // Verify the copied file is accessible and valid
-          const isValid = await verifyFileAccessible(localFilePath, file.name || 'unnamed_file');
-          if (!isValid) {
-            setAttachments(prev => prev.filter(a => a.id !== attachmentId));
-            clearInterval(interval);
-            Alert.alert('Error', `The file "${file.name}" appears to be corrupted or inaccessible.`);
-            continue;
-          }
-          
-          // Determine accurate MIME type if possible
-          let mimeType = file.type || 'application/octet-stream';
-          if (!file.type && fileExtension) {
-            // Try to infer MIME type from extension if not provided
-            const mimeTypeMap: Record<string, string> = {
-              'pdf': 'application/pdf',
-              'doc': 'application/msword',
-              'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-              'xls': 'application/vnd.ms-excel',
-              'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'ppt': 'application/vnd.ms-powerpoint',
-              'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-              'jpg': 'image/jpeg',
-              'jpeg': 'image/jpeg',
-              'png': 'image/png',
-              'gif': 'image/gif',
-              'txt': 'text/plain',
-              'csv': 'text/csv'
+          try {
+            const localUri = await createLocalCopy(file.uri, file.name);
+            return {
+              id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              uri: localUri,
+              type: file.type || 'application/octet-stream',
+              name: file.name,
+              size: file.size || 0,
             };
-            mimeType = mimeTypeMap[fileExtension] || 'application/octet-stream';
+          } catch (error) {
+            console.error('[ComposeScreen] Error processing file:', file.name, error);
+            // Skip this file but continue with others
+            return null;
           }
-          
-          // Update the attachment with the permanent URI and corrected MIME type
-          const updatedAttachment: EmailAttachment = {
-            ...tempAttachment,
-            uri: localFilePath, // Use the permanent path for sending
-            type: mimeType,
-            isUploading: false,
-          };
-          
-          // Replace the placeholder with the updated attachment
-          setAttachments(prev => 
-            prev.map(a => a.id === attachmentId ? updatedAttachment : a)
-          );
-          
-          clearInterval(interval);
-          setUploadProgress(100);
-          console.log(`[ComposeScreen] File ready for email: ${file.name}, path: ${localFilePath}, type: ${mimeType}`);
-        } catch (processError) {
-          console.error(`[ComposeScreen] Error processing file ${file.name}:`, processError);
-          setAttachments(prev => prev.filter(a => a.id !== attachmentId));
-          clearInterval(interval);
-          Alert.alert('Error', `Failed to process the file "${file.name}".`);
-        }
-      }
+        })
+      );
+
+      // Filter out any null results from failed files
+      const validAttachments = newAttachments.filter(attachment => attachment !== null);
       
-      setCurrentUploadId(null);
-      setIsUploading(false);
+      setAttachments(prev => [...prev, ...validAttachments]);
     } catch (err) {
-      if (err instanceof Error && 'code' in err && err.code === 'DOCUMENT_PICKER_CANCELED') {
-        // User cancelled the picker
-        console.log('[ComposeScreen] Document picker cancelled by user');
-      } else {
-        Alert.alert('Error', 'Failed to pick document');
-        console.error('[ComposeScreen] Document picker error:', err);
+      if (!DocumentPicker.isCancel(err)) {
+        console.error('[ComposeScreen] Error picking file:', err);
+        Alert.alert('Error', 'Failed to attach file. Please try again.');
       }
-      setIsUploading(false);
-      setCurrentUploadId(null);
     }
   };
 
   const handleRemoveAttachment = (attachmentId: string) => {
+    console.log('[ComposeScreen] Attempting to remove attachment:', attachmentId);
+    
     // Find the attachment to remove
-    const attachmentToRemove = attachments.find(a => a.id === attachmentId);
+    const attachmentToRemove = attachments.find(a => (a.id || `${a.name}-${Date.now()}`) === attachmentId);
+    
+    if (!attachmentToRemove) {
+      console.error('[ComposeScreen] Attachment not found:', attachmentId);
+      return;
+    }
     
     // If it has a local URI, try to delete the file
-    if (attachmentToRemove?.uri) {
+    if (attachmentToRemove.uri) {
       try {
         const normalizedUri = normalizeFileUri(attachmentToRemove.uri);
+        console.log('[ComposeScreen] Deleting file at:', normalizedUri);
+        
         RNBlobUtil.fs.exists(normalizedUri)
           .then(exists => {
             if (exists) {
-              RNBlobUtil.fs.unlink(normalizedUri)
-                .catch(error => console.error('Error deleting attachment file:', error));
+              return RNBlobUtil.fs.unlink(normalizedUri);
             }
+            console.log('[ComposeScreen] File does not exist:', normalizedUri);
+            return Promise.resolve();
           })
-          .catch(error => console.error('Error checking if attachment file exists:', error));
+          .catch(error => console.error('[ComposeScreen] Error deleting attachment file:', error));
       } catch (error) {
-        console.error('Error cleaning up attachment file:', error);
+        console.error('[ComposeScreen] Error cleaning up attachment file:', error);
       }
     }
     
     // Remove from state
-    setAttachments(attachments.filter(a => a.id !== attachmentId));
+    setAttachments(prev => {
+      const newAttachments = prev.filter(a => (a.id || `${a.name}-${Date.now()}`) !== attachmentId);
+      console.log('[ComposeScreen] Attachments updated. Count:', newAttachments.length);
+      return newAttachments;
+    });
   };
 
   const handleSend = async () => {
@@ -471,184 +376,77 @@ export function ComposeScreen() {
   };
 
   // Render individual attachment item 
-  const renderAttachmentItem = (attachment: EmailAttachment) => (
-    <View 
-      key={attachment.id}
-      style={[
-        styles.attachmentItem, 
-        { 
-          backgroundColor: `${colors.brand.primary}08`,
-          borderColor: colors.border.light,
-        }
-      ]}
-    >
-      <View style={styles.attachmentContent}>
-        <View style={styles.attachmentIcon}>
-          {attachment.isUploading ? (
-            <ActivityIndicator 
-              size="small" 
-              color={colors.brand.primary} 
-            />
-          ) : (
-            <Icon name={getFileIcon(attachment.type)} size={20} color={colors.brand.primary} />
-          )}
-        </View>
-        <View style={styles.attachmentDetails}>
-          <Text 
-            style={[styles.attachmentName, { color: colors.text.primary }]}
-            numberOfLines={1}
-          >
-            {attachment.name}
-          </Text>
-          <Text style={[styles.attachmentSize, { color: colors.text.tertiary }]}>
-            {attachment.isUploading ? 
-              `Uploading... ${attachment.id === currentUploadId ? Math.round(uploadProgress) + '%' : ''}` : 
-              formatFileSize(attachment.size)
-            }
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.attachmentRemove}
-        onPress={() => handleRemoveAttachment(attachment.id)}
-        disabled={attachment.isUploading}
+  const renderAttachmentItem = (attachment: EmailAttachment) => {
+    // Generate a unique key if attachment.id doesn't exist
+    const key = attachment.id || `${attachment.name}-${Date.now()}`;
+    
+    return (
+      <View 
+        key={key}
+        style={[
+          styles.attachmentItem, 
+          { 
+            backgroundColor: `${colors.brand.primary}08`,
+            borderColor: colors.border.light,
+          }
+        ]}
       >
-        <Icon 
-          name="close" 
-          size={16} 
-          color={attachment.isUploading ? colors.text.quaternary : colors.text.tertiary} 
-        />
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Function to send chat message
-  const handleSendChat = async () => {
-    if (!chatMessage.trim()) return;
-
-    // Add user message to chat
-    setChatHistory(prev => [...prev, { type: 'user', message: chatMessage }]);
-    const userMessage = chatMessage;
-    setChatMessage('');
-
-    try {
-      setIsGenerating(true);
-      const response = await generateEmailContent({
-        subject: subject || undefined,
-        body: content || undefined,
-        recipientEmail: recipients[0],
-        tone: 'professional',
-        prompt: userMessage
-      });
-
-      if (response) {
-        // Add assistant response to chat
-        setChatHistory(prev => [...prev, { 
-          type: 'assistant', 
-          message: response.body || response.subject || 'No suggestion generated' 
-        }]);
-
-        // Update suggestions if provided
-        if (response.subject) {
-          setGeneratedSubject(response.subject);
-          setShowGeneratedSubject(true);
-        }
-        if (response.body) {
-          setGeneratedBody(response.body);
-          setShowGeneratedBody(true);
-        }
-      }
-    } catch (error) {
-      console.error('Error generating enhancement:', error);
-      Alert.alert('Error', 'Failed to generate enhancement');
-    } finally {
-      setIsGenerating(false);
-    }
+        <View style={styles.attachmentContent}>
+          <View style={styles.attachmentIcon}>
+            {attachment.isUploading ? (
+              <ActivityIndicator 
+                size="small" 
+                color={colors.brand.primary} 
+              />
+            ) : (
+              <Icon name={getFileIcon(attachment.type)} size={20} color={colors.brand.primary} />
+            )}
+          </View>
+          <View style={styles.attachmentDetails}>
+            <Text 
+              style={[styles.attachmentName, { color: colors.text.primary }]}
+              numberOfLines={1}
+            >
+              {attachment.name}
+            </Text>
+            <Text style={[styles.attachmentSize, { color: colors.text.tertiary }]}>
+              {attachment.isUploading ? 
+                `Uploading... ${attachment.id === currentUploadId ? Math.round(uploadProgress) + '%' : ''}` : 
+                formatFileSize(attachment.size)
+              }
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.attachmentRemove,
+            Platform.OS === 'android' && styles.attachmentRemoveAndroid
+          ]}
+          onPress={() => {
+            console.log('[ComposeScreen] Removing attachment:', key);
+            handleRemoveAttachment(key);
+          }}
+          disabled={attachment.isUploading}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          pressRetentionOffset={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <View style={styles.removeIconContainer}>
+            <Icon 
+              name="close" 
+              size={16} 
+              color={attachment.isUploading ? colors.text.quaternary : colors.text.tertiary} 
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   // Handle generate email - ADAPT for Modal
   const handleGenerateEmail = async () => {
     console.log('[Generate Button] Clicked. Fetching suggestions...');
-    setIsGenerating(true);
-    // Reset previous suggestions
-    setShowGeneratedSubject(false);
-    setShowGeneratedBody(false);
-    setGeneratedSubject(null);
-    setGeneratedBody(null);
-    setChatHistory([]); 
-    try {
-      const response = await generateEmailContent({
-        subject: subject || undefined,
-        body: content || undefined,
-        recipientEmail: recipients[0],
-        tone: 'professional'
-      });
-
-      console.log('[API Response] Received:', response);
-
-      if (response) {
-        let shouldShowSubject = false;
-        let shouldShowBody = false;
-
-        if (response.subject) {
-          console.log('[API Success] Setting generated subject.');
-          setGeneratedSubject(response.subject);
-          shouldShowSubject = true; // Set flag locally first
-        }
-        if (response.body) {
-          console.log('[API Success] Setting generated body.');
-          setGeneratedBody(response.body);
-          shouldShowBody = true; // Set flag locally first
-        }
-        
-        // Update visibility flags AFTER setting content
-        if (shouldShowSubject) setShowGeneratedSubject(true);
-        if (shouldShowBody) setShowGeneratedBody(true);
-
-        // Trigger the modal *only if* suggestions were found
-        if (shouldShowSubject || shouldShowBody) {
-          console.log('[Modal] Setting modal visible...'); 
-          setIsSuggestionModalVisible(true); // Show the modal
-        } else {
-          Alert.alert('Info', 'No suggestions were generated.');
-        }
-      } else {
-         console.log('[API Info] No suggestions were generated.');
-         Alert.alert('Info', 'No suggestions were generated.');
-      }
-    } catch (error) {
-      console.error('[API Error] Error generating email:', error);
-      Alert.alert('Error', 'Failed to generate suggestions');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Accept/Reject handlers - KEEP (but they no longer need to close the sheet)
-  const handleAcceptSubject = () => {
-    if (generatedSubject) {
-      setSubject(generatedSubject);
-      setShowGeneratedSubject(false);
-      setGeneratedSubject(null);
-    }
-  };
-
-  const handleRejectSubject = () => {
-    setShowGeneratedSubject(false);
-    setGeneratedSubject(null);
-  };
-
-  const handleAcceptBody = () => {
-    if (generatedBody) {
-      setContent(generatedBody);
-      setShowGeneratedBody(false);
-      setGeneratedBody(null);
-    }
-  };
-
-  const handleRejectBody = () => {
-    setShowGeneratedBody(false);
-    setGeneratedBody(null);
+    setChatHistory([]);
+    setIsSuggestionModalVisible(true);
   };
 
   return (
@@ -658,8 +456,11 @@ export function ComposeScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -200}
       >
-        <View style={{ flex: 1 }}>
-          <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
+        <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+          <View style={[styles.header, { 
+            borderBottomColor: colors.border.light,
+            backgroundColor: colors.background.primary 
+          }]}>
             <TouchableOpacity 
               style={styles.headerButton} 
               onPress={() => navigation.goBack()}
@@ -673,7 +474,7 @@ export function ComposeScreen() {
             <View style={styles.headerActions}>
               <TouchableOpacity 
                 style={styles.headerButton} 
-                onPress={handleAddAttachment}
+                onPress={handleFilePick}
                 disabled={isSending}
                 accessibilityLabel="Add attachment"
               >
@@ -703,14 +504,13 @@ export function ComposeScreen() {
           </View>
 
           <ScrollView 
-            style={styles.formContainer} 
+            style={[styles.formContainer, { backgroundColor: colors.background.primary }]} 
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ 
               flexGrow: 1,
-              paddingBottom: isKeyboardVisible ? 44 : 0 
+              paddingBottom: isKeyboardVisible ? (Platform.OS === 'ios' ? 44 : keyboardHeight + 60) : 0 
             }}
           >
-            {/* Use RecipientFields component */}
             <RecipientFields
               recipients={recipients}
               setRecipients={setRecipients}
@@ -721,16 +521,17 @@ export function ComposeScreen() {
               showCcBcc={showCcBcc}
               setShowCcBcc={setShowCcBcc}
             />
-            {/* Remove old recipient fields JSX */}
-            {/* <View style={styles.recipientContainer}> ... </View> */}
-            {/* {showCcBcc && ( <> ... </> )} */}
-            {/* <View style={[styles.divider, { backgroundColor: colors.border.light }]} /> */}
 
-            {/* Subject field */}
             <View style={styles.subjectContainer}>
               <TextInput
                 ref={subjectInputRef}
-                style={[styles.subjectInput, { color: colors.text.primary }]}
+                style={[
+                  styles.subjectInput, 
+                  { 
+                    color: colors.text.primary,
+                    backgroundColor: colors.background.primary 
+                  }
+                ]}
                 value={subject}
                 onChangeText={setSubject}
                 placeholder="Subject"
@@ -744,7 +545,7 @@ export function ComposeScreen() {
             
             {/* Attachments section */}
             {attachments.length > 0 && (
-              <View style={styles.attachmentsContainer}>
+              <View style={[styles.attachmentsContainer, { backgroundColor: colors.background.primary }]}>
                 <Text style={[styles.attachmentsTitle, { color: colors.text.secondary }]}>
                   Attachments ({attachments.length})
                 </Text>
@@ -755,12 +556,15 @@ export function ComposeScreen() {
             )}
 
             {/* Message content */}
-            <View style={styles.contentContainer}>
+            <View style={[styles.contentContainer, { backgroundColor: colors.background.primary }]}>
               <TextInput
                 ref={contentInputRef}
                 style={[
                   styles.contentInput, 
-                  { color: colors.text.primary }
+                  { 
+                    color: colors.text.primary,
+                    backgroundColor: colors.background.primary 
+                  }
                 ]}
                 value={content}
                 onChangeText={setContent}
@@ -773,46 +577,84 @@ export function ComposeScreen() {
           </ScrollView>
 
           {/* Generate button */}
-          <Animated.View 
-            style={[
-              styles.keyboardToolbar, 
-              { 
-                height: toolbarHeight,
-                borderTopColor: colors.border.light,
-                backgroundColor: colors.background.primary,
-                borderTopWidth: 1,
-              }
-            ]}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              onPress={handleGenerateEmail}
-              disabled={isGenerating}
+          {isKeyboardVisible && (
+            <Animated.View 
+              style={[
+                styles.keyboardToolbar, 
+                { 
+                  height: Platform.OS === 'ios' ? 60 : 56,
+                  backgroundColor: colors.background.primary,
+                  position: 'absolute',
+                  bottom: Platform.OS === 'ios' ? 0 : keyboardHeight - 80,
+                  left: 0,
+                  right: 0,
+                  zIndex: 1000,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border.light,
+                  shadowColor: isDark ? '#000' : '#000',
+                  shadowOffset: { width: 0, height: -2 },
+                  shadowOpacity: isDark ? 0.2 : 0.1,
+                }
+              ]}
             >
-              <Text>{isGenerating ? 'Generating...' : 'Generate Suggestions'}</Text>
-            </Button>
-          </Animated.View>
+              <View style={[styles.toolbarContent, { paddingBottom: Platform.OS === 'ios' ? 8 : 0 }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.generateButton,
+                    {
+                      backgroundColor: colors.brand.primary,
+                      borderRadius: 12,
+                      paddingVertical: 10,
+                      paddingHorizontal: 20,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '92%',
+                      maxWidth: 400,
+                      elevation: Platform.OS === 'android' ? 2 : 0,
+                      shadowColor: isDark ? '#000' : '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: isDark ? 0.3 : 0.15,
+                    }
+                  ]}
+                  onPress={handleGenerateEmail}
+                >
+                  <Image 
+                    source={require('@/assets/images/feather.png')}
+                    style={{ 
+                      width: 18, 
+                      height: 18, 
+                      marginRight: 8,
+                      tintColor: '#FFFFFF'
+                    }}
+                    resizeMode="contain"
+                  />
+                  <Text style={[
+                    styles.generateButtonText,
+                    { 
+                      color: '#FFFFFF', 
+                      fontWeight: '600',
+                      fontSize: 15,
+                      letterSpacing: 0.3,
+                    }
+                  ]}>
+                    Generate with AI
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          )}
         </View>
       </KeyboardAvoidingView>
 
-      {/* Replace BottomSheetModal with standard Modal */}
       <SuggestionModal
         visible={isSuggestionModalVisible}
         onClose={() => setIsSuggestionModalVisible(false)}
-        generatedSubject={generatedSubject}
-        generatedBody={generatedBody}
-        showGeneratedSubject={showGeneratedSubject}
-        showGeneratedBody={showGeneratedBody}
-        onAcceptSubject={handleAcceptSubject}
-        onRejectSubject={handleRejectSubject}
-        onAcceptBody={handleAcceptBody}
-        onRejectBody={handleRejectBody}
         chatHistory={chatHistory}
         chatMessage={chatMessage}
         setChatMessage={setChatMessage}
-        onSendChat={handleSendChat}
-        isGenerating={isGenerating}
+        setSubject={setSubject}
+        setBody={setContent}
       />
     </SafeAreaView>
   );
@@ -843,7 +685,6 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   recipientContainer: {
     flexDirection: 'row',
@@ -956,14 +797,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   attachmentRemove: {
-    padding: 6,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 40,
+    minHeight: 40,
+  },
+  attachmentRemoveAndroid: {
+    // Additional styles for Android
+    backgroundColor: 'transparent',
+  },
+  removeIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Platform.OS === 'android' ? '#F3F4F6' : 'transparent',
   },
   keyboardToolbar: {
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  toolbarContent: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
-    justifyContent: 'space-around',
     alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: 'center',
+    height: '100%',
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   bottomSheetContentContainer: {
     flex: 1,

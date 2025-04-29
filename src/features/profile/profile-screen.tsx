@@ -261,15 +261,6 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             <Text style={[styles.optionText, { color: colors.text.primary }]}>Help & Support</Text>
             <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.option]}
-            onPress={handleShowUIShowcase}
-          >
-            <Icon name="palette-outline" size={24} color={colors.brand.primary} style={styles.optionIcon} />
-            <Text style={[styles.optionText, { color: colors.text.primary }]}>UI Components Showcase</Text>
-            <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>

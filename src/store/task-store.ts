@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
-import { TaskData } from '../types/task';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { storageConfig } from '@/lib/storage';
+import { TaskData } from '@/types/task';
 import { ProjectData } from '../types/project';
 import { 
   loadTasks as loadTasksFromApi, 
@@ -11,10 +11,6 @@ import {
   toggleTaskCompletion as toggleTaskCompletionInApi,
   deleteTask as deleteTaskFromApi
 } from '../api/tasks-api';
-import { useProjectStore } from './project-store';
-
-const storage = new MMKV();
-
 
 type TaskState = {
   tasks: TaskData[];
@@ -23,15 +19,16 @@ type TaskState = {
   isUpdating: Record<string, boolean>;
   
   // Actions
-  addTask: (task: Omit<TaskData, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateTask: (taskId: string, updates: Partial<Omit<TaskData, 'id' | 'createdAt'>>) => Promise<void>;
-  deleteTask: (taskId: string) => Promise<void>;
-  toggleTaskCompletion: (taskId: string) => Promise<void>;
+  addTask: (task: TaskData) => void;
+  updateTask: (id: string, task: Partial<TaskData>) => void;
+  deleteTask: (id: string) => void;
+  toggleTaskCompletion: (id: string) => void;
   loadTasks: () => Promise<void>;
   saveTasks: () => Promise<void>;
-  getTasksByProject: (projectId: string) => TaskData[];
+  getTasks: () => Promise<TaskData[]>;
+  getTasksByProject: (projectId: string, projectTasks: string[]) => TaskData[];
   setUpdating: (taskId: string, isUpdating: boolean) => void;
-}
+};
 
 export const useTaskStore = create<TaskState>()(
   persist(
@@ -41,99 +38,33 @@ export const useTaskStore = create<TaskState>()(
       initialized: false,
       isUpdating: {},
       
-      addTask: async (taskData) => {
-        const newTask = await createTask(taskData, get().tasks);
-        
-        set((state) => ({
-          tasks: [...state.tasks, newTask]
-        }));
-        
-        get().saveTasks();
-      },
+      addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
       
-      updateTask: async (taskId, updates) => {
-        // Optimistic update
-        const previousTasks = get().tasks;
-        const updatedTasks = updateTaskInApi(get().tasks, taskId, updates);
-        
+      updateTask: (id, task) =>
         set((state) => ({
-          tasks: updatedTasks,
-          isUpdating: { ...state.isUpdating, [taskId]: true }
-        }));
-        
-        try {
-          await get().saveTasks();
-        } catch (error) {
-          // Rollback on failure
-          set((state) => ({
-            tasks: previousTasks,
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-        }
-      },
+          tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...task } : t)),
+        })),
       
-      deleteTask: async (taskId) => {
-        const previousTasks = get().tasks;
-        const updatedTasks = deleteTaskFromApi(get().tasks, taskId);
-        
+      deleteTask: (id) =>
         set((state) => ({
-          tasks: updatedTasks,
-          isUpdating: { ...state.isUpdating, [taskId]: true }
-        }));
-        
-        try {
-          await get().saveTasks();
-        } catch (error) {
-          set((state) => ({
-            tasks: previousTasks,
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-        }
-      },
+          tasks: state.tasks.filter((t) => t.id !== id),
+        })),
       
-      toggleTaskCompletion: async (taskId) => {
-        const previousTasks = get().tasks;
-        const updatedTasks = toggleTaskCompletionInApi(get().tasks, taskId);
-        
+      toggleTaskCompletion: (id) =>
         set((state) => ({
-          tasks: updatedTasks,
-          isUpdating: { ...state.isUpdating, [taskId]: true }
-        }));
-        
-        try {
-          await get().saveTasks();
-        } catch (error) {
-          set((state) => ({
-            tasks: previousTasks,
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-          throw error;
-        } finally {
-          set((state) => ({
-            isUpdating: { ...state.isUpdating, [taskId]: false }
-          }));
-        }
-      },
+          tasks: state.tasks.map((t) =>
+            t.id === id ? { ...t, completedAt: t.completedAt ? undefined : new Date().toISOString() } : t
+          ),
+        })),
       
       loadTasks: async () => {
-        set({ isLoading: true });
-        
         try {
+          set({ isLoading: true });
           const tasks = await loadTasksFromApi();
           set({ tasks, initialized: true });
         } catch (error) {
           console.error('Failed to load tasks:', error);
-          set({ tasks: [], initialized: true });
+          throw error;
         } finally {
           set({ isLoading: false });
         }
@@ -141,22 +72,30 @@ export const useTaskStore = create<TaskState>()(
       
       saveTasks: async () => {
         try {
-          const { tasks } = get();
-          await saveTasksToApi(tasks);
+          set({ isLoading: true });
+          await saveTasksToApi(get().tasks);
         } catch (error) {
           console.error('Failed to save tasks:', error);
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      getTasks: async () => {
+        try {
+          const tasks = await loadTasksFromApi();
+          set({ tasks });
+          return tasks;
+        } catch (error) {
+          console.error('Failed to get tasks:', error);
           throw error;
         }
       },
 
-      getTasksByProject: (projectId: string): TaskData[] => {
+      getTasksByProject: (projectId: string, projectTasks: string[]): TaskData[] => {
         const { tasks } = get();
-        const projectStore = useProjectStore.getState();
-        const project = projectStore.projects.find((p: ProjectData) => p.id === projectId);
-        
-        if (!project) return [];
-        
-        return tasks.filter(task => project.tasks.includes(task.id));
+        return tasks.filter(task => projectTasks.includes(task.id));
       },
 
       setUpdating: (taskId: string, isUpdating: boolean) => {
@@ -169,19 +108,8 @@ export const useTaskStore = create<TaskState>()(
       }
     }),
     {
-      name: 'task-store',
-      storage: createJSONStorage(() => ({
-        getItem: (name) => {
-          const value = storage.getString(name);
-          return value ? JSON.parse(value) : null;
-        },
-        setItem: (name, value) => {
-          storage.set(name, JSON.stringify(value));
-        },
-        removeItem: (name) => {
-          storage.delete(name);
-        },
-      })),
+      name: 'task-storage',
+      storage: createJSONStorage(() => storageConfig),
     }
   )
 ); 

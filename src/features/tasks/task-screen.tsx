@@ -641,114 +641,41 @@ function TaskListSection({ styles, colors, isDark, tasks, onTaskPress, onToggleC
 export function TaskScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
-  
-  const { tasks, isLoading, initialized, loadTasks, addTask, saveTasks, deleteTask } = useTaskStore();
-  const { projects, deleteProject } = useProjectStore();
-  
-  const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('Overview');
-  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<TaskData | null>(null);
-  
-  // Task form state
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskDescription, setTaskDescription] = useState('');
-  const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [tasks, setTasks] = useState<TaskData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { getTasks } = useTaskStore();
 
   useEffect(() => {
-    if (!initialized) {
-      loadTasks();
-    }
-  }, [initialized, loadTasks]);
+    let isMounted = true;
 
-  const handleRefresh = async (): Promise<void> => {
-    try {
-      await loadTasks();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to refresh tasks. Please try again.');
-    }
-  };
+    const loadTasks = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const loadedTasks = await getTasks();
+        if (isMounted) {
+          setTasks(loadedTasks || []);
+        }
+      } catch (err) {
+        console.error('Error loading tasks:', err);
+        if (isMounted) {
+          setError('Failed to load tasks. Please try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-  // Navigation handlers
-  const navigateToProjectDetail = (projectId?: string): void => {
-    navigation.navigate('ProjectDetail', { projectId });
-  };
+    loadTasks();
 
-  const navigateToTaskList = (): void => {
-    navigation.navigate('TaskList');
-  };
-
-  // Task creation handlers
-  const handleAddTask = () => {
-    setIsTaskModalVisible(true);
-  };
-
-  const handleCloseTaskModal = () => {
-    setIsTaskModalVisible(false);
-    // Reset form
-    setTaskTitle('');
-    setTaskDescription('');
-    setDueDate(null);
-    setPriority('medium');
-  };
-
-  const handleCreateTask = async () => {
-    if (!taskTitle.trim()) {
-      Alert.alert('Error', 'Task title is required');
-      return;
-    }
-
-    try {
-      const newTask = {
-        title: taskTitle.trim(),
-        description: taskDescription.trim(),
-        isCompleted: false,
-        dueDate: dueDate?.toISOString(),
-        priority,
-        tags: [],
-        attachments: [],
-      };
-
-      addTask(newTask);
-      await saveTasks();
-      handleCloseTaskModal();
-    } catch (error) {
-      console.error('Failed to create task:', error);
-      Alert.alert('Error', 'Failed to create task. Please try again.');
-    }
-  };
-
-  const handleTaskPress = (task: TaskData) => {
-    setSelectedTask(task);
-    setIsDeleteModalVisible(true);
-  };
-
-  const handleDeleteTask = async () => {
-    if (!selectedTask) return;
-
-    try {
-      deleteTask(selectedTask.id);
-      await saveTasks();
-      setIsDeleteModalVisible(false);
-      setSelectedTask(null);
-    } catch (error) {
-      console.error('Failed to delete task:', error);
-      Alert.alert('Error', 'Failed to delete task. Please try again.');
-    }
-  };
-
-  const handleToggleComplete = async (taskId: string) => {
-    try {
-      const { toggleTaskCompletion, saveTasks } = useTaskStore.getState();
-      toggleTaskCompletion(taskId);
-      await saveTasks();
-    } catch (error) {
-      console.error('Failed to toggle task completion:', error);
-      Alert.alert('Error', 'Failed to update task. Please try again.');
-    }
-  };
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -1248,6 +1175,22 @@ export function TaskScreen() {
       fontSize: 14,
       fontWeight: '500',
     },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
+      fontSize: 16,
+      textAlign: 'center',
+    },
   });
 
   return (
@@ -1262,7 +1205,7 @@ export function TaskScreen() {
           </View>
           <TouchableOpacity 
             style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
-            onPress={handleAddTask}
+            onPress={() => navigation.navigate('TaskCreation')}
           >
             <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
           </TouchableOpacity>
@@ -1274,8 +1217,8 @@ export function TaskScreen() {
             style={[styles.searchInput, { color: colors.text.primary }]}
             placeholder="Search tasks..."
             placeholderTextColor={colors.text.tertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+            value={''}
+            onChangeText={() => {}}
           />
         </View>
         
@@ -1304,7 +1247,15 @@ export function TaskScreen() {
       </View>
       
       <ScrollView style={styles.contentContainer}>
-        {activeTab === 'Overview' ? (
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.brand.primary} />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={[styles.errorText, { color: colors.text.primary }]}>{error}</Text>
+          </View>
+        ) : activeTab === 'Overview' ? (
           <>
             <TaskSummarySection 
               styles={styles} 
@@ -1316,7 +1267,7 @@ export function TaskScreen() {
               styles={styles} 
               colors={colors} 
               isDark={isDark} 
-              onNavigate={navigateToProjectDetail} 
+              onNavigate={(projectId?: string) => navigation.navigate('ProjectDetail', { projectId })} 
             />
             <RecentTasksSection 
               styles={styles} 
@@ -1325,7 +1276,7 @@ export function TaskScreen() {
             />
             <TouchableOpacity 
               style={[styles.viewAllButton, { backgroundColor: colors.brand.primary }]}
-              onPress={navigateToTaskList}
+              onPress={() => navigation.navigate('TaskList')}
             >
               <Text style={[styles.viewAllButtonText, { color: colors.text.inverse }]}>
                 View All Tasks
@@ -1341,188 +1292,6 @@ export function TaskScreen() {
           />
         )}
       </ScrollView>
-      
-      {/* Task Creation Modal */}
-      <Modal
-        visible={isTaskModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCloseTaskModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalContainer}
-        >
-          <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                New Task
-              </Text>
-              <TouchableOpacity onPress={handleCloseTaskModal} style={styles.closeButton}>
-                <Icon name="close" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalScroll}>
-              {/* Task Title */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
-                  Title
-                </Text>
-                <TextInput
-                  style={[
-                    styles.formInput,
-                    { 
-                      backgroundColor: colors.surface.secondary, 
-                      color: colors.text.primary,
-                      borderColor: colors.border.light
-                    }
-                  ]}
-                  placeholder="Task title"
-                  placeholderTextColor={colors.text.tertiary}
-                  value={taskTitle}
-                  onChangeText={setTaskTitle}
-                />
-              </View>
-              
-              {/* Task Description */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
-                  Description
-                </Text>
-                <TextInput
-                  style={[
-                    styles.formInput,
-                    styles.formTextArea,
-                    { 
-                      backgroundColor: colors.surface.secondary, 
-                      color: colors.text.primary,
-                      borderColor: colors.border.light
-                    }
-                  ]}
-                  placeholder="Task description"
-                  placeholderTextColor={colors.text.tertiary}
-                  value={taskDescription}
-                  onChangeText={setTaskDescription}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-              
-              {/* Due Date */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
-                  Due Date
-                </Text>
-                <DatePickerInput
-                  label="Select Due Date"
-                  value={dueDate}
-                  onChange={setDueDate}
-                />
-              </View>
-              
-              {/* Priority Selection */}
-              <View style={styles.formGroup}>
-                <Text style={[styles.formLabel, { color: colors.text.primary }]}>
-                  Priority
-                </Text>
-                <View style={styles.priorityOptions}>
-                  {(['low', 'medium', 'high'] as TaskPriority[]).map(option => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.priorityOption,
-                        { borderColor: colors.border.light },
-                        priority === option && [
-                          styles.activePriorityOption,
-                          { 
-                            borderColor: 
-                              option === 'high' ? colors.status.error : 
-                              option === 'medium' ? colors.status.warning : 
-                              colors.status.success,
-                            backgroundColor: 
-                              option === 'high' ? `${colors.status.error}20` : 
-                              option === 'medium' ? `${colors.status.warning}20` : 
-                              `${colors.status.success}20`
-                          }
-                        ]
-                      ]}
-                      onPress={() => setPriority(option)}
-                    >
-                      <Text 
-                        style={[
-                          styles.priorityOptionText,
-                          { color: colors.text.secondary },
-                          priority === option && { 
-                            color: 
-                              option === 'high' ? colors.status.error : 
-                              option === 'medium' ? colors.status.warning : 
-                              colors.status.success,
-                            fontWeight: '600'
-                          }
-                        ]}
-                      >
-                        {option.charAt(0).toUpperCase() + option.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </ScrollView>
-            
-            <TouchableOpacity 
-              style={[styles.saveButton, { backgroundColor: colors.brand.primary }]}
-              onPress={handleCreateTask}
-            >
-              <Text style={[styles.saveButtonText, { color: colors.text.inverse }]}>
-                Create Task
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        visible={isDeleteModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsDeleteModalVisible(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <View style={[styles.deleteModalContent, { backgroundColor: colors.surface.primary }]}>
-            <Text style={[styles.deleteModalTitle, { color: colors.text.primary }]}>
-              Delete Task
-            </Text>
-            <Text style={[styles.deleteModalText, { color: colors.text.secondary }]}>
-              Are you sure you want to delete this task? This action cannot be undone.
-            </Text>
-            <View style={styles.deleteModalButtons}>
-              <Button
-                variant="outline"
-                onPress={() => setIsDeleteModalVisible(false)}
-                style={styles.deleteModalButton}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                onPress={handleDeleteTask}
-                style={styles.deleteModalButton}
-              >
-                Delete
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {isLoading && (
-        <View style={[styles.loadingOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.3)' }]}>
-          <ActivityIndicator size="large" color={colors.brand.primary} />
-        </View>
-      )}
     </SafeAreaView>
   );
 } 

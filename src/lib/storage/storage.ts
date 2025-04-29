@@ -4,6 +4,8 @@ import { MMKV } from 'react-native-mmkv';
 
 // Initialize MMKV storage with fallback handling
 let storage: MMKV | null = null;
+let isRemoteDebugging = false;
+
 try {
   storage = new MMKV({
     id: 'app-storage',
@@ -11,7 +13,11 @@ try {
   });
 } catch (error) {
   console.warn('MMKV initialization failed, falling back to AsyncStorage', error);
+  isRemoteDebugging = true;
 }
+
+// Export the singleton instance
+export const mmkvInstance = storage;
 
 // Storage interfaces to abstract implementations
 interface AsyncStorageInterface {
@@ -95,6 +101,45 @@ const syncStorage = storage ? mmkvStorageAdapter : memoryStorageAdapter;
 const asyncStorage = asyncStorageAdapter;
 
 console.log(`Using ${storage ? 'MMKV' : 'Memory'} for app sync storage and AsyncStorage for async storage`);
+
+// Export storage configuration for Zustand
+export const storageConfig = {
+  getItem: async (name: string) => {
+    try {
+      if (isRemoteDebugging) {
+        const value = await AsyncStorage.getItem(name);
+        return value ? JSON.parse(value) : null;
+      }
+      const value = storage?.getString(name);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.warn('Failed to get item from storage:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: any) => {
+    try {
+      if (isRemoteDebugging) {
+        await AsyncStorage.setItem(name, JSON.stringify(value));
+        return;
+      }
+      storage?.set(name, JSON.stringify(value));
+    } catch (error) {
+      console.warn('Failed to set item in storage:', error);
+    }
+  },
+  removeItem: async (name: string) => {
+    try {
+      if (isRemoteDebugging) {
+        await AsyncStorage.removeItem(name);
+        return;
+      }
+      storage?.delete(name);
+    } catch (error) {
+      console.warn('Failed to remove item from storage:', error);
+    }
+  }
+};
 
 /**
  * Get a value from storage

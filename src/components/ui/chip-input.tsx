@@ -39,7 +39,7 @@ export function ChipInput({
   validate,
   autoFocus = false,
 }: ChipInputProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<TextInput>(null);
 
@@ -113,29 +113,43 @@ export function ChipInput({
   };
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.container, { backgroundColor: colors.background.primary }, containerStyle]}>
       <View style={styles.chipContainer}>
         {values.map((value, index) => (
           <View
             key={`${value}-${index}`}
             style={[
               styles.chip,
-              { backgroundColor: `${colors.brand.primary}15` },
+              { 
+                backgroundColor: isDark ? `${colors.brand.primary}30` : `${colors.brand.primary}15`,
+                borderColor: colors.border.light,
+              },
+              Platform.OS === 'android' && styles.androidChip,
               chipStyle,
             ]}
           >
             <Text style={[
               styles.chipText,
               { color: colors.text.primary },
+              Platform.OS === 'android' && styles.androidChipText,
               chipTextStyle
             ]}>
               {value}
             </Text>
             <TouchableOpacity
-              style={styles.removeButton}
+              style={[
+                styles.removeButton,
+                Platform.OS === 'android' && styles.androidRemoveButton,
+                { backgroundColor: isDark ? colors.background.secondary : 'transparent' }
+              ]}
               onPress={() => handleRemoveValue(index)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Icon name="close" size={16} color={colors.text.secondary} />
+              <Icon 
+                name="close" 
+                size={Platform.OS === 'ios' ? 16 : 14} 
+                color={colors.text.secondary} 
+              />
             </TouchableOpacity>
           </View>
         ))}
@@ -144,7 +158,11 @@ export function ChipInput({
           ref={inputRef}
           style={[
             styles.input,
-            { color: colors.text.primary },
+            { 
+              color: colors.text.primary,
+              backgroundColor: colors.background.primary,
+            },
+            Platform.OS === 'android' && styles.androidInput,
             inputStyle,
           ]}
           value={inputValue}
@@ -171,6 +189,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    minHeight: Platform.OS === 'ios' ? 32 : 40,
   },
   chip: {
     flexDirection: 'row',
@@ -180,13 +199,29 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 4,
     margin: 2,
+    borderWidth: 0.5,
+  },
+  androidChip: {
+    borderRadius: 20,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 6,
+    margin: 3,
   },
   chipText: {
     fontSize: 14,
     marginRight: 4,
   },
+  androidChipText: {
+    fontSize: 13,
+    marginRight: 6,
+    fontWeight: '500',
+  },
   removeButton: {
     padding: 2,
+  },
+  androidRemoveButton: {
+    padding: 4,
   },
   input: {
     flex: 1,
@@ -194,5 +229,11 @@ const styles = StyleSheet.create({
     height: 32,
     fontSize: 14,
     paddingHorizontal: 4,
+  },
+  androidInput: {
+    height: 40,
+    fontSize: 15,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
 }); 
