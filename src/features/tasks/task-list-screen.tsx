@@ -196,7 +196,7 @@ export function TaskListScreen() {
           ...selectedTask,
           title: taskTitle.trim(),
           description: taskDescription.trim() || undefined,
-          dueDate: dueDate?.toISOString(),
+          dueDate: dueDate || undefined,
           priority,
           status,
           estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
@@ -217,7 +217,7 @@ export function TaskListScreen() {
           description: taskDescription.trim() || undefined,
           isCompleted: false,
           status,
-          dueDate: dueDate?.toISOString(),
+          dueDate: dueDate || undefined,
           priority,
           tags,
           attachments: [],
@@ -226,6 +226,8 @@ export function TaskListScreen() {
           notes: notes.trim() || undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isRecurring: false,
+          recurringInterval: undefined,
         };
         
         console.log('Creating new task:', newTask);

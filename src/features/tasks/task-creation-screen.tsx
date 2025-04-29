@@ -83,7 +83,7 @@ export function TaskCreationScreen() {
         description: description.trim() || undefined,
         isCompleted: false,
         status,
-        dueDate: dueDate?.toISOString(),
+        dueDate: dueDate || undefined,
         priority,
         tags,
         attachments: [],
@@ -91,7 +91,7 @@ export function TaskCreationScreen() {
         isRecurring,
         recurringInterval: isRecurring ? recurringInterval : undefined,
         notes: notes.trim() || undefined,
-        reminder: reminder?.toISOString(),
+        reminder: reminder ? reminder.toISOString() : undefined,
         progress,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -117,7 +117,15 @@ export function TaskCreationScreen() {
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           Create Task
         </Text>
-        <View style={styles.headerRight} />
+        <TouchableOpacity 
+          style={[styles.createButton, { backgroundColor: colors.brand.primary }]}
+          onPress={handleCreateTask}
+          disabled={isSubmitting}
+        >
+          <Text style={[styles.createButtonText, { color: colors.text.inverse }]}>
+            {isSubmitting ? 'Creating...' : 'Create'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -125,9 +133,118 @@ export function TaskCreationScreen() {
         style={styles.content}
       >
         <ScrollView style={styles.scrollView}>
+          {/* Title Input */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[
+                styles.titleInput,
+                { 
+                  backgroundColor: colors.surface.primary,
+                  color: colors.text.primary,
+                  borderColor: colors.border.medium
+                }
+              ]}
+              placeholder="Task title"
+              placeholderTextColor={colors.text.secondary}
+              value={title}
+              onChangeText={setTitle}
+              autoFocus
+            />
+          </View>
+
+          {/* Description Input */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[
+                styles.textArea,
+                { 
+                  backgroundColor: colors.surface.primary,
+                  color: colors.text.primary,
+                  borderColor: colors.border.medium
+                }
+              ]}
+              placeholder="Add description..."
+              placeholderTextColor={colors.text.secondary}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActionsContainer}>
+            <TouchableOpacity
+              style={[styles.quickActionButton, { backgroundColor: colors.surface.primary }]}
+              onPress={() => setPriority('high')}
+            >
+              <FeatherIcon 
+                name="flag" 
+                size={20} 
+                color={priority === 'high' ? colors.status.error : colors.text.secondary} 
+              />
+              <Text 
+                style={[
+                  styles.quickActionText,
+                  { color: priority === 'high' ? colors.status.error : colors.text.secondary }
+                ]}
+              >
+                High
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickActionButton, { backgroundColor: colors.surface.primary }]}
+              onPress={() => setPriority('medium')}
+            >
+              <FeatherIcon 
+                name="flag" 
+                size={20} 
+                color={priority === 'medium' ? colors.status.warning : colors.text.secondary} 
+              />
+              <Text 
+                style={[
+                  styles.quickActionText,
+                  { color: priority === 'medium' ? colors.status.warning : colors.text.secondary }
+                ]}
+              >
+                Medium
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickActionButton, { backgroundColor: colors.surface.primary }]}
+              onPress={() => setPriority('low')}
+            >
+              <FeatherIcon 
+                name="flag" 
+                size={20} 
+                color={priority === 'low' ? colors.status.success : colors.text.secondary} 
+              />
+              <Text 
+                style={[
+                  styles.quickActionText,
+                  { color: priority === 'low' ? colors.status.success : colors.text.secondary }
+                ]}
+              >
+                Low
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Due Date Picker */}
+          <View style={styles.inputContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Due Date</Text>
+            <DatePickerInput
+              label="Select due date"
+              value={dueDate}
+              onChange={setDueDate}
+              minimumDate={new Date()}
+            />
+          </View>
+
           {/* Project Selection */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Project</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Project</Text>
             <View style={[styles.projectSelector, { backgroundColor: colors.surface.primary }]}>
               {projects.map(project => (
                 <TouchableOpacity
@@ -153,52 +270,9 @@ export function TaskCreationScreen() {
             </View>
           </View>
 
-          {/* Title Input */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Title</Text>
-            <TextInput
-              style={[
-                styles.input,
-                { 
-                  backgroundColor: colors.surface.primary,
-                  color: colors.text.primary,
-                  borderColor: colors.border.medium
-                }
-              ]}
-              placeholder="Enter task title"
-              placeholderTextColor={colors.text.secondary}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus
-            />
-          </View>
-
-          {/* Description Input */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Description</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.textArea,
-                { 
-                  backgroundColor: colors.surface.primary,
-                  color: colors.text.primary,
-                  borderColor: colors.border.medium
-                }
-              ]}
-              placeholder="Enter task description (optional)"
-              placeholderTextColor={colors.text.secondary}
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
           {/* Status Selection */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Status</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Status</Text>
             <View style={styles.statusContainer}>
               {(['todo', 'in-progress', 'completed'] as TaskStatus[]).map((s) => (
                 <TouchableOpacity
@@ -228,52 +302,9 @@ export function TaskCreationScreen() {
             </View>
           </View>
 
-          {/* Due Date Picker */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Due Date</Text>
-            <DatePickerInput
-              label="Select due date"
-              value={dueDate}
-              onChange={setDueDate}
-              minimumDate={new Date()}
-            />
-          </View>
-
-          {/* Priority Selection */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Priority</Text>
-            <View style={styles.priorityContainer}>
-              {(['low', 'medium', 'high'] as TaskPriority[]).map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.priorityButton,
-                    { 
-                      backgroundColor: colors.surface.primary,
-                      borderColor: colors.border.medium,
-                      borderWidth: priority === p ? 2 : 1
-                    }
-                  ]}
-                  onPress={() => setPriority(p)}
-                >
-                  <Text
-                    style={[
-                      styles.priorityText,
-                      { 
-                        color: priority === p ? colors.brand.primary : colors.text.secondary
-                      }
-                    ]}
-                  >
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
           {/* Estimated Time */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Estimated Time (minutes)</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Estimated Time</Text>
             <TextInput
               style={[
                 styles.input,
@@ -283,7 +314,7 @@ export function TaskCreationScreen() {
                   borderColor: colors.border.medium
                 }
               ]}
-              placeholder="Enter estimated time"
+              placeholder="Enter time in minutes"
               placeholderTextColor={colors.text.secondary}
               value={estimatedTime}
               onChangeText={setEstimatedTime}
@@ -293,7 +324,7 @@ export function TaskCreationScreen() {
 
           {/* Progress */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Progress ({progress}%)</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Progress</Text>
             <View style={[styles.progressBar, { backgroundColor: colors.surface.secondary }]}>
               <View 
                 style={[
@@ -334,87 +365,9 @@ export function TaskCreationScreen() {
             </View>
           </View>
 
-          {/* Recurring Task */}
-          <View style={[styles.inputContainer, styles.switchContainer]}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Recurring Task</Text>
-            <Switch
-              value={isRecurring}
-              onValueChange={setIsRecurring}
-              trackColor={{ false: colors.border.medium, true: colors.brand.primary }}
-              thumbColor={colors.surface.primary}
-            />
-          </View>
-
-          {isRecurring && (
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: colors.text.primary }]}>Recurring Interval</Text>
-              <View style={styles.recurringContainer}>
-                {(['daily', 'weekly', 'monthly'] as RecurringInterval[]).map((interval) => (
-                  <TouchableOpacity
-                    key={interval}
-                    style={[
-                      styles.recurringOption,
-                      { 
-                        backgroundColor: colors.surface.primary,
-                        borderColor: colors.border.medium,
-                        borderWidth: recurringInterval === interval ? 2 : 1
-                      }
-                    ]}
-                    onPress={() => setRecurringInterval(interval)}
-                  >
-                    <Text
-                      style={[
-                        styles.recurringOptionText,
-                        { 
-                          color: recurringInterval === interval ? colors.brand.primary : colors.text.secondary
-                        }
-                      ]}
-                    >
-                      {interval.charAt(0).toUpperCase() + interval.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Reminder */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Reminder</Text>
-            <DatePickerInput
-              label="Set reminder"
-              value={reminder}
-              onChange={setReminder}
-              minimumDate={new Date()}
-            />
-          </View>
-
-          {/* Notes */}
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Notes</Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.textArea,
-                { 
-                  backgroundColor: colors.surface.primary,
-                  color: colors.text.primary,
-                  borderColor: colors.border.medium
-                }
-              ]}
-              placeholder="Add notes (optional)"
-              placeholderTextColor={colors.text.secondary}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
           {/* Tags */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.text.primary }]}>Tags</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Tags</Text>
             <View style={styles.tagInputContainer}>
               <TextInput
                 style={[
@@ -452,19 +405,29 @@ export function TaskCreationScreen() {
               ))}
             </View>
           </View>
-        </ScrollView>
 
-        {/* Create Button */}
-        <View style={[styles.footer, { borderTopColor: colors.border.light }]}>
-          <Button
-            variant="primary"
-            onPress={handleCreateTask}
-            disabled={isSubmitting}
-            style={styles.createButton}
-          >
-            {isSubmitting ? 'Creating...' : 'Create Task'}
-          </Button>
-        </View>
+          {/* Notes */}
+          <View style={styles.inputContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Notes</Text>
+            <TextInput
+              style={[
+                styles.textArea,
+                { 
+                  backgroundColor: colors.surface.primary,
+                  color: colors.text.primary,
+                  borderColor: colors.border.medium
+                }
+              ]}
+              placeholder="Add notes..."
+              placeholderTextColor={colors.text.secondary}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -489,8 +452,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  headerRight: {
-    width: 40,
+  createButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -502,10 +471,18 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
-  label: {
+  sectionTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
+  },
+  titleInput: {
+    fontSize: 24,
+    fontWeight: '600',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   input: {
     borderWidth: 1,
@@ -515,8 +492,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   textArea: {
-    height: 100,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    minHeight: 100,
     textAlignVertical: 'top',
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 20,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -531,43 +533,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  priorityContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  priorityButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  priorityText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  recurringContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  recurringOption: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recurringOptionText: {
     fontSize: 14,
     fontWeight: '500',
   },
@@ -651,12 +616,5 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-  },
-  createButton: {
-    width: '100%',
   },
 }); 

@@ -471,7 +471,14 @@ export function ProjectDetailScreen() {
     
     try {
       // Add project to store
-      const newProject = addProject(projectInput);
+      const newProject = addProject({
+        ...projectInput,
+        id: `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        isCompleted: false,
+        taskIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
       
       // Refresh local projects list
       const projectsWithTasks = getAllProjectsWithTasks();
