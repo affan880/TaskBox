@@ -82,21 +82,6 @@ export function EmailDetailHeader({
             <Icon name="delete" size={24} color={gmailTheme.text.primary} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
-            onPress={onReply}
-            disabled={isActionLoading}
-          >
-            <Icon name="reply" size={24} color={gmailTheme.text.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.headerIconButton, { backgroundColor: gmailTheme.surface }]}
-            onPress={handleMorePress}
-            disabled={isActionLoading}
-          >
-            <Icon name="more-vert" size={24} color={gmailTheme.text.primary} />
-          </TouchableOpacity>
         </View>
       </View>
 

@@ -1,12 +1,17 @@
 import * as React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-// Removed incorrect type import 'GmailTheme' if not defined globally
+import { useTheme } from '@/theme/theme-context';
+import { ReplyModal } from './reply-modal';
+import { EmailData } from '@/types/email';
 
 // Define Props type locally or import if defined globally
 type EmailReplyActionsProps = {
   isActionLoading: boolean;
   gmailTheme: any; // Using 'any' for now, replace with proper type (e.g., GmailTheme from types/email.ts)
+  email?: EmailData & {
+    cc?: string; // Make cc optional
+  };
   onReply?: () => void;
   onReplyAll?: () => void;
   onForward?: () => void;
@@ -15,18 +20,45 @@ type EmailReplyActionsProps = {
 export function EmailReplyActions({
   isActionLoading,
   gmailTheme,
+  email,
   onReply,
   onReplyAll,
   onForward,
 }: EmailReplyActionsProps): React.ReactElement {
-  // Rule: Functional Component
-  // Assuming gmailTheme has the structure GMAIL_COLORS had previously
-  // If not, this check needs adjustment based on the actual theme structure
-  const isDark = gmailTheme?.background === '#1C1C1E';
+  const { colors, isDark } = useTheme();
+  const [replyModalVisible, setReplyModalVisible] = React.useState(false);
+  const [replyMode, setReplyMode] = React.useState<'reply' | 'reply-all' | 'forward'>('reply');
+
+  // Early return if email is not provided
+  if (!email) {
+    return <View />;
+  }
+
+  const handleReply = () => {
+    setReplyMode('reply');
+    setReplyModalVisible(true);
+    onReply?.();
+  };
+
+  const handleReplyAll = () => {
+    setReplyMode('reply-all');
+    setReplyModalVisible(true);
+    onReplyAll?.();
+  };
+
+  const handleForward = () => {
+    setReplyMode('forward');
+    setReplyModalVisible(true);
+    onForward?.();
+  };
+
+  const handleCloseModal = () => {
+    setReplyModalVisible(false);
+  };
 
   const buttonStyle = [
     styles.replyButton,
-    // Add dynamic background/opacity for press state if desired
+    { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
   ];
 
   // Ensure gmailTheme and its nested properties exist before accessing them
@@ -40,43 +72,56 @@ export function EmailReplyActions({
   ];
 
   return (
-    <View style={[
-      styles.replySection,
-      {
-        backgroundColor: surfaceColor,
-        shadowColor: isDark ? '#000000' : '#00000030', // Softer shadow for light mode
-      }
-    ]}>
-      <TouchableOpacity
-        style={buttonStyle}
-        disabled={isActionLoading}
-        onPress={onReply}
-        activeOpacity={0.6}
-      >
-        <Icon name="reply" size={20} color={iconColor} style={styles.replyIcon} />
-        <Text style={textStyle}>Reply</Text>
-      </TouchableOpacity>
+    <>
+      <View style={[
+        styles.replySection,
+        {
+          backgroundColor: surfaceColor,
+          shadowColor: isDark ? '#000000' : '#00000030', // Softer shadow for light mode
+        }
+      ]}>
+        <TouchableOpacity
+          style={buttonStyle}
+          disabled={isActionLoading}
+          onPress={handleReply}
+          activeOpacity={0.6}
+        >
+          <Icon name="reply" size={20} color={iconColor} style={styles.replyIcon} />
+          <Text style={textStyle}>Reply</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={buttonStyle}
-        disabled={isActionLoading}
-        onPress={onReplyAll}
-        activeOpacity={0.6}
-      >
-        <Icon name="reply-all" size={20} color={iconColor} style={styles.replyIcon} />
-        <Text style={textStyle}>Reply all</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={buttonStyle}
+          disabled={isActionLoading}
+          onPress={handleReplyAll}
+          activeOpacity={0.6}
+        >
+          <Icon name="reply-all" size={20} color={iconColor} style={styles.replyIcon} />
+          <Text style={textStyle}>Reply all</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={buttonStyle}
-        disabled={isActionLoading}
-        onPress={onForward}
-        activeOpacity={0.6}
-      >
-        <Icon name="forward" size={20} color={iconColor} style={styles.replyIcon} />
-        <Text style={textStyle}>Forward</Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={buttonStyle}
+          disabled={isActionLoading}
+          onPress={handleForward}
+          activeOpacity={0.6}
+        >
+          <Icon name="forward" size={20} color={iconColor} style={styles.replyIcon} />
+          <Text style={textStyle}>Forward</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ReplyModal
+        visible={replyModalVisible}
+        onClose={handleCloseModal}
+        mode={replyMode}
+        email={email}
+        originalSubject={email.subject ?? ''}
+        originalFrom={email.from ?? ''}
+        originalTo={email.to ?? ''}
+        originalCc={email.cc ?? ''}
+      />
+    </>
   );
 }
 

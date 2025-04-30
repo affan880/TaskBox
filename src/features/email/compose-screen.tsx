@@ -70,9 +70,9 @@ const createLocalCopy = async (uri: string, fileName: string): Promise<string> =
     
     // For iOS or other file URIs, return as is
     return uri;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[ComposeScreen] Error creating local copy:', error);
-    throw new Error(`Failed to create local copy: ${error.message}`);
+    throw new Error(`Failed to create local copy: ${error?.message || 'Unknown error'}`);
   }
 };
 
@@ -221,14 +221,18 @@ export function ComposeScreen() {
           console.log('[ComposeScreen] Processing file:', file.name, ', URI:', file.uri, ', type:', file.type, ', size:', file.size);
           
           try {
-            const localUri = await createLocalCopy(file.uri, file.name);
+            if (!file.uri) {
+              throw new Error('File URI is missing');
+            }
+            const localUri = await createLocalCopy(file.uri, file.name || 'unnamed-file');
             return {
               id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               uri: localUri,
               type: file.type || 'application/octet-stream',
-              name: file.name,
+              name: file.name || 'unnamed-file',
               size: file.size || 0,
-            };
+              createdAt: new Date().toISOString(),
+            } as EmailAttachment;
           } catch (error) {
             console.error('[ComposeScreen] Error processing file:', file.name, error);
             // Skip this file but continue with others
@@ -238,11 +242,11 @@ export function ComposeScreen() {
       );
 
       // Filter out any null results from failed files
-      const validAttachments = newAttachments.filter(attachment => attachment !== null);
+      const validAttachments = newAttachments.filter((attachment): attachment is EmailAttachment => attachment !== null);
       
       setAttachments(prev => [...prev, ...validAttachments]);
-    } catch (err) {
-      if (!DocumentPicker.isCancel(err)) {
+    } catch (err: any) {
+      if (err?.code !== 'DOCUMENT_PICKER_CANCELED') {
         console.error('[ComposeScreen] Error picking file:', err);
         Alert.alert('Error', 'Failed to attach file. Please try again.');
       }
@@ -463,10 +467,14 @@ export function ComposeScreen() {
 
   // Replace the camera handler
   const handleCameraPress = () => {
-    const options = {
-      ...imagePickerConfig,
+    const options: ImagePicker.CameraOptions = {
       mediaType: 'photo',
       cameraType: 'back',
+      quality: 1,
+      includeBase64: false,
+      presentationStyle: 'fullScreen',
+      saveToPhotos: true,
+      includeExtra: true,
     };
 
     ImagePicker.launchCamera(options, (response) => {
@@ -485,12 +493,13 @@ export function ComposeScreen() {
 
       if (response.assets && response.assets.length > 0) {
         const asset = response.assets[0];
-        const newAttachment = {
+        const newAttachment: EmailAttachment = {
           id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          uri: asset.uri,
+          uri: asset.uri || '',
           type: asset.type || 'image/jpeg',
           name: asset.fileName || `camera_${Date.now()}.jpg`,
           size: asset.fileSize || 0,
+          createdAt: new Date().toISOString(),
         };
 
         setAttachments(prev => [...prev, newAttachment]);
@@ -500,9 +509,13 @@ export function ComposeScreen() {
 
   // Replace the gallery handler
   const handleGalleryPress = () => {
-    const options = {
-      ...imagePickerConfig,
+    const options: ImagePicker.ImageLibraryOptions = {
+      mediaType: 'photo',
+      quality: 1,
+      includeBase64: false,
+      presentationStyle: 'fullScreen',
       selectionLimit: 0,
+      includeExtra: true,
     };
 
     ImagePicker.launchImageLibrary(options, (response) => {
@@ -520,12 +533,13 @@ export function ComposeScreen() {
       }
 
       if (response.assets && response.assets.length > 0) {
-        const newAttachments = response.assets.map(asset => ({
+        const newAttachments: EmailAttachment[] = response.assets.map(asset => ({
           id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          uri: asset.uri,
+          uri: asset.uri || '',
           type: asset.type || 'image/jpeg',
           name: asset.fileName || `image_${Date.now()}.jpg`,
           size: asset.fileSize || 0,
+          createdAt: new Date().toISOString(),
         }));
 
         setAttachments(prev => [...prev, ...newAttachments]);

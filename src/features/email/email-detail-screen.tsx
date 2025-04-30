@@ -931,6 +931,7 @@ export function EmailDetailScreen() {
                     <EmailReplyActions
                       isActionLoading={isActionLoading}
                       gmailTheme={gmailTheme}
+                      email={currentEmail}
                       onReply={() => {
                         // TODO: Implement reply functionality
                         console.log('Reply pressed');

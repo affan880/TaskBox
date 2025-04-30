@@ -524,10 +524,10 @@ export async function sendEmail(
       headers.push(`Content-Type: multipart/mixed; boundary="${multipartBoundary}"`);
       messageParts.push(headers.join('\r\n') + '\r\n\r\n');
       
-      // Add the body part
+      // Add the body part with proper content type
       messageParts.push(
         `--${multipartBoundary}\r\n` +
-        'Content-Type: text/plain; charset=UTF-8\r\n' +
+        'Content-Type: text/html; charset=UTF-8\r\n' +
         'Content-Transfer-Encoding: 7bit\r\n\r\n' +
         `${body}\r\n\r\n`
       );
@@ -599,7 +599,7 @@ export async function sendEmail(
       messageParts.push(`--${multipartBoundary}--`);
     } else {
       // Simple email without attachments
-      headers.push('Content-Type: text/plain; charset=UTF-8');
+      headers.push('Content-Type: text/html; charset=UTF-8');
       messageParts.push(headers.join('\r\n') + '\r\n\r\n' + body);
     }
     
@@ -656,13 +656,51 @@ function chunkString(str: string, length: number): string[] {
  * URL-safe base64 encode a string for React Native (no Buffer dependency)
  */
 function encodeBase64UrlForRN(input: string): string {
-  // Standard base64 encoding
-  let encoded = btoa(input);
-  
+  // Convert string to UTF-8 bytes
+  const utf8Bytes = [];
+  for (let i = 0; i < input.length; i++) {
+    let charCode = input.charCodeAt(i);
+    if (charCode < 0x80) {
+      utf8Bytes.push(charCode);
+    } else if (charCode < 0x800) {
+      utf8Bytes.push(0xc0 | (charCode >> 6), 0x80 | (charCode & 0x3f));
+    } else if (charCode < 0xd800 || charCode >= 0xe000) {
+      utf8Bytes.push(0xe0 | (charCode >> 12), 0x80 | ((charCode >> 6) & 0x3f), 0x80 | (charCode & 0x3f));
+    } else {
+      // Surrogate pair
+      i++;
+      charCode = 0x10000 + (((charCode & 0x3ff) << 10) | (input.charCodeAt(i) & 0x3ff));
+      utf8Bytes.push(
+        0xf0 | (charCode >> 18),
+        0x80 | ((charCode >> 12) & 0x3f),
+        0x80 | ((charCode >> 6) & 0x3f),
+        0x80 | (charCode & 0x3f)
+      );
+    }
+  }
+
+  // Convert bytes to base64
+  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let base64 = '';
+  let i = 0;
+  while (i < utf8Bytes.length) {
+    const chunk = (utf8Bytes[i] << 16) | (utf8Bytes[i + 1] << 8) | utf8Bytes[i + 2];
+    base64 += base64Chars[(chunk >> 18) & 63];
+    base64 += base64Chars[(chunk >> 12) & 63];
+    base64 += base64Chars[(chunk >> 6) & 63];
+    base64 += base64Chars[chunk & 63];
+    i += 3;
+  }
+
+  // Handle padding
+  if (utf8Bytes.length % 3 === 1) {
+    base64 = base64.slice(0, -2);
+  } else if (utf8Bytes.length % 3 === 2) {
+    base64 = base64.slice(0, -1);
+  }
+
   // Make URL safe
-  encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  
-  return encoded;
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /**
@@ -891,6 +929,165 @@ export async function listEmailsWithContent(
     };
   } catch (error) {
     console.error('[gmailApi:Error] Failed to list emails with content:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reply to an email
+ * @param messageId The ID of the message to reply to
+ * @param body The reply message body
+ * @param attachments Optional attachments to include
+ */
+export async function replyToEmail(
+  messageId: string,
+  body: string,
+  attachments: EmailAttachment[] = []
+): Promise<any> {
+  try {
+    // Get the original message to get the thread ID and subject
+    const originalMessage = await getEmailById(messageId);
+    if (!originalMessage) {
+      throw new Error('Original message not found');
+    }
+
+    // Get the original sender's email
+    const fromHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'from'
+    );
+    const to = fromHeader ? fromHeader.value : '';
+
+    // Get the original subject and add "Re:" if not already present
+    const subjectHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'subject'
+    );
+    let subject = subjectHeader ? subjectHeader.value : 'No Subject';
+    if (!subject.toLowerCase().startsWith('re:')) {
+      subject = `Re: ${subject}`;
+    }
+
+    // Format the body as HTML
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        ${body}
+      </div>
+    `;
+
+    // Send the reply
+    return await sendEmail(to, subject, htmlBody, attachments);
+  } catch (error) {
+    console.error('[gmailApi:Error] Failed to reply to email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reply to all recipients of an email
+ * @param messageId The ID of the message to reply to
+ * @param body The reply message body
+ * @param attachments Optional attachments to include
+ */
+export async function replyAllToEmail(
+  messageId: string,
+  body: string,
+  attachments: EmailAttachment[] = []
+): Promise<any> {
+  try {
+    // Get the original message to get the thread ID and subject
+    const originalMessage = await getEmailById(messageId);
+    if (!originalMessage) {
+      throw new Error('Original message not found');
+    }
+
+    // Get all recipients (To, Cc, Bcc)
+    const toHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'to'
+    );
+    const ccHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'cc'
+    );
+    const fromHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'from'
+    );
+
+    // Combine all recipients
+    const recipients = [
+      toHeader?.value,
+      ccHeader?.value,
+      fromHeader?.value
+    ].filter(Boolean).join(', ');
+
+    // Get the original subject and add "Re:" if not already present
+    const subjectHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'subject'
+    );
+    let subject = subjectHeader ? subjectHeader.value : 'No Subject';
+    if (!subject.toLowerCase().startsWith('re:')) {
+      subject = `Re: ${subject}`;
+    }
+
+    // Format the body as HTML
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        ${body}
+      </div>
+    `;
+
+    // Send the reply to all
+    return await sendEmail(recipients, subject, htmlBody, attachments);
+  } catch (error) {
+    console.error('[gmailApi:Error] Failed to reply all to email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Forward an email
+ * @param messageId The ID of the message to forward
+ * @param to The recipient's email address
+ * @param body Optional additional message body
+ * @param attachments Optional attachments to include
+ */
+export async function forwardEmail(
+  messageId: string,
+  to: string,
+  body: string = '',
+  attachments: EmailAttachment[] = []
+): Promise<any> {
+  try {
+    // Get the original message
+    const originalMessage = await getEmailById(messageId);
+    if (!originalMessage) {
+      throw new Error('Original message not found');
+    }
+
+    // Get the original subject and add "Fwd:" if not already present
+    const subjectHeader = originalMessage.payload.headers.find(
+      (h: any) => h.name.toLowerCase() === 'subject'
+    );
+    let subject = subjectHeader ? subjectHeader.value : 'No Subject';
+    if (!subject.toLowerCase().startsWith('fwd:')) {
+      subject = `Fwd: ${subject}`;
+    }
+
+    // Get the original message body
+    const originalBody = parseEmailData(originalMessage).body;
+
+    // Format the forward message with proper HTML
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        ${body}
+        <div style="margin-top: 20px; padding: 15px; border-left: 3px solid #ccc; color: #666;">
+          <div style="margin-bottom: 10px; font-weight: bold;">---------- Forwarded message ---------</div>
+          ${originalBody}
+        </div>
+      </div>
+    `;
+
+    // Send the forwarded email
+    return await sendEmail(to, subject, htmlBody, attachments);
+  } catch (error) {
+    console.error('[gmailApi:Error] Failed to forward email:', error);
     throw error;
   }
 }
