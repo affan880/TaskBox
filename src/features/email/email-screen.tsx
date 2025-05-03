@@ -22,7 +22,6 @@ import {
   EmailHeader,
   EmailList,
   ComposeButton,
-  ComposeModal,
   LabelModal,
   SnoozeModal,
   CategoryFilterBar,
@@ -40,27 +39,14 @@ type RootStackParamList = {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // Define categories
-const emailCategories: string[] = [
+const defaultEmailCategories: string[] = [
   'All',
-  'Follow-up',
   'Work',
   'Finance',
-  'Health',
-  'Events',
   'Promotions',
   'Social',
   'Spam',
 ];
-
-// Type for categorized emails (full objects)
-type CategorizedEmailsMap = Record<string, EmailData[]>;
-
-// Update the SnoozeModal interface
-interface SnoozeModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSnooze: (date: Date) => void;
-}
 
 export function EmailScreen() {
   const insets = useSafeAreaInsets();
@@ -107,10 +93,10 @@ export function EmailScreen() {
 
   // --- State for Category Filter ---
   const [selectedCategory, setSelectedCategory] = useState<string>(
-
-      
-    emailCategories[0] // Default to the first category
+    defaultEmailCategories[0] // Default to the first category
   );
+
+  const [emailCategories, setEmailCategories] = useState(defaultEmailCategories);
 
   // Add auto-categorization with the enhanced hook
   const {
@@ -127,8 +113,6 @@ export function EmailScreen() {
     minimumTimeBetweenAnalysis: 300000, // 5 minutes
   });
 
-  // Animation for FAB
-  const fabAnim = useRef(new Animated.Value(1)).current;
   const composeButtonTranslateY = useSharedValue(0);
 
   // Get screen title using the utility
@@ -157,6 +141,16 @@ export function EmailScreen() {
     // No categorized emails available, fallback to empty array for non-All categories
     return [];
   }, [categorizedEmails, emails, searchQuery]);
+
+  // Get filtered emails based on selected category
+  const filteredEmails = useMemo(() => {
+    return getEmailsForCategory(selectedCategory);
+  }, [getEmailsForCategory, selectedCategory]);
+
+  // Handle category changes
+  const handleCategoriesChange = useCallback((newCategories: string[]) => {
+    setEmailCategories(newCategories);
+  }, []);
 
   // Define toggleEmailSelection first
   const toggleEmailSelection = useCallback((emailId: string) => {
@@ -212,17 +206,6 @@ export function EmailScreen() {
     setShowSnoozeModal(false);
     setSelectedEmailIdForModal(null);
   }, [snoozeEmail, selectedEmailIdForModal]);
-
-  // Simplified Send handler
-  const handleSendEmail = useCallback(async (to: string, subject: string, body: string) => {
-    const success = await sendEmail(to, subject, body);
-    if (success) {
-      setShowLabelModal(false);
-    } else {
-      Alert.alert('Error', 'Failed to send email. Please try again.');
-    }
-  }, [sendEmail]);
-
   // Multi-select handlers
   const handleLongPress = useCallback((emailId: string) => {
     setIsMultiSelectMode(true);
@@ -296,15 +279,7 @@ export function EmailScreen() {
     }
   }, [hasAuthFailed, gmailError]);
 
-  const handleProfilePress = useCallback(() => {
-    navigation.navigate('Profile');
-  }, [navigation]);
-
-  // Update the filteredEmails logic to use getEmailsForCategory helper
-  const filteredEmails = useMemo(() => {
-    return getEmailsForCategory(selectedCategory);
-  }, [selectedCategory, getEmailsForCategory]);
-
+  
   // Update the search handler to only trigger on submission
   const handleSearchSubmit = useCallback(() => {
     if (searchQuery.trim()) {
@@ -329,12 +304,7 @@ export function EmailScreen() {
     // Don't trigger search here, only update the input value
   }, [setSearchQuery]);
 
-  // --- Determine which list to show --- 
-  const isSearchActive = searchQuery.trim().length > 0;
-  const emailsToShow = isSearchActive ? searchResults : filteredEmails;
-  // Determine loading state based on whether search is active
-  const showLoading = isSearchActive ? isSearching : (isLoading && !initialLoadComplete);
-
+  
   const handleToggleRead = useCallback(async (emailId: string, isUnread: boolean) => {
     try {
       if (isUnread) {
@@ -369,6 +339,7 @@ export function EmailScreen() {
           categoryCounts={categoryCounts}
           isAnalyzing={isAnalyzing}
           isFirstLoad={!initialLoadComplete && !hasInitializedFromCache}
+          onCategoriesChange={handleCategoriesChange}
         />
 
         {/* Action Bar for Multi-select Mode */}

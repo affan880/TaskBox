@@ -1,6 +1,6 @@
 import { getAccessToken } from '@/lib/utils/email-attachments';
 import { BASE_URL } from '@/lib/env/api-config';
-import { EventSourcePolyfill } from 'react-native-sse';
+import EventSourcePolyfill from 'react-native-sse';
 
 // Debug flag - only log in development mode
 const DEBUG = __DEV__ && false; // Set to true for verbose debugging
@@ -54,39 +54,46 @@ export type EmailGenerationRequest = {
   prompt?: string; // For chat-based enhancements
 }
 
+type EmailAnalysisRequest = {
+  count: number;
+  days: number;
+  categories: string[];
+};
+
 /**
  * Analyzes emails using the backend API
  * @param count Optional number of emails to analyze
  * @param days Optional number of days to analyze
  * @param category Optional category to focus on
+ * @param categories Optional array of all available categories
  * @returns The analysis results from the API
  */
-export async function analyzeEmails(count?: number, days?: number, category?: string): Promise<EmailAnalysisResponse> {
+export async function analyzeEmails(
+  count?: number,
+  days?: number,
+  category?: string,
+  categories?: string[]
+): Promise<EmailAnalysisResponse> {
   if (DEBUG) console.log('📍 API Call - Using BASE_URL:', BASE_URL);
   try {
+    const requestBody: EmailAnalysisRequest = {
+      count: count || 50,
+      days: days || 7,
+      categories: (categories || ['All', 'Work', 'Finance', 'Promotions', 'Social', 'Spam'])
+        .map(category => category.toLowerCase())
+        .filter((category, index, self) => self.indexOf(category) === index) // Remove duplicates
+    };
+
+    // Always ensure 'all' is included in categories
+    if (!requestBody.categories.includes('all')) {
+      requestBody.categories.unshift('all');
+    }
+
     // Get the access token
     const accessToken = await getAccessToken();
     
     if (!accessToken) {
       throw new Error('No access token available');
-    }
-    
-    // Prepare the request body
-    const requestBody: { accessToken: string; days?: number; count?: number; category?: string } = {
-      accessToken,
-    };
-    
-    // Add optional parameters if provided
-    if (days !== undefined) {
-      requestBody.days = days;
-    }
-    
-    if (count !== undefined) {
-      requestBody.count = count;
-    }
-    
-    if (category && category !== 'All') {
-      requestBody.category = category;
     }
     
     if (DEBUG) {
@@ -98,6 +105,9 @@ export async function analyzeEmails(count?: number, days?: number, category?: st
       const fullApiUrl = `${BASE_URL}/api/analyze-emails`;
       console.log('📍 Calling API at:', fullApiUrl);
     }
+
+    // Log the request body before making the API call
+    console.log('📤 Request Body:', JSON.stringify(requestBody, null, 2));
     
     // Make the POST request to the analysis endpoint
     const response = await fetch(`${BASE_URL}/api/analyze-emails`, {
@@ -105,7 +115,10 @@ export async function analyzeEmails(count?: number, days?: number, category?: st
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        ...requestBody,
+        accessToken,
+      }),
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -270,22 +283,29 @@ export async function streamGenerateEmailWithRevisionsSSE(
   onChunk: (chunk: EmailRevisionChunk) => void,
   onError: (error: Error) => void,
   onComplete: () => void
-): Promise<void> {
+): Promise<() => void> {
   try {
-    const eventSource = new EventSourcePolyfill(`${BASE_URL}/api/generate-email-with-revisions`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: request.message,
-        context: request.context,
-        tone: 'professional',
-        isRevision: false,
-        previousEmailsLength: 0
-      }),
-    });
+    const eventSource = new EventSourcePolyfill(
+      `${BASE_URL}/analyze-emails`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+        body: JSON.stringify({
+          prompt: request.message,
+          context: request.context,
+          tone: 'professional',
+          isRevision: false,
+          previousEmailsLength: 0
+        }),
+      }
+    ) as EventSourcePolyfill & {
+      onmessage: (event: MessageEvent) => void;
+      onerror: (event: Event) => void;
+    };
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = (event: MessageEvent) => {
       try {
         let data;
         try {
@@ -313,7 +333,7 @@ export async function streamGenerateEmailWithRevisionsSSE(
       }
     };
 
-    eventSource.onerror = (err) => {
+    eventSource.onerror = (err: Event) => {
       console.error('EventSource error:', err);
       onError(new Error('Connection error occurred'));
       eventSource.close();

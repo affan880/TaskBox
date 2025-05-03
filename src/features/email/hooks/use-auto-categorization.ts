@@ -160,10 +160,12 @@ export function useAutoCategorization(
     
     // Process each category
     Object.keys(categorizedEmailsResponse).forEach(category => {
+      // Normalize category name to match UI case (first letter uppercase, rest lowercase)
+      const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
       const emailsInCategory = categorizedEmailsResponse[category];
       
       if (DEBUG) {
-        console.log(`[ProcessCategorized] Category ${category} has ${emailsInCategory.length} emails from API`);
+        console.log(`[ProcessCategorized] Category ${normalizedCategory} has ${emailsInCategory.length} emails from API`);
       }
       
       // Map each email to full objects or create placeholders
@@ -217,23 +219,24 @@ export function useAutoCategorization(
         .filter((email): email is EmailData => email !== null && email !== undefined);
       
       // Add the category with full email objects to the result
-      processedCategories[category] = fullEmails;
+      processedCategories[normalizedCategory] = fullEmails;
       
       // Update category counts
-      newCategoryCounts[category] = fullEmails.length;
+      newCategoryCounts[normalizedCategory] = fullEmails.length;
       
       if (DEBUG) {
-        console.log(`[ProcessCategorized] Category ${category} has ${fullEmails.length} processed emails`);
+        console.log(`[ProcessCategorized] Category ${normalizedCategory} has ${fullEmails.length} processed emails`);
       }
     });
     
     // Make sure all configured categories have an entry, even if empty
     categories.forEach(category => {
-      if (!processedCategories[category]) {
-        processedCategories[category] = [];
+      const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+      if (!processedCategories[normalizedCategory]) {
+        processedCategories[normalizedCategory] = [];
       }
-      if (newCategoryCounts[category] === undefined) {
-        newCategoryCounts[category] = 0;
+      if (newCategoryCounts[normalizedCategory] === undefined) {
+        newCategoryCounts[normalizedCategory] = 0;
       }
     });
     
@@ -289,7 +292,12 @@ export function useAutoCategorization(
       processingQueue.current = [];
       
       // Perform the API call
-      const analysisResult = await analyzeEmails();
+      const analysisResult = await analyzeEmails(
+        undefined, // count
+        undefined, // days
+        undefined, // category
+        categories // pass the categories array
+      );
       
       // Update last analysis time
       const currentTime = Date.now();
@@ -324,7 +332,7 @@ export function useAutoCategorization(
       setIsAnalyzing(false);
       isProcessingQueue.current = false;
     }
-  }, [categorizedEmails, emails, enabled, minimumTimeBetweenAnalysis, processCategorizedEmails]);
+  }, [categorizedEmails, emails, enabled, minimumTimeBetweenAnalysis, processCategorizedEmails, categories]);
 
   /**
    * Queue emails for processing and schedule a background job
@@ -391,7 +399,12 @@ export function useAutoCategorization(
       if (__DEV__) console.log('[AutoCategorization] Forced analysis started');
       
       // Call the API
-      const analysisResult = await analyzeEmails();
+      const analysisResult = await analyzeEmails(
+        undefined, // count
+        undefined, // days
+        undefined, // category
+        categories // pass the categories array
+      );
       
       // Update last analysis time
       const currentTime = Date.now();
@@ -426,7 +439,7 @@ export function useAutoCategorization(
     } finally {
       setIsAnalyzing(false);
     }
-  }, [emails, isAnalyzing, processCategorizedEmails]);
+  }, [emails, isAnalyzing, processCategorizedEmails, categories]);
 
   // Initial setup effect - process emails on first load if no cache
   useEffect(() => {

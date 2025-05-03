@@ -13,7 +13,9 @@ import {
   TextInput,
   ActivityIndicator,
   StatusBar,
-  ScrollView
+  ScrollView,
+  NativeSyntheticEvent,
+  TextInputContentSizeChangeEventData
 } from 'react-native';
 import { ScrollView as GestureHandlerScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -80,7 +82,7 @@ interface SuggestionModalProps {
 export function SuggestionModal({
   visible,
   onClose,
-  chatHistory: initialChatHistory,
+  chatHistory: initialChatHistory, 
   chatMessage,
   setChatMessage,
   onUseSuggestion,
@@ -157,9 +159,15 @@ export function SuggestionModal({
     setScrollPosition(event.nativeEvent.contentOffset.y);
   };
 
-  // Track content size changes
-  const handleContentSizeChange = (width: number, height: number) => {
+  // Track content size changes for ScrollView
+  const handleScrollViewContentSizeChange = (width: number, height: number) => {
     setContentHeight(height);
+  };
+
+  // Track content size changes for TextInput
+  const handleTextInputContentSizeChange = (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+    const { height } = event.nativeEvent.contentSize;
+    setInputHeight(height);
   };
 
   const handleSend = () => {
@@ -186,7 +194,7 @@ export function SuggestionModal({
       setChatMessage('');
 
       // Keep existing chat history and add new message
-      const updatedHistory = [
+      const updatedHistory: ChatMessage[] = [
         ...localChatHistory,
         { type: 'user', message: userMessage }
       ];
@@ -194,7 +202,7 @@ export function SuggestionModal({
 
       // Add loading message and scroll
       setLocalChatHistory(prev => {
-        const newHistory = [
+        const newHistory: ChatMessage[] = [
           ...prev,
           { type: 'assistant', message: '...', isLoading: true }
         ];
@@ -779,9 +787,9 @@ export function SuggestionModal({
                   showsVerticalScrollIndicator={true}
                   onScroll={handleScroll}
                   scrollEventThrottle={16}
-                  onContentSizeChange={handleContentSizeChange}
+                  onContentSizeChange={handleScrollViewContentSizeChange}
                   maintainVisibleContentPosition={{
-                    minHeight: 44,
+                    minIndexForVisible: 0,
                     autoscrollToTopThreshold: 100,
                   }}
                 >
@@ -824,7 +832,7 @@ export function SuggestionModal({
                     maxLength={1000}
                     returnKeyType="default"
                     blurOnSubmit={false}
-                    onContentSizeChange={handleContentSizeChange}
+                    onContentSizeChange={handleTextInputContentSizeChange}
                     editable={!isLoading}
                   />
                   <TouchableOpacity
