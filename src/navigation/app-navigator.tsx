@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 // import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // No longer needed
 import PagerView from 'react-native-pager-view';
@@ -17,7 +17,6 @@ import { useTheme } from 'src/theme/theme-context';
 import { useAuthStore } from 'src/store/auth-store';
 import { AuthNavigator } from './auth-navigator';
 import { ProfileNavigator } from '@/features/profile/navigation/profile-navigator';
-import { EmailDrawerNavigator } from './email-drawer-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TaskScreen } from 'src/features/tasks/task-screen';
 import { ProjectDetailScreen } from '@/features/tasks/project-detail-screen';
@@ -28,6 +27,7 @@ import { ComposeScreen } from 'src/features/email/compose-screen';
 import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
 import { AllTasksScreen } from 'src/features/tasks/all-tasks-screen';
 import { TaskCreationScreen } from '@/features/tasks/task-creation-screen';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -131,6 +131,7 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
 
   const tabConfig: { [key: string]: { focusedIcon: string; unfocusedIcon: string; label?: string } } = {
     Email: { focusedIcon: 'email', unfocusedIcon: 'email-outline', label: 'Inbox' },
+    Compose: { focusedIcon: 'email-outline', unfocusedIcon: 'email-outline', label: 'Compose' },
     Home: { focusedIcon: 'format-list-checks', unfocusedIcon: 'format-list-bulleted', label: 'Tasks' },
     Profile: { focusedIcon: 'account-circle', unfocusedIcon: 'account-circle-outline', label: 'Profile' },
   };
@@ -169,10 +170,12 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
 export const MainTabNavigator = React.memo(() => {
   const [activeIndex, setActiveIndex] = React.useState(0);
   const pagerRef = React.useRef<PagerView>(null);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Define the order and components for the pager
   const routes = [
     { key: 'inbox', name: 'Email', component: EmailScreen },
+    { key: 'Compose', name: 'Compose', component: ComposeScreen },
     { key: 'tasks', name: 'Home', component: TaskScreen },
     { key: 'profile', name: 'Profile', component: ProfileNavigator },
   ];
@@ -215,6 +218,8 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
   const { user, isLoading, initialized, setUser } = useAuthStore();
   const { colors } = useTheme();
   const didForceAuth = React.useRef(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const pagerRef = React.useRef<PagerView>(null);
 
   React.useEffect(() => {
     if (forceAuthScreen && user && !didForceAuth.current && onNavigated) {
@@ -264,7 +269,28 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             options={{
               presentation: 'modal',
               animation: 'slide_from_bottom',
-              headerShown: false,
+              headerShown: true,
+              headerLeft: () => (
+                <TouchableOpacity
+                  onPress={() => {
+                    // If we're in the pager view, go back to the previous page
+                    if (pagerRef.current) {
+                      pagerRef.current.setPage(0);
+                    } else {
+                      // If we're in the modal, go back
+                      navigation.goBack();
+                    }
+                  }}
+                  style={{ marginLeft: 16 }}
+                >
+                  <Icon name="arrow-left" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              ),
+              headerTitle: 'New Message',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
             }}
           />
           <Stack.Screen

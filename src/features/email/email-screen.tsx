@@ -28,6 +28,7 @@ import {
 } from './components';
 import { useSharedValue } from 'react-native-reanimated';
 import { useEmailStore } from '@/store/email-store';
+import { storageConfig } from '@/lib/storage';
 
 type RootStackParamList = {
   ReadEmail: { email: EmailData };
@@ -38,21 +39,44 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// Define categories
-const defaultEmailCategories: string[] = [
-  'All',
-  'Work',
-  'Finance',
-  'Promotions',
-  'Social',
-  'Spam',
-];
+// Initial category that will always be present
+const INITIAL_CATEGORY = 'All';
 
 export function EmailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const { colors } = useTheme();
+
+  // --- State for Category Filter ---
+  const [selectedCategory, setSelectedCategory] = useState<string>(INITIAL_CATEGORY);
+  const [emailCategories, setEmailCategories] = useState<string[]>([INITIAL_CATEGORY]);
+
+  // Load stored categories on mount
+  useEffect(() => {
+    const loadStoredCategories = async () => {
+      try {
+        const storedCategories = await storageConfig.getItem('email_categories');
+        if (storedCategories && storedCategories.length > 0) {
+          // Ensure "All" category is included
+          const categoriesWithAll = storedCategories.includes(INITIAL_CATEGORY) 
+            ? storedCategories 
+            : [INITIAL_CATEGORY, ...storedCategories];
+          setEmailCategories(categoriesWithAll);
+        } else {
+          // If no stored categories, initialize with just "All"
+          setEmailCategories([INITIAL_CATEGORY]);
+          await storageConfig.setItem('email_categories', [INITIAL_CATEGORY]);
+        }
+      } catch (error) {
+        console.error('Error loading stored categories:', error);
+        // Fallback to just "All" category if there's an error
+        setEmailCategories([INITIAL_CATEGORY]);
+      }
+    };
+    loadStoredCategories();
+  }, []);
+
   const {
     emails, 
     isLoading,
@@ -91,12 +115,21 @@ export function EmailScreen() {
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
 
-  // --- State for Category Filter ---
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    defaultEmailCategories[0] // Default to the first category
-  );
-
-  const [emailCategories, setEmailCategories] = useState(defaultEmailCategories);
+  // Handle category changes
+  const handleCategoriesChange = useCallback(async (newCategories: string[]) => {
+    try {
+      // Ensure "All" category is included
+      const categoriesWithAll = newCategories.includes(INITIAL_CATEGORY) 
+        ? newCategories 
+        : [INITIAL_CATEGORY, ...newCategories];
+      
+      setEmailCategories(categoriesWithAll);
+      await storageConfig.setItem('email_categories', categoriesWithAll);
+    } catch (error) {
+      console.error('Error saving categories:', error);
+      Alert.alert('Error', 'Failed to save categories. Please try again.');
+    }
+  }, []);
 
   // Add auto-categorization with the enhanced hook
   const {
@@ -108,7 +141,7 @@ export function EmailScreen() {
     hasInitializedFromCache
   } = useAutoCategorization(emails, {
     enabled: true,
-    categories: emailCategories,
+    categories: emailCategories.filter(cat => cat !== INITIAL_CATEGORY), // Filter out 'All' category
     pollingInterval: 60000, // 1 minute
     minimumTimeBetweenAnalysis: 300000, // 5 minutes
   });
@@ -146,11 +179,6 @@ export function EmailScreen() {
   const filteredEmails = useMemo(() => {
     return getEmailsForCategory(selectedCategory);
   }, [getEmailsForCategory, selectedCategory]);
-
-  // Handle category changes
-  const handleCategoriesChange = useCallback((newCategories: string[]) => {
-    setEmailCategories(newCategories);
-  }, []);
 
   // Define toggleEmailSelection first
   const toggleEmailSelection = useCallback((emailId: string) => {
@@ -411,11 +439,6 @@ export function EmailScreen() {
           onCloseMultiSelect={handleCloseMultiSelect}
           onToggleRead={handleToggleRead}
           autoCategorizationEnabled={true}
-        />
-        
-        <ComposeButton
-          composeTranslateY={composeButtonTranslateY}
-          onPress={() => navigation.navigate('Compose')}
         />
         
         {/* Modals */}

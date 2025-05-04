@@ -76,18 +76,25 @@ export async function analyzeEmails(
 ): Promise<EmailAnalysisResponse> {
   if (DEBUG) console.log('📍 API Call - Using BASE_URL:', BASE_URL);
   try {
-    const requestBody: EmailAnalysisRequest = {
-      count: count || 50,
-      days: days || 7,
-      categories: (categories || ['All', 'Work', 'Finance', 'Promotions', 'Social', 'Spam'])
-        .map(category => category.toLowerCase())
-        .filter((category, index, self) => self.indexOf(category) === index) // Remove duplicates
-    };
-
-    // Always ensure 'all' is included in categories
-    if (!requestBody.categories.includes('all')) {
-      requestBody.categories.unshift('all');
+    if (!categories || categories.length === 0) {
+      throw new Error('No categories provided for email analysis');
     }
+
+    // Filter out 'All' category and normalize the rest
+    const filteredCategories = categories
+      .filter(cat => cat.toLowerCase() !== 'all')
+      .map(category => category.toLowerCase())
+      .filter((category, index, self) => self.indexOf(category) === index); // Remove duplicates
+
+    if (filteredCategories.length === 0) {
+      throw new Error('No valid categories provided for email analysis');
+    }
+
+    const requestBody: EmailAnalysisRequest = {
+      count: count || 40,
+      days: days || 7,
+      categories: filteredCategories
+    };
 
     // Get the access token
     const accessToken = await getAccessToken();

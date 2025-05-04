@@ -45,33 +45,59 @@ export function CategoryFilterBar({
   const { colors } = useTheme();
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [newCategory, setNewCategory] = React.useState('');
+  const [localCategories, setLocalCategories] = React.useState<string[]>(categories);
 
   // Ensure "All" category is always present
   const allCategories = React.useMemo(() => {
-    if (!categories.includes(ALL_CATEGORY)) {
-      return [ALL_CATEGORY, ...categories];
+    if (!localCategories.includes(ALL_CATEGORY)) {
+      return [ALL_CATEGORY, ...localCategories];
     }
-    return categories;
-  }, [categories]);
+    return localCategories;
+  }, [localCategories]);
 
-  // Load categories from storage on mount
+  // Load categories from storage on mount and when categories prop changes
   React.useEffect(() => {
     const loadCategories = async () => {
       try {
         const storedCategories = await storageConfig.getItem(STORAGE_KEY);
-        if (storedCategories && onCategoriesChange) {
+        if (storedCategories) {
           // Ensure "All" category is included in stored categories
           const categoriesWithAll = storedCategories.includes(ALL_CATEGORY) 
             ? storedCategories 
             : [ALL_CATEGORY, ...storedCategories];
-          onCategoriesChange(categoriesWithAll);
+          
+          setLocalCategories(categoriesWithAll);
+          if (onCategoriesChange) {
+            onCategoriesChange(categoriesWithAll);
+          }
+        } else {
+          // If no stored categories, use default categories
+          const defaultCategories = [ALL_CATEGORY, 'Work', 'Finance', 'Promotions', 'Social', 'Spam'];
+          setLocalCategories(defaultCategories);
+          await storageConfig.setItem(STORAGE_KEY, defaultCategories);
+          if (onCategoriesChange) {
+            onCategoriesChange(defaultCategories);
+          }
         }
       } catch (error) {
         console.error('Error loading categories:', error);
+        // Fallback to default categories if there's an error
+        const defaultCategories = [ALL_CATEGORY, 'Work', 'Finance', 'Promotions', 'Social', 'Spam'];
+        setLocalCategories(defaultCategories);
+        if (onCategoriesChange) {
+          onCategoriesChange(defaultCategories);
+        }
       }
     };
     loadCategories();
   }, []);
+
+  // Update local categories when prop changes
+  React.useEffect(() => {
+    if (categories.length > 0) {
+      setLocalCategories(categories);
+    }
+  }, [categories]);
 
   const handleAddCategory = async () => {
     if (!newCategory.trim()) {
@@ -87,6 +113,7 @@ export function CategoryFilterBar({
     try {
       const updatedCategories = [...allCategories, newCategory.trim()];
       await storageConfig.setItem(STORAGE_KEY, updatedCategories);
+      setLocalCategories(updatedCategories);
       if (onCategoriesChange) {
         onCategoriesChange(updatedCategories);
       }
@@ -119,6 +146,7 @@ export function CategoryFilterBar({
             try {
               const updatedCategories = allCategories.filter(cat => cat !== categoryToDelete);
               await storageConfig.setItem(STORAGE_KEY, updatedCategories);
+              setLocalCategories(updatedCategories);
               if (onCategoriesChange) {
                 onCategoriesChange(updatedCategories);
               }

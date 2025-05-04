@@ -1,13 +1,6 @@
 import { create } from 'zustand';
-import { Email } from '../types/email';
+import { Email, EmailPriority } from '../types/email';
 import { loadCategories, loadLastSelectedCategory, saveLastSelectedCategory } from '../lib/storage/category-storage';
-
-// Define EmailPriority enum
-export enum EmailPriority {
-  HIGH = 'HIGH',
-  MEDIUM = 'MEDIUM',
-  LOW = 'LOW',
-}
 
 // Define EmailFilter type
 export type EmailFilter = {
@@ -92,9 +85,9 @@ export const useEmailStore = create<EmailStore>()((set, get) => ({
   selectedCategory: null,
   categories: [],
   priorityCount: {
-    [EmailPriority.HIGH]: 0,
-    [EmailPriority.MEDIUM]: 0,
-    [EmailPriority.LOW]: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
   },
 
   // Actions
@@ -209,12 +202,12 @@ export const useEmailStore = create<EmailStore>()((set, get) => ({
   
   sortEmails: () => {
     set((state) => {
-      const sortedEmails = [...state.emails].sort((a: Email, b: Email) => {
+      const sortedEmails = [...state.emails].sort((a, b) => {
         // Sort by priority (HIGH > MEDIUM > LOW)
         const priorityOrder: Record<EmailPriority, number> = {
-          [EmailPriority.HIGH]: 3,
-          [EmailPriority.MEDIUM]: 2,
-          [EmailPriority.LOW]: 1
+          high: 3,
+          medium: 2,
+          low: 1
         };
         
         const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];

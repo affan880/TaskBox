@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/navigation/app-navigator';
 import { useTheme } from '@/theme/theme-context';
 import * as DocumentPicker from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
@@ -32,6 +34,8 @@ import * as ImagePicker from 'react-native-image-picker';
 const TextInput = RNTextInput;
 const TouchableOpacity = RNTouchableOpacity;
 const ScrollView = RNScrollView;
+
+type ComposeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 /**
  * Normalizes a file URI to ensure it's correctly formatted for React Native Blob Util
@@ -125,7 +129,7 @@ const imagePickerConfig = {
 };
 
 export function ComposeScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ComposeScreenNavigationProp>();
   const { colors, isDark } = useTheme();
   const { sendEmail } = useGmail();
   
