@@ -7,6 +7,7 @@ import {
   Alert,
   Text,
   TouchableOpacity,
+  Modal,
 } from 'react-native';
 import { useEmailActions } from './hooks/use-email-actions';
 import { useAutoCategorization } from './hooks/use-auto-categorization';
@@ -25,6 +26,8 @@ import {
   LabelModal,
   SnoozeModal,
   CategoryFilterBar,
+  ChatModal,
+  FloatingChatButton,
 } from './components';
 import { useSharedValue } from 'react-native-reanimated';
 import { useEmailStore } from '@/store/email-store';
@@ -114,6 +117,10 @@ export function EmailScreen() {
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [isSmartSorting, setIsSmartSorting] = useState(false);
+  const [showSortCompleteModal, setShowSortCompleteModal] = useState(false);
+  const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
   // Handle category changes
   const handleCategoriesChange = useCallback(async (newCategories: string[]) => {
@@ -141,7 +148,7 @@ export function EmailScreen() {
     hasInitializedFromCache
   } = useAutoCategorization(emails, {
     enabled: true,
-    categories: emailCategories.filter(cat => cat !== INITIAL_CATEGORY), // Filter out 'All' category
+    categories: emailCategories.length > 0 ? emailCategories.filter(cat => cat !== INITIAL_CATEGORY) : ['Work', 'Finance', 'Promotions', 'Social', 'Spam'], // Provide default categories if none exist
     pollingInterval: 60000, // 1 minute
     minimumTimeBetweenAnalysis: 300000, // 5 minutes
   });
@@ -153,31 +160,77 @@ export function EmailScreen() {
   const screenTitle = useMemo(() => getCurrentScreenTitle(currentScreenName), [currentScreenName]);
 
   // Replace direct API calls with cached categorization
-  const handleSmartSort = React.useCallback(() => {
-    forceAnalysis();
-    sortEmails();
-  }, [sortEmails]);
+  const handleSmartSort = React.useCallback(async () => {
+    try {
+      setIsSmartSorting(true);
+      await forceAnalysis();
+      await sortEmails();
+      
+      // Find the category with the most emails after sorting
+      const categoryWithMostEmails = Object.entries(categoryCounts || {})
+        .reduce((max, [category, count]) => {
+          const currentCount = count || 0;
+          return currentCount > (max.count || 0) 
+            ? { category, count: currentCount }
+            : max;
+        }, { category: null as string | null, count: 0 });
+
+      if (categoryWithMostEmails.category && categoryWithMostEmails.category !== selectedCategory) {
+        setSuggestedCategory(categoryWithMostEmails.category);
+        setShowSortCompleteModal(true);
+      }
+    } catch (error) {
+      console.error('Error during smart sort:', error);
+      Alert.alert('Error', 'Failed to sort emails. Please try again.');
+    } finally {
+      setIsSmartSorting(false);
+    }
+  }, [sortEmails, forceAnalysis, categoryCounts, selectedCategory]);
+
+  // Add handler for category switch
+  const handleSwitchCategory = useCallback(() => {
+    if (suggestedCategory) {
+      setSelectedCategory(suggestedCategory);
+      setShowSortCompleteModal(false);
+      setSuggestedCategory(null);
+    }
+  }, [suggestedCategory]);
 
   // Helper function to get emails for a specific category
   const getEmailsForCategory = useCallback((categoryName: string): EmailData[] => {
-    // For 'All' category or when search is active, use the original emails array
-    if (categoryName === 'All' || searchQuery.trim().length > 0) {
+    // For 'All' category, return all emails regardless of search state
+    if (categoryName.toLowerCase() === 'all') {
       return emails;
+    }
+    
+    // If search is active, return search results
+    if (searchQuery.trim().length > 0) {
+      return searchResults || [];
     }
     
     // If we have categorized emails, use those for specific categories
     if (categorizedEmails) {
-      // Return emails for the specified category, or empty array if not found
-      return categorizedEmails[categoryName] || [];
+      // Find the actual category key by case-insensitive comparison
+      const actualCategoryKey = Object.keys(categorizedEmails).find(
+        key => key.toLowerCase() === categoryName.toLowerCase()
+      );
+      
+      if (actualCategoryKey) {
+        const categoryEmails = categorizedEmails[actualCategoryKey];
+        console.log('Category:', categoryName, 'Actual Key:', actualCategoryKey, 'Emails:', categoryEmails?.length || 0);
+        return categoryEmails || [];
+      }
     }
     
-    // No categorized emails available, fallback to empty array for non-All categories
+    // No categorized emails available, return empty array for non-All categories
     return [];
-  }, [categorizedEmails, emails, searchQuery]);
+  }, [categorizedEmails, emails, searchQuery, searchResults]);
 
   // Get filtered emails based on selected category
   const filteredEmails = useMemo(() => {
-    return getEmailsForCategory(selectedCategory);
+    const result = getEmailsForCategory(selectedCategory);
+    console.log('Selected Category:', selectedCategory, 'Filtered Emails:', result.length);
+    return result;
   }, [getEmailsForCategory, selectedCategory]);
 
   // Define toggleEmailSelection first
@@ -348,91 +401,42 @@ export function EmailScreen() {
 
   return (
     <BottomSheetModalProvider>
-      <View style={[styles.container, { backgroundColor: colors.background?.secondary ?? '#f7f8fa' }]}>
-        <EmailHeader 
-          insets={insets} 
+      <View style={[styles.container, { backgroundColor: colors.background?.primary }]}>
+        <EmailHeader
+          insets={insets}
           screenTitle={screenTitle}
           searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          onSearchSubmit={handleSearchSubmit}
-          onClearSearch={handleClearSearch}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={triggerImmediateSearch}
+          onClearSearch={clearSearch}
           onSmartSort={handleSmartSort}
+          isSmartSorting={isSmartSorting}
         />
-        
-        {/* Enhanced CategoryFilterBar with counts */}
-        <CategoryFilterBar 
+        <CategoryFilterBar
           categories={emailCategories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           categoryCounts={categoryCounts}
           isAnalyzing={isAnalyzing}
-          isFirstLoad={!initialLoadComplete && !hasInitializedFromCache}
+          isFirstLoad={!hasInitializedFromCache}
           onCategoriesChange={handleCategoriesChange}
         />
-
-        {/* Action Bar for Multi-select Mode */}
-        {isMultiSelectMode && (
-          <View style={[styles.actionBar, { 
-            backgroundColor: colors.surface.primary,
-            borderBottomColor: colors.border.light,
-          }]}>
-            <View style={styles.actionBarLeft}>
-              <Text style={[styles.actionBarText, { color: colors.text.primary }]}>
-                {selectedEmails.length} selected
-              </Text>
-            </View>
-            <View style={styles.actionBarRight}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => handleMarkAsRead(selectedEmails)}
-              >
-                <Icon name="email-check" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => handleMarkAsUnread(selectedEmails)}
-              >
-                <Icon name="email-outline" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={() => handleDelete(selectedEmails)}
-              >
-                <Icon name="delete" size={24} color={colors.status.error} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={handleCloseMultiSelect}
-              >
-                <Icon name="close" size={24} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Simplified EmailList rendering logic */}
         <EmailList
-          // Pass the correctly determined list and loading state
-          emails={submittedSearchQuery ? searchResults : filteredEmails}
-          isLoading={isSearching || (isLoading && !hasInitializedFromCache)}
-          
-          // Pass other props based on context (search vs normal)
+          emails={filteredEmails}
+          isLoading={isLoading}
           refreshing={isRefreshing}
           handleRefresh={handleRefresh}
-          isLoadingMore={isLoadingMore}
-          handleLoadMore={handleLoadMore}
-          initialLoadComplete={initialLoadComplete || hasInitializedFromCache}
-
-          // Common props
           handleOpenEmail={handleOpenEmail}
           handleLongPress={handleLongPress}
           selectedEmails={selectedEmails}
           isMultiSelectMode={isMultiSelectMode}
-          selectedCategory={selectedCategory} 
-          onSmartSort={handleSmartSort} 
-          isAnalyzing={isAnalyzing} 
-          // Add searchQuery to EmailList to handle "No results" message
-          searchQuery={submittedSearchQuery}
+          isLoadingMore={isLoadingMore}
+          initialLoadComplete={hasInitializedFromCache}
+          handleLoadMore={handleLoadMore}
+          selectedCategory={selectedCategory}
+          onSmartSort={handleSmartSort}
+          isAnalyzing={isAnalyzing}
+          searchQuery={searchQuery}
           onMarkAsRead={handleMarkAsRead}
           onMarkAsUnread={handleMarkAsUnread}
           onDelete={handleDelete}
@@ -440,14 +444,15 @@ export function EmailScreen() {
           onToggleRead={handleToggleRead}
           autoCategorizationEnabled={true}
         />
-        
-        {/* Modals */}
+        {/* <ComposeButton 
+          onPress={() => navigation.navigate('Compose')} 
+          composeTranslateY={useSharedValue(0)}
+        /> */}
         <LabelModal
           visible={showLabelModal}
           onClose={() => setShowLabelModal(false)}
           onSelectLabel={handleApplyLabel}
         />
-        
         <SnoozeModal
           visible={showSnoozeModal}
           onClose={() => setShowSnoozeModal(false)}
@@ -457,6 +462,62 @@ export function EmailScreen() {
             }
           }}
         />
+        <ChatModal
+          visible={showChatModal}
+          onClose={() => setShowChatModal(false)}
+          onAction={(action) => {
+            // Handle AI assistant actions
+            console.log('AI Action:', action);
+          }}
+        />
+        <FloatingChatButton
+          onPress={() => setShowChatModal(true)}
+          visible={selectedEmails.length > 0}
+        />
+
+        {/* Add Sort Complete Modal */}
+
+        {
+          showSortCompleteModal && (
+        <View style={{width: '100%', height: '100%', position: 'absolute'}}>
+          <Modal
+          visible={showSortCompleteModal}
+          onRequestClose={() => setShowSortCompleteModal(false)}
+          transparent
+          animationType="fade"
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSortCompleteModal(false)}
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
+              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+                Smart Sort Complete
+              </Text>
+              <Text style={[styles.modalText, { color: colors.text.secondary }]}>
+                Most of your emails have been categorized as "{suggestedCategory}". Would you like to switch to this category?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.brand.primary }]}
+                  onPress={handleSwitchCategory}
+                >
+                  <Text style={styles.modalButtonText}>Switch Category</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.background.secondary }]}
+                  onPress={() => setShowSortCompleteModal(false)}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.text.primary }]}>Stay Here</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+        </View>
+          )
+        }
       </View>
     </BottomSheetModalProvider>
   );
@@ -490,5 +551,45 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
     marginLeft: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

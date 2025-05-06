@@ -18,6 +18,7 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 // Ignore specific warnings
 LogBox.ignoreLogs([
@@ -96,19 +97,20 @@ export default function App() {
   }, []);
 
   return (
-    // Wrap the entire app content with GestureHandlerRootView
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <AuthProvider>
-          <SafeAreaProvider>
-            <ThemeProvider>
-              <StatusBar barStyle="dark-content" />
-              <AppNavigator />
-              <Toast />
-            </ThemeProvider>
-          </SafeAreaProvider>
-        </AuthProvider>
-      </ErrorBoundary>
-    </GestureHandlerRootView>
+    <BottomSheetModalProvider>
+      {/* <GestureHandlerRootView style={{ flex: 1 }}> */}
+        <ErrorBoundary>
+          <AuthProvider>
+            <SafeAreaProvider>
+              <ThemeProvider>
+                <StatusBar barStyle="dark-content" />
+                <AppNavigator />
+                <Toast />
+              </ThemeProvider>
+            </SafeAreaProvider>
+          </AuthProvider>
+        </ErrorBoundary>
+      {/* </GestureHandlerRootView> */}
+    </BottomSheetModalProvider>
   );
 }

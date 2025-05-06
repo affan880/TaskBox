@@ -4,12 +4,10 @@ import {
   Text, 
   TouchableOpacity, 
   Modal, 
-  Pressable, 
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  Dimensions,
   TextInput,
   ActivityIndicator,
   StatusBar,
@@ -17,12 +15,9 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData
 } from 'react-native';
-import { ScrollView as GestureHandlerScrollView } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { streamGenerateEmailWithRevisionsSSE, EmailRevisionRequest, EmailRevisionChunk } from '@/api/email-analysis-api';
-import { Button } from '@/components/ui/button';
 import { BASE_URL } from '@/lib/env/api-config';
 
 // Add tone options
@@ -660,15 +655,17 @@ export function SuggestionModal({
     },
     chatInput: {
       flex: 1,
+      minHeight: 40,
       maxHeight: 100,
-      backgroundColor: '#F8F9FA',
+      backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
       borderRadius: 20,
       paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingVertical: 10,
       marginRight: 8,
-      fontSize: 16,
+      fontSize: 15,
       color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.light,
     },
     sendButton: {
       backgroundColor: colors.brand.primary,
@@ -814,7 +811,7 @@ export function SuggestionModal({
               <View style={[styles.inputContainer, {
                 backgroundColor: colors.background.primary,
                 borderTopColor: colors.border.light,
-                paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 16) : 16
+                paddingBottom: Platform.OS === 'ios' ? 15 : 16
               }]}>
                 <View style={[styles.chatInputContainer, { backgroundColor: colors.background.primary }]}>
                   <TextInput

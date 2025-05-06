@@ -91,7 +91,5 @@ firebase-debug.*.log
 .env.development
 .env.test
 .env.production
-<<<<<<< HEAD
-=======
 GoogleService-Info.plist
->>>>>>> a9fc4e08b4f919cea509804cb8bc2a30a54fc1b5
+.cursorrules

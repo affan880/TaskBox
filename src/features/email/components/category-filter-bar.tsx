@@ -7,14 +7,17 @@ import {
   StyleSheet, 
   TextStyle,
   ActivityIndicator,
-  Modal,
   TextInput,
   Alert,
-  Pressable
+  Pressable,
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import { useTheme } from 'src/theme/theme-context';
 import { storageConfig } from '@/lib/storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Modal from 'react-native-modal';
+import { useCallback } from 'react';
 
 // Helper type for fontWeight
 type FontWeight = TextStyle['fontWeight'];
@@ -47,20 +50,36 @@ export function CategoryFilterBar({
   const [newCategory, setNewCategory] = React.useState('');
   const [localCategories, setLocalCategories] = React.useState<string[]>(categories);
 
-  // Ensure "All" category is always present
+  // Ensure "All" category is always present and categories are properly initialized
   const allCategories = React.useMemo(() => {
-    if (!localCategories.includes(ALL_CATEGORY)) {
-      return [ALL_CATEGORY, ...localCategories];
+    const baseCategories = localCategories.length > 0 ? localCategories : ['All'];
+    if (!baseCategories.includes(ALL_CATEGORY)) {
+      return [ALL_CATEGORY, ...baseCategories];
     }
-    return localCategories;
+    return baseCategories;
   }, [localCategories]);
+
+  // Sort categories by email count
+  const sortedCategories = React.useMemo(() => {
+    return [...allCategories].sort((a, b) => {
+      // Always keep "All" category first
+      if (a === ALL_CATEGORY) return -1;
+      if (b === ALL_CATEGORY) return 1;
+      
+      const countA = categoryCounts?.[a] || 0;
+      const countB = categoryCounts?.[b] || 0;
+      
+      return countB - countA;
+    });
+  }, [allCategories, categoryCounts]);
 
   // Load categories from storage on mount and when categories prop changes
   React.useEffect(() => {
     const loadCategories = async () => {
       try {
         const storedCategories = await storageConfig.getItem(STORAGE_KEY);
-        if (storedCategories) {
+        console.log('storedCategories', storedCategories);
+        if (storedCategories && storedCategories.length > 0) {
           // Ensure "All" category is included in stored categories
           const categoriesWithAll = storedCategories.includes(ALL_CATEGORY) 
             ? storedCategories 
@@ -94,7 +113,7 @@ export function CategoryFilterBar({
 
   // Update local categories when prop changes
   React.useEffect(() => {
-    if (categories.length > 0) {
+    if (categories && categories.length > 0) {
       setLocalCategories(categories);
     }
   }, [categories]);
@@ -125,44 +144,16 @@ export function CategoryFilterBar({
     }
   };
 
-  const handleDeleteCategory = async (categoryToDelete: string) => {
-    if (categoryToDelete === ALL_CATEGORY) {
-      Alert.alert('Error', 'Cannot delete the "All" category');
-      return;
-    }
-
-    Alert.alert(
-      'Delete Category',
-      `Are you sure you want to delete the "${categoryToDelete}" category?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const updatedCategories = allCategories.filter(cat => cat !== categoryToDelete);
-              await storageConfig.setItem(STORAGE_KEY, updatedCategories);
-              setLocalCategories(updatedCategories);
-              if (onCategoriesChange) {
-                onCategoriesChange(updatedCategories);
-              }
-              // If the deleted category was selected, switch to "All"
-              if (selectedCategory === categoryToDelete) {
-                onSelectCategory(ALL_CATEGORY);
-              }
-            } catch (error) {
-              console.error('Error deleting category:', error);
-              Alert.alert('Error', 'Failed to delete category');
-            }
-          },
-        },
-      ]
+  const getCategoryCount = useCallback((category: string) => {
+    if (!categoryCounts) return 0;
+    
+    // Find the actual category key by case-insensitive comparison
+    const actualCategoryKey = Object.keys(categoryCounts).find(
+      key => key.toLowerCase() === category.toLowerCase()
     );
-  };
+    
+    return actualCategoryKey ? categoryCounts[actualCategoryKey] : 0;
+  }, [categoryCounts]);
 
   // Define dynamic styles based on theme colors
   const dynamicStyles = StyleSheet.create({
@@ -255,16 +246,32 @@ export function CategoryFilterBar({
     },
     modalContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
     },
     modalContent: {
-      backgroundColor: colors.background?.primary ?? '#ffffff',
-      borderRadius: 12,
+      backgroundColor: '#fff',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
       padding: 20,
-      width: '80%',
-      maxWidth: 400,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+      ...Platform.select({
+        android: {
+          elevation: 5,
+          // height: 260,
+          width: '92%',
+          alignSelf: 'center',
+        },
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          maxHeight: '70%',
+        },
+      }),
     },
     modalTitle: {
       fontSize: 18,
@@ -279,6 +286,7 @@ export function CategoryFilterBar({
       padding: 12,
       marginBottom: 16,
       color: colors.text?.primary,
+      backgroundColor: colors.background?.primary ?? '#ffffff',
     },
     modalButtons: {
       flexDirection: 'row',
@@ -289,6 +297,9 @@ export function CategoryFilterBar({
       paddingVertical: 8,
       paddingHorizontal: 16,
       borderRadius: 8,
+      minWidth: 80,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     cancelButton: {
       backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
@@ -315,10 +326,11 @@ export function CategoryFilterBar({
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={dynamicStyles.categoryList}
+          keyboardShouldPersistTaps='always'
         >
-          {allCategories.map((category) => {
+          {sortedCategories.map((category) => {
             const isActive = selectedCategory === category;
-            const count = categoryCounts?.[category] || 0;
+            const count = getCategoryCount(category);
             const showCount = category !== ALL_CATEGORY && count > 0;
             const isCategoryAnalyzing = isAnalyzing && selectedCategory === category;
             const isDeletable = category !== ALL_CATEGORY;
@@ -327,7 +339,6 @@ export function CategoryFilterBar({
               <View key={category} style={dynamicStyles.categoryWrapper}>
                 <Pressable
                   onPress={() => onSelectCategory(category)}
-                  onLongPress={() => isDeletable && handleDeleteCategory(category)}
                   style={[
                     dynamicStyles.categoryButton,
                     isActive ? dynamicStyles.categoryButtonActive : dynamicStyles.categoryButtonInactive,
@@ -376,14 +387,24 @@ export function CategoryFilterBar({
         </ScrollView>
       </View>
 
-      {/* Add Category Modal */}
+      {/* Add Category Modal using react-native-modal */} 
+      {
+        showAddModal && (
+          <View style={{ width: '100%', height: '100%' }}>
       <Modal
-        visible={showAddModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddModal(false)}
+        isVisible={showAddModal}
+        onBackdropPress={() => setShowAddModal(false)}
+        onBackButtonPress={() => setShowAddModal(false)}
+        useNativeDriver
+        hideModalContentWhileAnimating
+        avoidKeyboard
+        style={{ justifyContent: 'flex-end', margin: 0 }}
+        backdropOpacity={0.5}
       >
-        <View style={dynamicStyles.modalContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={dynamicStyles.modalContainer}
+        >
           <View style={dynamicStyles.modalContent}>
             <Text style={dynamicStyles.modalTitle}>Add New Category</Text>
             <TextInput
@@ -393,6 +414,11 @@ export function CategoryFilterBar({
               placeholder="Enter category name"
               placeholderTextColor={colors.text?.secondary ?? '#666666'}
               autoFocus
+              selectTextOnFocus
+              showSoftInputOnFocus
+              accessibilityLabel="Category name input"
+              returnKeyType="done"
+              onSubmitEditing={handleAddCategory}
             />
             <View style={dynamicStyles.modalButtons}>
               <TouchableOpacity
@@ -401,19 +427,28 @@ export function CategoryFilterBar({
                   setShowAddModal(false);
                   setNewCategory('');
                 }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel add category"
               >
                 <Text style={[dynamicStyles.buttonText, dynamicStyles.cancelButtonText]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[dynamicStyles.modalButton, dynamicStyles.addButton]}
                 onPress={handleAddCategory}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Add category"
               >
                 <Text style={[dynamicStyles.buttonText, dynamicStyles.addButtonText]}>Add</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
+      </View>
+        )
+      }
     </>
   );
 }

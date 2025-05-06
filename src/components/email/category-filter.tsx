@@ -15,8 +15,9 @@ export function CategoryFilter({ onSelectCategory }: CategoryFilterProps) {
   
   const handleSelectCategory = React.useCallback(
     async (category: string) => {
-      await setSelectedCategory(category);
-      onSelectCategory?.(category);
+      const normalizedCategory = category.toLowerCase();
+      await setSelectedCategory(normalizedCategory);
+      onSelectCategory?.(normalizedCategory);
     },
     [setSelectedCategory, onSelectCategory]
   );
@@ -38,7 +39,7 @@ export function CategoryFilter({ onSelectCategory }: CategoryFilterProps) {
     >
       <CategoryButton 
         label="All"
-        isSelected={selectedCategory === 'All'}
+        isSelected={(selectedCategory?.toLowerCase() ?? 'all') === 'all'}
         onPress={() => handleSelectCategory('All')}
       />
       
@@ -46,7 +47,7 @@ export function CategoryFilter({ onSelectCategory }: CategoryFilterProps) {
         <CategoryButton
           key={category}
           label={category}
-          isSelected={selectedCategory === category}
+          isSelected={(selectedCategory?.toLowerCase() ?? '') === category.toLowerCase()}
           onPress={() => handleSelectCategory(category)}
         />
       ))}

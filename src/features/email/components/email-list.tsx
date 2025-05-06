@@ -465,7 +465,6 @@ const styles = StyleSheet.create({
     right: 0,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    zIndex: 10,
   },
   actionBarLeft: {
     flexDirection: 'row',

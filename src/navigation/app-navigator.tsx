@@ -1,15 +1,14 @@
 import * as React from 'react';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-// import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // No longer needed
 import PagerView from 'react-native-pager-view';
 import { 
   ActivityIndicator, 
   View, 
-  StyleSheet, 
-  Dimensions, 
+  StyleSheet,
   TouchableOpacity,
   Text,
+  Keyboard,
   Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use MaterialCommunityIcons for more variety
@@ -28,10 +27,11 @@ import { EmailDetailScreen } from 'src/features/email/email-detail-screen';
 import { AllTasksScreen } from 'src/features/tasks/all-tasks-screen';
 import { TaskCreationScreen } from '@/features/tasks/task-creation-screen';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
 
 // Define navigator types
 export type RootStackParamList = {
-  MainTabs: undefined;
+  MainTabs: { initialScreen?: 'Email' | 'Compose' | 'Home' | 'Profile' };
   Auth: undefined;
   ProjectDetail: undefined;
   TaskList: undefined;
@@ -128,10 +128,36 @@ type CustomTabBarProps = {
 const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabBarProps) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  // Don't render the tab bar if keyboard is visible on Android
+  if (Platform.OS === 'android' && isKeyboardVisible) {
+    return null;
+  }
 
   const tabConfig: { [key: string]: { focusedIcon: string; unfocusedIcon: string; label?: string } } = {
     Email: { focusedIcon: 'email', unfocusedIcon: 'email-outline', label: 'Inbox' },
-    Compose: { focusedIcon: 'email-outline', unfocusedIcon: 'email-outline', label: 'Compose' },
+    Compose: { focusedIcon: 'pencil', unfocusedIcon: 'pencil-outline', label: 'Compose' },
     Home: { focusedIcon: 'format-list-checks', unfocusedIcon: 'format-list-bulleted', label: 'Tasks' },
     Profile: { focusedIcon: 'account-circle', unfocusedIcon: 'account-circle-outline', label: 'Profile' },
   };
@@ -170,7 +196,8 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
 export const MainTabNavigator = React.memo(() => {
   const [activeIndex, setActiveIndex] = React.useState(0);
   const pagerRef = React.useRef<PagerView>(null);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'MainTabs'>>();
+  const initialScreen = route.params?.initialScreen;
 
   // Define the order and components for the pager
   const routes = [
@@ -179,6 +206,17 @@ export const MainTabNavigator = React.memo(() => {
     { key: 'tasks', name: 'Home', component: TaskScreen },
     { key: 'profile', name: 'Profile', component: ProfileNavigator },
   ];
+
+  // Set initial page based on navigation params
+  React.useEffect(() => {
+    if (initialScreen) {
+      const index = routes.findIndex(r => r.name === initialScreen);
+      if (index !== -1) {
+        pagerRef.current?.setPage(index);
+        setActiveIndex(index);
+      }
+    }
+  }, [initialScreen]);
 
   // Navigate PagerView when a tab is pressed
   const handleTabPress = React.useCallback((index: number) => {
@@ -342,7 +380,6 @@ export const AppNavigator = React.memo(({ forceAuthScreen, onNavigated }: { forc
         fontFamily: 'System',
         fontWeight: '100',
       },
-      // Add the missing required font styles
       bold: {
         fontFamily: 'System',
         fontWeight: '700',

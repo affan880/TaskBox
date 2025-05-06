@@ -12,6 +12,8 @@ import {
   Animated as RNAnimated,
   Alert,
   Linking,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -24,6 +26,8 @@ import { useGmail } from '@/hooks/use-gmail';
 import { useEmailStore } from '@/features/email/store/email-store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { LinearGradient } from 'react-native-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
 
 // Components
 import { ErrorBoundary } from '../../components/ui/error-boundary';
@@ -36,7 +40,7 @@ import { EmailReplyActions } from './components/email-reply-actions';
 import { EmailAttachments } from './components/email-attachments';
 import {
   SnoozeModal,
-  ComposeModal,
+  // ComposeModal,
   ScheduleMeetingModal,
   SetReminderModal,
   CreateTaskModal
@@ -245,6 +249,242 @@ interface SnoozeModalProps {
   onSnooze: (date: Date) => void;
 }
 
+const { width } = Dimensions.get('window');
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  container: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  header: {
+    height: Platform.OS === 'ios' ? 100 : 76,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingTop: Platform.OS === 'ios' ? 44 : 0,
+  },
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+    paddingHorizontal: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  headerActionIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#FFFFFF',
+  },
+  floatingActionButton: {
+    position: 'absolute',
+    bottom: -22,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 8,
+  },
+  emailCard: {
+    margin: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    paddingBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  emailTextContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  plainTextParagraph: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+    letterSpacing: 0.2,
+  },
+  plainTextLine: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  paragraph: {
+    marginBottom: 16,
+  },
+  bottomSpacer: {
+    height: 60, // Add space for the reply actions
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 10,
+  },
+  errorMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  hyperlink: {
+    fontWeight: 'bold',
+  },
+  summaryButton: {
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  magicButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#9370DB',
+  },
+  magicButtonText: {
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 12,
+  },
+  summaryIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(26, 115, 232, 0.8)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryIndicatorText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  viewOriginalButton: {
+    marginLeft: 10,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  viewOriginalButtonText: {
+    color: '#1A73E8',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  analyzeButton: {
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#1A73E8',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
+  },
+  analyzeButtonText: {
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  contentContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  replyActionsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+    paddingBottom: Platform.OS === 'ios' ? 8 : 0,
+  },
+});
+
 export function EmailDetailScreen() {
   try {
     const navigation = useNavigation();
@@ -308,13 +548,6 @@ export function EmailDetailScreen() {
     const [showLabelModal, setShowLabelModal] = useState(false);
     const [composeMode, setComposeMode] = useState<ComposeMode>('new');
     
-    // Effect to reset summary state when the email changes
-    useEffect(() => {
-      console.log(`[EmailDetailScreen] Email changed to ${currentEmail?.id}, resetting summary state.`);
-      setIsAnalyzing(false); // Stop any lingering loader from previous email
-      setSummaryHtml(null); // Clear any previous summary
-    }, [currentEmail?.id]); // Dependency: Run only when email ID changes
-
     // Extract sender information
     const senderName = currentEmail
       ? currentEmail.from.includes('<')
@@ -394,9 +627,9 @@ export function EmailDetailScreen() {
       // }
     };
     
-    useEffect(() => {
-      analyzeEmailIntent();
-    }, []); // Removed showIntentToast from dependencies
+    // useEffect(() => {
+    //   analyzeEmailIntent();
+    // }, []); // Removed showIntentToast from dependencies
 
     // --- Other Actions ---
     const handleStarToggle = async () => {
@@ -490,12 +723,7 @@ export function EmailDetailScreen() {
         
         if (cachedSummary) {
           console.log('Using cached summary for email:', emailId);
-          const formattedHtml = cachedSummary.html || `<html><body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; padding: 15px;">
-            <h2 style="color: #1A73E8;">Email Summary</h2>
-            <div>${cachedSummary.summary.replace(/\n/g, '<br>')}</div>
-          </body></html>`;
-          
-          setSummaryHtml(formattedHtml);
+          setSummaryHtml(cachedSummary.html || cachedSummary.summary);
           setIsAnalyzing(false);
         } else {
           // No cached summary, call the API
@@ -507,13 +735,7 @@ export function EmailDetailScreen() {
             if (response && response.summary) {
               // Cache the summary for future use
               setSummary(emailId, response.summary, response.html);
-              
-              const formattedHtml = response.html || `<html><body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; padding: 15px;">
-                <h2 style="color: #1A73E8;">Email Summary</h2>
-                <div>${response.summary.replace(/\n/g, '<br>')}</div>
-              </body></html>`;
-              
-              setSummaryHtml(formattedHtml);
+              setSummaryHtml(response.summary);
             } else {
               throw new Error('Invalid API response');
             }
@@ -534,8 +756,13 @@ export function EmailDetailScreen() {
                   text: 'Use Preview', 
                   onPress: () => {
                     const localSummary = createLocalSummary(currentEmail?.body || '');
-                    setSummary(emailId, `[LOCAL PREVIEW] ${localSummary.summary}`, localSummary.html);
-                    setSummaryHtml(localSummary.html || null);
+                    setSummary(emailId, localSummary.summary, localSummary.html);
+                    // Force a re-render by setting to null first
+                    setSummaryHtml(null);
+                    // Use setTimeout to ensure the view updates properly
+                    setTimeout(() => {
+                      setSummaryHtml(localSummary.html || localSummary.summary);
+                    }, 0);
                     setIsAnalyzing(false);
                   }
                 }
@@ -547,9 +774,6 @@ export function EmailDetailScreen() {
         console.error('Error summarizing email:', error);
         Alert.alert('Error', 'Failed to analyze email. Please try again.');
       } finally {
-        // Always ensure the loader is turned off if this block is reached.
-        // This covers successful API calls and non-API errors.
-        // It's skipped if the API error Alert returns early.
         setIsAnalyzing(false);
       }
     };
@@ -747,209 +971,163 @@ export function EmailDetailScreen() {
                 />
                 
                 {/* Main Content */}
-                <ScrollView
-                  ref={scrollViewRef}
-                  style={[
-                    styles.scrollView, 
-                    {
-                      backgroundColor: gmailTheme.background,
-                      ...Platform.select({
-                        android: { elevation: 3 }
-                      })
-                    }
-                  ]}
-                  contentContainerStyle={[
-                    styles.scrollContent,
-                    {
-                      ...Platform.select({
-                        android: { paddingBottom: 20 }
-                      })
-                    }
-                  ]}
-                  onScroll={handleScroll}
-                  scrollEventThrottle={16}
-                >
-                  {/* Action Loading Indicator */}
-                  {isActionLoading && (
-                    <View style={styles.loadingOverlay}>
-                      <ActivityIndicator size="large" color={gmailTheme.primary} />
-                    </View>
-                  )}
-                  
-                  {/* Only show the email content if there's no error */}
-                  <>
-                    {/* Email Card - Gmail Style */}
-                    <RNAnimated.View style={[
-                      styles.emailCard,
+                <View style={styles.contentContainer}>
+                  <ScrollView
+                    ref={scrollViewRef}
+                    style={[
+                      styles.scrollView, 
                       {
-                        opacity: contentOpacity,
-                        transform: [{ translateY: contentTranslateY }],
-                        backgroundColor: gmailTheme.surface,
-                        shadowColor: isDark ? '#000000' : '#00000030',
+                        backgroundColor: gmailTheme.background,
                         ...Platform.select({
-                          android: { elevation: 4 }
+                          android: { elevation: 3 }
                         })
                       }
-                    ]}>
-                      {/* Email Labels - Replace with EmailLabelChip component */}
-                      {emailLabels.length > 0 && (
-                        <View style={styles.labelContainer}>
-                          <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-                            {emailLabels.map((label, index) => (
-                              <Fragment key={`label-${index}`}>
-                                <EmailLabelChip 
-                                  label={label}
-                                  gmailTheme={gmailTheme}
-                                />
-                              </Fragment>
-                            ))}
-                          </View>
-                          <TouchableOpacity
-                            style={[
-                              styles.analyzeButton,
-                              {
-                                backgroundColor: isDark ? '#1A73E8' : '#E8F0FE',
-                                borderColor: isDark ? '#8AB4F8' : '#1A73E8',
-                              },
-                            ]}
-                            onPress={summarizeEmail}
-                            disabled={isAnalyzing}
-                          >
-                            {isAnalyzing ? (
-                              <ActivityIndicator size="small" color={isDark ? '#FFFFFF' : '#1A73E8'} />
-                            ) : (
-                              <Text
-                                style={[
-                                  styles.analyzeButtonText,
-                                  { color: isDark ? '#FFFFFF' : '#1A73E8' },
-                                ]}
-                              >
-                                {summaryHtml ? '📄 Original' : '✨ Analyze'}
-                              </Text>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                      
-                      {/* Subject Line */}
-                      <EmailSubject
-                        subject={currentEmail?.subject || ''}
-                        isStarred={isStarred}
-                        isDemo={isDemoEmail(currentEmail)}
-                        gmailTheme={gmailTheme}
-                        onStarToggle={handleStarToggle}
-                      />
-                      
-                      {/* Sender Info - Gmail Style */}
-                      <EmailSenderInfo
-                        senderInitial={senderInitial}
-                        senderName={senderName}
-                        senderEmail={senderEmail}
-                        formattedDate={formattedDate}
-                        toRecipient={currentEmail?.to || 'me'}
-                        ccRecipients={currentEmail?.hasOwnProperty('cc') ? (currentEmail as any).cc : undefined}
-                        isExpanded={showFullHeader}
-                        onToggleExpand={() => setShowFullHeader(!showFullHeader)}
-                        gmailTheme={gmailTheme}
-                      />
-                      
-                      {/* Email Body - Gmail Style */}
-                      <View style={[{
-                        backgroundColor: gmailTheme.surface,
-                        borderWidth: 0,
-                        margin: 0,
-                        overflow: 'hidden',
-                        padding: 8,
-                        minHeight: 100,
-                        flex: 0,
-                      }]}>
-                        {summaryHtml && (
-                          <View style={[styles.summaryIndicator, { zIndex: 1 }]}>
-                            <Text style={styles.summaryIndicatorText}>AI Summary</Text>
+                    ]}
+                    contentContainerStyle={[
+                      styles.scrollContent,
+                      {
+                        ...Platform.select({
+                          android: { paddingBottom: 20 }
+                        })
+                      }
+                    ]}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                  >
+                    {/* Action Loading Indicator */}
+                    {isActionLoading && (
+                      <View style={styles.loadingOverlay}>
+                        <ActivityIndicator size="large" color={gmailTheme.primary} />
+                      </View>
+                    )}
+                    
+                    {/* Only show the email content if there's no error */}
+                    <>
+                      {/* Email Card - Gmail Style */}
+                      <RNAnimated.View style={[
+                        styles.emailCard,
+                        {
+                          opacity: contentOpacity,
+                          transform: [{ translateY: contentTranslateY }],
+                          backgroundColor: gmailTheme.surface,
+                          shadowColor: isDark ? '#000000' : '#00000030',
+                          ...Platform.select({
+                            android: { elevation: 4 }
+                          })
+                        }
+                      ]}>
+                        {/* Email Labels */}
+                        {emailLabels.length > 0 && (
+                          <View style={styles.labelContainer}>
+                            <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                              {emailLabels.map((label, index) => (
+                                <Fragment key={`label-${index}`}>
+                                  <EmailLabelChip 
+                                    label={label}
+                                    gmailTheme={gmailTheme}
+                                  />
+                                </Fragment>
+                              ))}
+                            </View>
                             <TouchableOpacity
-                              style={styles.viewOriginalButton}
-                              onPress={() => setSummaryHtml(null)}
+                              style={[
+                                styles.analyzeButton,
+                                {
+                                  backgroundColor: isDark ? '#1A73E8' : '#E8F0FE',
+                                  borderColor: isDark ? '#8AB4F8' : '#1A73E8',
+                                },
+                              ]}
+                              onPress={summarizeEmail}
+                              disabled={isAnalyzing}
                             >
-                              <Text style={styles.viewOriginalButtonText}>View Original</Text>
+                              {isAnalyzing ? (
+                                <ActivityIndicator size="small" color={isDark ? '#FFFFFF' : '#1A73E8'} />
+                              ) : (
+                                <Text
+                                  style={[
+                                    styles.analyzeButtonText,
+                                    { color: isDark ? '#FFFFFF' : '#1A73E8' },
+                                  ]}
+                                >
+                                  {summaryHtml ? '📄 Original' : '✨ Analyze'}
+                                </Text>
+                              )}
                             </TouchableOpacity>
                           </View>
                         )}
-                        <AutoHeightWebView
-                          html={`
-                            <html>
-                              <head>
-                                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                                <style>
-                                  * { 
-                                    font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                                    line-height: 1.5;
-                                    font-size: 16px;
-                                  }
-                                  body {
-                                    margin: 0;
-                                    padding: 0;
-                                    min-height: auto !important;
-                                    height: auto !important;
-                                    background-color: ${gmailTheme.surface};
-                                    color: ${gmailTheme.text.primary};
-                                  }
-                                  div {
-                                    min-height: auto !important;
-                                    height: auto !important;
-                                  }
-                                  img {
-                                    max-width: 100%;
-                                    height: auto;
-                                  }
-                                  pre {
-                                    white-space: pre-wrap;
-                                    word-wrap: break-word;
-                                  }
-                                </style>
-                              </head>
-                              <body>
-                                ${summaryHtml || emailBody || '<div></div>'}
-                              </body>
-                            </html>
-                          `}
+                        
+                        {/* Subject Line */}
+                        <EmailSubject
+                          subject={currentEmail?.subject || ''}
+                          isStarred={isStarred}
+                          isDemo={isDemoEmail(currentEmail)}
+                          gmailTheme={gmailTheme}
+                          onStarToggle={handleStarToggle}
                         />
-                      </View>
-                      
-                      {/* Replace attachment section with EmailAttachments component */}
-                      {attachments.length > 0 && (
-                        <EmailAttachments
-                          attachments={attachments}
-                          messageId={currentEmail?.id || ''}
-                          downloadProgress={downloadProgress}
-                          onDownloadPress={handleDownloadAttachment}
+                        
+                        {/* Sender Info - Gmail Style */}
+                        <EmailSenderInfo
+                          senderInitial={senderInitial}
+                          senderName={senderName}
+                          senderEmail={senderEmail}
+                          formattedDate={formattedDate}
+                          toRecipient={currentEmail?.to || 'me'}
+                          ccRecipients={currentEmail?.hasOwnProperty('cc') ? (currentEmail as any).cc : undefined}
+                          isExpanded={showFullHeader}
+                          onToggleExpand={() => setShowFullHeader(!showFullHeader)}
                           gmailTheme={gmailTheme}
                         />
-                      )}
-                    </RNAnimated.View>
-                    
-                    {/* Replace Gmail-style Reply Section with EmailReplyActions component */}
+                        
+                        {/* Email Body - Gmail Style */}
+                        <View style={[{
+                          backgroundColor: gmailTheme.surface,
+                          borderWidth: 0,
+                          margin: 0,
+                          overflow: 'hidden',
+                          padding: 12,
+                          width: '100%',
+                        }]}>
+                          <AutoHeightWebView
+                            key={summaryHtml ? 'summary' : 'original'}
+                            html={summaryHtml || emailBody || '<div></div>'}
+                          />
+                        </View>
+                        
+                        {/* Attachments */}
+                        {attachments.length > 0 && (
+                          <EmailAttachments
+                            attachments={attachments}
+                            messageId={currentEmail?.id || ''}
+                            downloadProgress={downloadProgress}
+                            onDownloadPress={handleDownloadAttachment}
+                            gmailTheme={gmailTheme}
+                          />
+                        )}
+                      </RNAnimated.View>
+                      
+                      {/* Bottom spacer */}
+                      <View style={styles.bottomSpacer} />
+                    </>
+                  </ScrollView>
+
+                  {/* Reply Actions - Fixed at bottom */}
+                  <View style={styles.replyActionsContainer}>
                     <EmailReplyActions
                       isActionLoading={isActionLoading}
                       gmailTheme={gmailTheme}
                       email={currentEmail}
                       onReply={() => {
-                        // TODO: Implement reply functionality
                         console.log('Reply pressed');
                       }}
                       onReplyAll={() => {
-                        // TODO: Implement reply all functionality
                         console.log('Reply all pressed');
                       }}
                       onForward={() => {
-                        // TODO: Implement forward functionality
                         console.log('Forward pressed');
                       }}
                     />
-                    
-                    {/* Bottom spacer */}
-                    <View style={styles.bottomSpacer} />
-                  </>
-                </ScrollView>
+                  </View>
+                </View>
                 
                 {/* Render Modals */}
                 {currentEmail && (
@@ -960,18 +1138,16 @@ export function EmailDetailScreen() {
                   />
                 )}
                 
-                {/* Use the reverted ComposeModal */}
-                <ComposeModal
+                {/* <ComposeModal
                   visible={showComposeModal}
                   onClose={() => setShowComposeModal(false)}
                   onSend={handleSendEmail}
-                />
+                /> */}
                 
                 <ScheduleMeetingModal 
                   isVisible={showScheduleModal}
                   onClose={() => setShowScheduleModal(false)}
                   suggestedText={detectedIntentInfo?.suggestedAction?.text}
-                  // Add onSubmit prop later
                 />
                 
                 <SetReminderModal 
@@ -979,14 +1155,12 @@ export function EmailDetailScreen() {
                   onClose={() => setShowReminderModal(false)}
                   suggestedText={detectedIntentInfo?.suggestedAction?.text}
                   suggestedDate={detectedIntentInfo?.suggestedAction?.dueDate}
-                  // Add onSubmit prop later
                 />
                 
                 <CreateTaskModal 
                   isVisible={showTaskModal}
                   onClose={() => setShowTaskModal(false)}
                   suggestedText={detectedIntentInfo?.suggestedAction?.text}
-                  // Add onSubmit prop later
                 />
               </View>
             </SafeAreaView>
@@ -1017,161 +1191,3 @@ export function EmailDetailScreen() {
     );
   }
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  container: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  gmailHeader: {
-    height: 56,
-    borderBottomWidth: 1,
-    zIndex: 10,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: '100%',
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerIconButton: {
-    padding: 8,
-    marginLeft: 12,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 8,
-  },
-  emailCard: {
-    margin: 8,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    elevation: 2,
-    backgroundColor: '#FFFFFF',
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    paddingBottom: 0,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  emailTextContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  plainTextParagraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 16,
-    letterSpacing: 0.2,
-  },
-  plainTextLine: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  paragraph: {
-    marginBottom: 16,
-  },
-  bottomSpacer: {
-    height: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    zIndex: 10,
-  },
-  errorMessage: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  hyperlink: {
-    fontWeight: 'bold',
-  },
-  summaryButton: {
-    padding: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  magicButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#9370DB',
-  },
-  magicButtonText: {
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    fontSize: 12,
-  },
-  summaryIndicator: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(26, 115, 232, 0.8)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryIndicatorText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  viewOriginalButton: {
-    marginLeft: 10,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  viewOriginalButtonText: {
-    color: '#1A73E8',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  analyzeButton: {
-    padding: 10,
-    borderWidth: 2,
-    borderColor: '#1A73E8',
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  analyzeButtonText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-});

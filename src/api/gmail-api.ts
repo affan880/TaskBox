@@ -492,7 +492,8 @@ export async function sendEmail(
   to: string,
   subject: string,
   body: string,
-  attachments: EmailAttachment[] = []
+  attachments: EmailAttachment[] = [],
+  originalHtml?: string
 ) {
   try {
     const accessToken = await getAccessToken();
@@ -518,89 +519,36 @@ export async function sendEmail(
     ];
     
     // If we have attachments, create a multipart message
-    const multipartBoundary = `------MultipartBoundary${Date.now().toString(16)}`;
-    
     if (attachments.length > 0) {
+      const multipartBoundary = `------MultipartBoundary${Date.now().toString(16)}`;
       headers.push(`Content-Type: multipart/mixed; boundary="${multipartBoundary}"`);
-      messageParts.push(headers.join('\r\n') + '\r\n\r\n');
       
-      // Add the body part with proper content type
+      // Add the text/html part
       messageParts.push(
         `--${multipartBoundary}\r\n` +
-        'Content-Type: text/html; charset=UTF-8\r\n' +
-        'Content-Transfer-Encoding: 7bit\r\n\r\n' +
-        `${body}\r\n\r\n`
+        'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+        (originalHtml || body) + '\r\n'
       );
       
-      // Add each attachment
+      // Add attachments
       for (const attachment of attachments) {
-        try {
-          console.log(`[gmailApi:Email] Processing attachment: ${attachment.name} (${attachment.type})`);
-          
-          // Normalize the URI path for file system operations
-          const normalizedUri = normalizeFileUri(attachment.uri);
-          console.log(`[gmailApi:Email] Normalized URI: ${normalizedUri}`);
-          
-          // Check if the file exists
-          const fileExists = await RNBlobUtil.fs.exists(normalizedUri);
-          console.log(`[gmailApi:Email] File exists check: ${fileExists ? 'YES' : 'NO'}`);
-          
-          if (!fileExists) {
-            console.error(`[gmailApi:Email:Error] File does not exist: ${normalizedUri}`);
-            throw new Error(`Attachment file not found: ${attachment.name}`);
-          }
-          
-          try {
-            // Get file stats for logging
-            const stat = await RNBlobUtil.fs.stat(normalizedUri);
-            console.log(`[gmailApi:Email] File stats: size=${stat.size}, lastModified=${stat.lastModified}`);
-          } catch (statsError) {
-            console.warn(`[gmailApi:Email] Could not get file stats: ${statsError}`);
-          }
-          
-          console.log(`[gmailApi:Email] Reading file content...`);
-          
-          // Read the file content with error handling
-          let fileContent;
-          try {
-            fileContent = await RNBlobUtil.fs.readFile(normalizedUri, 'base64');
-          } catch (readError) {
-            console.error(`[gmailApi:Email:Error] Failed to read attachment file:`, readError);
-            throw new Error(`Failed to read attachment file: ${attachment.name}`);
-          }
-          
-          if (!fileContent || fileContent.length === 0) {
-            console.error(`[gmailApi:Email:Error] Empty file content for: ${attachment.name}`);
-            throw new Error(`Empty attachment file: ${attachment.name}`);
-          }
-          
-          console.log(`[gmailApi:Email] File read successfully, size: ${fileContent.length} bytes`);
-          
-          // Per Gmail API documentation, we need to ensure proper MIME type and encoding
-          const contentType = attachment.type || 'application/octet-stream';
-          
-          // Add attachment part with proper Content-Disposition and Content-Transfer-Encoding
-          messageParts.push(
-            `--${multipartBoundary}\r\n` +
-            `Content-Type: ${contentType}; name="${attachment.name}"\r\n` +
-            'Content-Transfer-Encoding: base64\r\n' +
-            `Content-Disposition: attachment; filename="${attachment.name}"\r\n\r\n` +
-            `${chunkString(fileContent, 76).join('\r\n')}\r\n\r\n`
-          );
-          
-          console.log(`[gmailApi:Email] Attachment part added successfully for: ${attachment.name}`);
-        } catch (attachmentError) {
-          console.error(`[gmailApi:Email:Error] Error processing attachment ${attachment.name}:`, attachmentError);
-          // Continue with other attachments instead of failing the whole email
-        }
+        const fileData = await RNBlobUtil.fs.readFile(attachment.uri, 'base64');
+        const attachmentBoundary = `------Attachment${Date.now().toString(16)}`;
+        
+        messageParts.push(
+          `--${multipartBoundary}\r\n` +
+          `Content-Type: ${attachment.type}; name="${attachment.name}"\r\n` +
+          'Content-Transfer-Encoding: base64\r\n' +
+          `Content-Disposition: attachment; filename="${attachment.name}"\r\n\r\n` +
+          fileData + '\r\n'
+        );
       }
       
-      // Close the multipart message with proper boundary termination
       messageParts.push(`--${multipartBoundary}--`);
     } else {
       // Simple email without attachments
       headers.push('Content-Type: text/html; charset=UTF-8');
-      messageParts.push(headers.join('\r\n') + '\r\n\r\n' + body);
+      messageParts.push(headers.join('\r\n') + '\r\n\r\n' + (originalHtml || body));
     }
     
     // Join all parts to create the raw message

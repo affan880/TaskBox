@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import { Text } from '@/components/ui';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import { useTheme } from 'src/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useState } from 'react';
 
 type Props = {
   insets: EdgeInsets;
@@ -13,6 +14,7 @@ type Props = {
   onSearchSubmit: () => void;
   onClearSearch: () => void;
   onSmartSort: () => void;
+  isSmartSorting?: boolean;
 };
 
 export function EmailHeader({
@@ -23,8 +25,10 @@ export function EmailHeader({
   onSearchSubmit,
   onClearSearch,
   onSmartSort,
-}: Props) {
+  isSmartSorting = false,
+}: Props): React.ReactElement {
   const { colors } = useTheme();
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   return (
     <View
@@ -64,16 +68,16 @@ export function EmailHeader({
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity 
-            style={styles.iconButton} 
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.brand.primary }]}
             onPress={onSmartSort}
-            activeOpacity={0.7}
+            disabled={isSmartSorting}
           >
-            <Image 
-              source={require('@/assets/images/feather.png')}
-              style={styles.featherIcon}
-              resizeMode="contain"
-            />
+            {isSmartSorting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Icon name="sort" size={20} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </View>

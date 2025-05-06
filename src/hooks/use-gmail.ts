@@ -200,13 +200,14 @@ export function useGmail() {
     to: string, 
     subject: string, 
     body: string, 
-    attachments: any[] = []
+    attachments: any[] = [],
+    originalHtml?: string
   ): Promise<boolean> => {
     setIsLoading(true); // Indicate loading state
     setError(null);
     
     try {
-      await gmailApi.sendEmail(to, subject, body, attachments); 
+      await gmailApi.sendEmail(to, subject, body, attachments, originalHtml); 
       return true;
     } catch (err: any) {
       console.error('[useGmail:Error] Failed sending email:', err);

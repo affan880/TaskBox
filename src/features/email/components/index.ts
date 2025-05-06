@@ -14,4 +14,7 @@ export * from './auto-height-webview';
 export * from './category-filter-bar';
 export * from './schedule-meeting-modal';
 export * from './set-reminder-modal';
-export * from './create-task-modal'; 
+export * from './create-task-modal';
+export * from './chat-modal';
+export * from './floating-chat-button'; 
+export * from './email-detail-header'; 

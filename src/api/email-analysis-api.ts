@@ -1,5 +1,6 @@
 import { getAccessToken } from '@/lib/utils/email-attachments';
 import { BASE_URL } from '@/lib/env/api-config';
+import { storageConfig } from '@/lib/storage';
 import EventSourcePolyfill from 'react-native-sse';
 
 // Debug flag - only log in development mode
@@ -74,14 +75,18 @@ export async function analyzeEmails(
   category?: string,
   categories?: string[]
 ): Promise<EmailAnalysisResponse> {
+  const STORAGE_KEY = 'email_categories';
+  const storedCategories = await storageConfig.getItem(STORAGE_KEY);
+  console.log('storedCategories', storedCategories);
+
   if (DEBUG) console.log('📍 API Call - Using BASE_URL:', BASE_URL);
   try {
-    if (!categories || categories.length === 0) {
+    if (!storedCategories || storedCategories.length === 0) {
       throw new Error('No categories provided for email analysis');
     }
 
     // Filter out 'All' category and normalize the rest
-    const filteredCategories = categories
+    const filteredCategories = storedCategories
       .filter(cat => cat.toLowerCase() !== 'all')
       .map(category => category.toLowerCase())
       .filter((category, index, self) => self.indexOf(category) === index); // Remove duplicates

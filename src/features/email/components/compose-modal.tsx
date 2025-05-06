@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -21,19 +21,109 @@ import { showToast } from '@/components/ui/toast';
 import * as DocumentPicker from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { EmailAttachment } from '@/types/email';
+import { EmailAttachment, EmailData } from '@/types/email';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onSend: (to: string, subject: string, body: string, attachments?: EmailAttachment[]) => void;
+  mode?: 'reply' | 'reply-all' | 'forward' | 'new';
+  email?: EmailData;
 };
 
-export function ComposeModal({ visible, onClose, onSend }: Props) {
+// Helper functions moved outside component to prevent recreation
+const stripHtml = (html: string) => {
+  return html.replace(/<[^>]*>/g, '');
+};
+
+const getFileIcon = (type: string) => {
+  if (type.startsWith('image/')) return 'image';
+  if (type.startsWith('video/')) return 'videocam';
+  if (type.startsWith('audio/')) return 'audiotrack';
+  if (type.includes('pdf')) return 'picture-as-pdf';
+  if (type.includes('word') || type.includes('document')) return 'description';
+  if (type.includes('excel') || type.includes('sheet')) return 'table-chart';
+  if (type.includes('powerpoint') || type.includes('presentation')) return 'slideshow';
+  return 'insert-drive-file';
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
+
+// Memoized attachment item component
+const AttachmentItem = React.memo(({ 
+  attachment, 
+  onRemove, 
+  colors, 
+  currentUploadId, 
+  uploadProgress 
+}: { 
+  attachment: EmailAttachment; 
+  onRemove: (id: string) => void; 
+  colors: any;
+  currentUploadId: string | null;
+  uploadProgress: number;
+}) => (
+  <View 
+    style={[
+      styles.attachmentItem, 
+      { 
+        backgroundColor: `${colors.background}15`,
+        borderColor: `${colors.border}50`,
+      }
+    ]}
+  >
+    <View style={styles.attachmentContent}>
+      <View style={styles.attachmentIcon}>
+        {attachment.isUploading ? (
+          <ActivityIndicator 
+            size="small" 
+            color={colors.primary} 
+          />
+        ) : (
+          <Icon name={getFileIcon(attachment.type)} size={20} color={colors.primary} />
+        )}
+      </View>
+      <View style={styles.attachmentDetails}>
+        <Text 
+          style={[styles.attachmentName, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {attachment.name}
+        </Text>
+        <Text style={[styles.attachmentSize, { color: colors.textSecondary }]}>
+          {attachment.isUploading ? 
+            `Uploading... ${attachment.id === currentUploadId ? Math.round(uploadProgress) + '%' : ''}` : 
+            formatFileSize(attachment.size)
+          }
+        </Text>
+      </View>
+    </View>
+    <TouchableOpacity
+      style={styles.attachmentRemove}
+      onPress={() => onRemove(attachment.id)}
+      disabled={attachment.isUploading}
+    >
+      <Icon 
+        name="close" 
+        size={16} 
+        color={attachment.isUploading ? colors.textSecondary : colors.text} 
+      />
+    </TouchableOpacity>
+  </View>
+));
+
+export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email }: Props) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { sendEmail } = useGmail();
 
+  // State management
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -46,6 +136,44 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ['90%'], []);
 
+  // Memoize initial form values
+  const initialFormValues = useMemo(() => {
+    if (!email || !mode) return null;
+
+    switch (mode) {
+      case 'reply':
+        return {
+          to: email.from,
+          subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
+          body: `\n\nOn ${new Date(email.date).toLocaleString()}, ${email.from} wrote:\n${stripHtml(email.body || '')}`
+        };
+      case 'reply-all':
+        return {
+          to: `${email.from}, ${email.to}`,
+          subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
+          body: `\n\nOn ${new Date(email.date).toLocaleString()}, ${email.from} wrote:\n${stripHtml(email.body || '')}`
+        };
+      case 'forward':
+        return {
+          to: '',
+          subject: email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`,
+          body: `\n\n---------- Forwarded message ---------\nFrom: ${email.from}\nDate: ${new Date(email.date).toLocaleString()}\nSubject: ${email.subject}\n\n${stripHtml(email.body || '')}`
+        };
+      default:
+        return null;
+    }
+  }, [email, mode]);
+
+  // Initialize form when email is provided
+  useEffect(() => {
+    if (initialFormValues) {
+      setTo(initialFormValues.to);
+      setSubject(initialFormValues.subject);
+      setBody(initialFormValues.body);
+    }
+  }, [initialFormValues]);
+
+  // Handle modal visibility
   useEffect(() => {
     if (visible) {
       bottomSheetRef.current?.present();
@@ -54,7 +182,8 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
     }
   }, [visible]);
 
-  const handleAddAttachment = async () => {
+  // Memoized handlers
+  const handleAddAttachment = useCallback(async () => {
     try {
       const results = await DocumentPicker.pick({
         type: [DocumentPicker.types.allFiles],
@@ -63,13 +192,10 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
       
       setIsUploading(true);
       
-      const newAttachments: EmailAttachment[] = [];
-      
       for (const file of results) {
         const attachmentId = `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         setCurrentUploadId(attachmentId);
         
-        // Add placeholder attachment while uploading
         const tempAttachment: EmailAttachment = {
           id: attachmentId,
           name: file.name || 'Unnamed file',
@@ -82,51 +208,36 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
         
         setAttachments(prev => [...prev, tempAttachment]);
         
-        // Simulate upload progress (in a real app, this would be a real upload to a server)
+        // Simulate upload progress
         let progress = 0;
         const interval = setInterval(() => {
           progress += 10;
           setUploadProgress(progress);
           if (progress >= 100) {
             clearInterval(interval);
-            
-            // Update the attachment to mark as completed
-            const updatedAttachment: EmailAttachment = {
-              ...tempAttachment,
-              isUploading: false,
-            };
-            
-            // Replace the placeholder with the updated attachment
             setAttachments(prev => 
-              prev.map(a => a.id === attachmentId ? updatedAttachment : a)
+              prev.map(a => a.id === attachmentId ? { ...a, isUploading: false } : a)
             );
-            
-            newAttachments.push(updatedAttachment);
-            
-            if (newAttachments.length === results.length) {
-              setCurrentUploadId(null);
-              setIsUploading(false);
-            }
+            setCurrentUploadId(null);
+            setIsUploading(false);
           }
         }, 200);
       }
     } catch (err) {
-      if (err instanceof Error && 'code' in err && err.code === 'DOCUMENT_PICKER_CANCELED') {
-        // User cancelled the picker
-      } else {
+      if (!(err instanceof Error && 'code' in err && err.code === 'DOCUMENT_PICKER_CANCELED')) {
         Alert.alert('Error', 'Failed to pick document');
         console.error('Document picker error:', err);
       }
       setIsUploading(false);
       setCurrentUploadId(null);
     }
-  };
+  }, []);
 
-  const handleRemoveAttachment = (attachmentId: string) => {
-    setAttachments(attachments.filter(a => a.id !== attachmentId));
-  };
+  const handleRemoveAttachment = useCallback((attachmentId: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  }, []);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!to) {
       showToast('Please enter a recipient');
       return;
@@ -134,7 +245,7 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
 
     setIsLoading(true);
     try {
-      await sendEmail(to, subject, body, attachments);
+      await onSend(to, subject, body, attachments);
       showToast('Email sent successfully');
       
       // Reset form
@@ -149,77 +260,23 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [to, subject, body, attachments, onSend, onClose]);
 
-  // Helper function to format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Get appropriate icon for file type
-  const getFileIcon = (type: string): string => {
-    if (type.includes('image')) return 'image';
-    if (type.includes('pdf')) return 'picture-as-pdf';
-    if (type.includes('word') || type.includes('document')) return 'description';
-    if (type.includes('excel') || type.includes('sheet')) return 'table-chart';
-    if (type.includes('presentation') || type.includes('powerpoint')) return 'slideshow';
-    if (type.includes('text')) return 'text-snippet';
-    if (type.includes('zip') || type.includes('compressed')) return 'archive';
-    return 'insert-drive-file';
-  };
-
-  const renderAttachmentItem = (attachment: EmailAttachment) => (
-    <View 
-      key={attachment.id}
-      style={[
-        styles.attachmentItem, 
-        { 
-          backgroundColor: `${colors.background}15`,
-          borderColor: `${colors.border}50`,
-        }
-      ]}
-    >
-      <View style={styles.attachmentContent}>
-        <View style={styles.attachmentIcon}>
-          {attachment.isUploading ? (
-            <ActivityIndicator 
-              size="small" 
-              color={colors.primary} 
-            />
-          ) : (
-            <Icon name={getFileIcon(attachment.type)} size={20} color={colors.primary} />
-          )}
-        </View>
-        <View style={styles.attachmentDetails}>
-          <Text 
-            style={[styles.attachmentName, { color: colors.text }]}
-            numberOfLines={1}
-          >
-            {attachment.name}
-          </Text>
-          <Text style={[styles.attachmentSize, { color: colors.textSecondary }]}>
-            {attachment.isUploading ? 
-              `Uploading... ${attachment.id === currentUploadId ? Math.round(uploadProgress) + '%' : ''}` : 
-              formatFileSize(attachment.size)
-            }
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.attachmentRemove}
-        onPress={() => handleRemoveAttachment(attachment.id)}
-        disabled={attachment.isUploading}
-      >
-        <Icon 
-          name="close" 
-          size={16} 
-          color={attachment.isUploading ? colors.textSecondary : colors.text} 
+  // Memoize attachment list
+  const attachmentList = useMemo(() => (
+    <View style={styles.attachmentsContainer}>
+      {attachments.map(attachment => (
+        <AttachmentItem
+          key={attachment.id}
+          attachment={attachment}
+          onRemove={handleRemoveAttachment}
+          colors={colors}
+          currentUploadId={currentUploadId}
+          uploadProgress={uploadProgress}
         />
-      </TouchableOpacity>
+      ))}
     </View>
-  );
+  ), [attachments, handleRemoveAttachment, colors, currentUploadId, uploadProgress]);
 
   return (
     <BottomSheetModal
@@ -261,12 +318,7 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
             onChangeText={setSubject}
           />
           
-          {/* Attachments section */}
-          {attachments.length > 0 && (
-            <View style={styles.attachmentsContainer}>
-              {attachments.map(renderAttachmentItem)}
-            </View>
-          )}
+          {attachments.length > 0 && attachmentList}
           
           <TextInput
             style={[styles.input, styles.bodyInput, { color: colors.text, borderColor: colors.border }]}
@@ -292,7 +344,7 @@ export function ComposeModal({ visible, onClose, onSend }: Props) {
       </KeyboardAvoidingView>
     </BottomSheetModal>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

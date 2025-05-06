@@ -25,7 +25,6 @@ import * as DocumentPicker from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import { EmailAttachment } from '@/types/email';
 import { useGmail } from '@/hooks/use-gmail';
-import { Button } from '@/components/ui/button';
 import { RecipientFields } from './components/recipient-fields';
 import { SuggestionModal } from './components/suggestion-modal';
 import * as ImagePicker from 'react-native-image-picker';
@@ -177,7 +176,7 @@ export function ComposeScreen() {
 
     const keyboardDidShowListener = Keyboard.addListener(keyboardWillShow, (event) => {
       setIsKeyboardVisible(true);
-      setKeyboardHeight(50);
+      setKeyboardHeight(0);
       Animated.timing(toolbarHeight, {
         toValue: 44,
         duration: Platform.OS === 'ios' ? event.duration : 250,
@@ -364,7 +363,7 @@ export function ComposeScreen() {
         resetForm();
         
         Alert.alert('Success', 'Email sent successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'OK', onPress: () => navigation.navigate('Email') }
         ]);
       } else {
         Alert.alert('Error', 'Failed to send email. Please try again.');
@@ -553,89 +552,58 @@ export function ComposeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled={Platform.OS === 'ios'}
       >
         <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+          {/* Modern Header with Gradient */}
           <View style={[styles.header, { 
-            borderBottomColor: colors.border.light,
-            backgroundColor: colors.background.primary 
+            backgroundColor: colors.background.primary,
+            elevation: 4,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            borderBottomWidth: 0,
           }]}>
-            <TouchableOpacity 
-              style={styles.headerButton} 
-              onPress={() => navigation.goBack()}
-              accessibilityLabel="Back to inbox"
-            >
-              <Icon name="arrow-back" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-            
-            <Text style={[styles.headerTitle, { color: colors.text.primary }]}>New Message</Text>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.headerTitle, { 
+                color: colors.text.primary,
+                fontSize: 28,
+                fontWeight: '800',
+                letterSpacing: -0.8,
+              }]}>
+                New Message
+              </Text>
+            </View>
             
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={[
                   styles.toolbarButton,
-                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                  { 
+                    backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    elevation: 2,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                  }
                 ]}
                 onPress={handleFilePick}
                 disabled={isSending}
               >
                 <Icon 
                   name="attach-file" 
-                  size={24} 
-                  color={isDark ? colors.text.primary : colors.text.secondary} 
+                  size={22} 
+                  color={colors.brand.primary} 
                 />
-              </TouchableOpacity>
-              
-              {/* <TouchableOpacity
-                style={[
-                  styles.toolbarButton,
-                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
-                ]}
-                onPress={handleCameraPress}
-                disabled={isSending}
-              >
-                <Icon 
-                  name="camera-alt" 
-                  size={24} 
-                  color={isDark ? colors.text.primary : colors.text.secondary} 
-                />
-              </TouchableOpacity> */}
-{/* 
-              <TouchableOpacity
-                style={[
-                  styles.toolbarButton,
-                  { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
-                ]}
-                onPress={handleGalleryPress}
-                disabled={isSending}
-              >
-                <Icon 
-                  name="photo-library" 
-                  size={24} 
-                  color={isDark ? colors.text.primary : colors.text.secondary} 
-                />
-              </TouchableOpacity> */}
-
-              <TouchableOpacity 
-                style={[
-                  styles.sendButton, 
-                  { backgroundColor: colors.brand.primary },
-                  (isSending || isUploading) && { opacity: 0.7 }
-                ]} 
-                onPress={handleSend}
-                disabled={isSending || isUploading || recipients.length === 0}
-                accessibilityLabel="Send email"
-              >
-                {isSending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Icon name="send" size={24} color="#FFFFFF" style={[styles.sendIcon,  { backgroundColor: colors.brand.primary }]} />
-                  </>
-                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -645,7 +613,7 @@ export function ComposeScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ 
               flexGrow: 1,
-              paddingBottom: Platform.OS === 'ios' ? 60 : keyboardHeight + 60
+              paddingBottom: Platform.OS === 'ios' ? 60 : 120 // Increased padding for Android
             }}
           >
             <RecipientFields
@@ -659,14 +627,22 @@ export function ComposeScreen() {
               setShowCcBcc={setShowCcBcc}
             />
 
-            <View style={styles.subjectContainer}>
+            <View style={[styles.subjectContainer, {
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border.light,
+              marginHorizontal: 16,
+              marginTop: 8,
+            }]}>
               <TextInput
                 ref={subjectInputRef}
                 style={[
                   styles.subjectInput, 
                   { 
                     color: colors.text.primary,
-                    backgroundColor: colors.background.primary 
+                    backgroundColor: colors.background.primary,
+                    fontSize: 20,
+                    fontWeight: '600',
+                    letterSpacing: -0.5,
                   }
                 ]}
                 value={subject}
@@ -677,13 +653,28 @@ export function ComposeScreen() {
                 onSubmitEditing={() => contentInputRef.current?.focus()}
               />
             </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
             
             {/* Attachments section */}
             {attachments.length > 0 && (
-              <View style={[styles.attachmentsContainer, { backgroundColor: colors.background.primary }]}>
-                <Text style={[styles.attachmentsTitle, { color: colors.text.secondary }]}>
+              <View style={[styles.attachmentsContainer, { 
+                backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
+                marginHorizontal: 16,
+                marginTop: 16,
+                borderRadius: 16,
+                padding: 16,
+                borderWidth: 0,
+                elevation: 2,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              }]}>
+                <Text style={[styles.attachmentsTitle, { 
+                  color: colors.text.primary,
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginBottom: 12,
+                }]}>
                   Attachments ({attachments.length})
                 </Text>
                 <View style={styles.attachmentsList}>
@@ -693,14 +684,21 @@ export function ComposeScreen() {
             )}
 
             {/* Message content */}
-            <View style={[styles.contentContainer, { backgroundColor: colors.background.primary }]}>
+            <View style={[styles.contentContainer, { 
+              backgroundColor: colors.background.primary,
+              marginHorizontal: 16,
+              marginTop: 16,
+            }]}>
               <TextInput
                 ref={contentInputRef}
                 style={[
                   styles.contentInput, 
                   { 
                     color: colors.text.primary,
-                    backgroundColor: colors.background.primary 
+                    backgroundColor: colors.background.primary,
+                    fontSize: 16,
+                    lineHeight: 24,
+                    letterSpacing: 0.2,
                   }
                 ]}
                 value={content}
@@ -713,18 +711,23 @@ export function ComposeScreen() {
             </View>
           </ScrollView>
 
-          {/* Keyboard toolbar */}
+          {/* Modern Keyboard Toolbar */}
           {isKeyboardVisible && (
-            <View 
+            <Animated.View 
               style={[
                 styles.keyboardToolbar, 
                 { 
                   backgroundColor: isDark ? colors.background.primary : colors.background.primary,
                   position: 'absolute',
-                  bottom: Platform.OS === 'ios' ? keyboardHeight : 30,
+                  bottom: Platform.OS === 'ios' ? keyboardHeight : 0,
                   left: 0,
                   right: 0,
                   borderTopColor: isDark ? colors.border.dark : colors.border.light,
+                  elevation: 8,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: -4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
                 }
               ]}
             >
@@ -733,107 +736,154 @@ export function ComposeScreen() {
                   <TouchableOpacity
                     style={[
                       styles.toolbarButton,
-                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                      { 
+                        backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                      }
                     ]}
                     onPress={handleFilePick}
                     disabled={isSending}
                   >
                     <Icon 
                       name="attach-file" 
-                      size={24} 
-                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                      size={22} 
+                      color={colors.brand.primary} 
                     />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.toolbarButton,
-                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                      { 
+                        backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                      }
                     ]}
                     onPress={handleCameraPress}
                     disabled={isSending}
                   >
                     <Icon 
                       name="camera-alt" 
-                      size={24} 
-                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                      size={22} 
+                      color={colors.brand.primary} 
                     />
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.toolbarButton,
-                      { backgroundColor: isDark ? colors.background.secondary : '#F5F5F5' }
+                      { 
+                        backgroundColor: isDark ? colors.background.secondary : '#F8F9FA',
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                      }
                     ]}
                     onPress={handleGalleryPress}
                     disabled={isSending}
                   >
                     <Icon 
                       name="photo-library" 
-                      size={24} 
-                      color={isDark ? colors.text.primary : colors.text.secondary} 
+                      size={22} 
+                      color={colors.brand.primary} 
                     />
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.generateButton,
-                    {
-                      backgroundColor: colors.brand.primary,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingHorizontal: 16,
-                      height: 40,
-                      borderRadius: 20,
-                      opacity: isSending ? 0.7 : 1,
-                    }
-                  ]}
-                  onPress={handleGenerateEmail}
-                  disabled={isSending}
-                >
-                  <Image 
-                    source={require('@/assets/images/feather.png')}
-                    style={{ 
-                      width: 20, 
-                      height: 20, 
-                      marginRight: 8,
-                      tintColor: '#FFFFFF'
-                    }}
-                    resizeMode="contain"
-                  />
-                  <Text style={[
-                    styles.generateButtonText,
-                    { 
-                      color: '#FFFFFF', 
-                      fontWeight: '600',
-                      fontSize: 15,
-                    }
-                  ]}>
-                    AI Generate
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.toolbarRightSection}>
+                  <TouchableOpacity
+                    style={[
+                      styles.generateButton,
+                      {
+                        backgroundColor: colors.brand.primary,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 20,
+                        height: 44,
+                        borderRadius: 22,
+                        opacity: isSending ? 0.7 : 1,
+                        marginRight: 12,
+                        elevation: 3,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 4,
+                      }
+                    ]}
+                    onPress={handleGenerateEmail}
+                    disabled={isSending}
+                  >
+                    <Image 
+                      source={require('@/assets/images/feather.png')}
+                      style={{ 
+                        width: 18, 
+                        height: 18, 
+                        marginRight: 8,
+                        tintColor: '#FFFFFF'
+                      }}
+                      resizeMode="contain"
+                    />
+                    <Text style={[
+                      styles.generateButtonText,
+                      { 
+                        color: '#FFFFFF', 
+                        fontWeight: '700',
+                        fontSize: 15,
+                        letterSpacing: 0.2,
+                      }
+                    ]}>
+                      AI Generate
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[
-                    styles.sendButton,
-                    { 
-                      backgroundColor: colors.brand.primary,
-                      opacity: isSending ? 0.7 : 1,
-                    }
-                  ]} 
-                  onPress={handleSend}
-                  disabled={isSending || isUploading || recipients.length === 0}
-                >
-                  {isSending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Icon name="send" size={24} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.sendButton,
+                      { 
+                        backgroundColor: colors.brand.primary,
+                        opacity: isSending ? 0.7 : 1,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        elevation: 3,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 4,
+                      }
+                    ]} 
+                    onPress={handleSend}
+                    disabled={isSending || isUploading || recipients.length === 0}
+                  >
+                    {isSending ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Icon name="send" size={20} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </Animated.View>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -861,91 +911,80 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
+    paddingTop: Platform.OS === 'ios' ? 8 : 16,
   },
-  headerButton: {
-    padding: 8,
+  headerLeft: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    gap: 12,
   },
   formContainer: {
     flex: 1,
   },
-  recipientContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  recipientLabel: {
-    width: 40,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  chipInputContainer: {
-    flex: 1,
-    minHeight: 40,
-  },
-  chipInput: {
-    fontSize: 16,
-    flex: 1,
-  },
-  ccBccButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 0,
-  },
   subjectContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 0,
+    paddingVertical: 12,
   },
   subjectInput: {
-    fontSize: 16,
-    paddingVertical: 12,
-    color: '#6B7280',
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    paddingVertical: 8,
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 0,
+    paddingTop: 8,
     paddingBottom: 16,
   },
   contentInput: {
     fontSize: 16,
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
-    paddingVertical: 12,
-    color: '#6B7280',
+    paddingVertical: 8,
+    letterSpacing: 0.2,
   },
-  sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  keyboardToolbar: {
+    borderTopWidth: 1,
+    height: Platform.OS === 'ios' ? 64 : 74,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 14,
+    paddingHorizontal: 16,
+    zIndex: 1000,
+  },
+  toolbarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toolbarSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toolbarRightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toolbarButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  sendIcon: {
-    marginRight: 4,
+  generateButton: {
+    minWidth: 140,
   },
-  sendButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
+  generateButtonText: {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  sendButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   attachmentsContainer: {
     paddingHorizontal: 16,
@@ -1010,48 +1049,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Platform.OS === 'android' ? '#F3F4F6' : 'transparent',
-  },
-  keyboardToolbar: {
-    borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 50 : 60,
-    paddingVertical: Platform.OS === 'ios' ? 6 : 8,
-    paddingHorizontal: 16,
-    zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  toolbarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toolbarSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toolbarButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-  },
-  generateButton: {
-    minWidth: 140,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  generateButtonText: {
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
   bottomSheetContentContainer: {
     flex: 1,

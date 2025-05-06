@@ -3,6 +3,7 @@ import { EmailData } from 'src/types/email';
 import { analyzeEmails } from '@/api/email-analysis-api';
 import { AppState, AppStateStatus, Alert } from 'react-native';
 import { getItemSync, setItemSync, getItem, setItem } from '@/lib/storage/storage';
+import React from 'react';
 
 // The storage key for cached categorized emails
 const CATEGORIZED_EMAILS_CACHE_KEY = 'categorized_emails_cache';
@@ -46,7 +47,7 @@ export function useAutoCategorization(
     enabled = true,
     pollingInterval = 120000, // 2 minutes
     minimumTimeBetweenAnalysis = 300000, // 5 minutes
-    categories = [],
+    categories = ['All', 'Work', 'Finance', 'Promotions', 'Social', 'Spam'], // Default categories
   } = options;
 
   // State for categorized emails
@@ -62,6 +63,14 @@ export function useAutoCategorization(
   const isAppActive = useRef<boolean>(true);
   const processingQueue = useRef<EmailData[]>([]);
   const isProcessingQueue = useRef<boolean>(false);
+
+  // Ensure we have valid categories
+  const validCategories = React.useMemo(() => {
+    if (!categories || categories.length === 0) {
+      return ['All', 'Work', 'Finance', 'Promotions', 'Social', 'Spam'];
+    }
+    return categories.filter(cat => cat && cat.trim() !== '');
+  }, [categories]);
 
   // Initialize from cache
   useEffect(() => {
@@ -130,7 +139,7 @@ export function useAutoCategorization(
     categorizedEmailsResponse: Record<string, any[]>,
     allEmails: EmailData[]
   ): CategorizedEmailsMap => {
-    const DEBUG = __DEV__ && false;
+    const DEBUG = __DEV__ && true;
     
     if (DEBUG) {
       console.log('[ProcessCategorized] Processing categories with:', Object.keys(categorizedEmailsResponse));
@@ -230,7 +239,7 @@ export function useAutoCategorization(
     });
     
     // Make sure all configured categories have an entry, even if empty
-    categories.forEach(category => {
+    validCategories.forEach(category => {
       const normalizedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
       if (!processedCategories[normalizedCategory]) {
         processedCategories[normalizedCategory] = [];
@@ -246,8 +255,13 @@ export function useAutoCategorization(
     // Save category counts to cache
     setItemSync(CATEGORY_COUNTS_CACHE_KEY, newCategoryCounts);
     
+    if (DEBUG) {
+      console.log('[ProcessCategorized] Final category counts:', newCategoryCounts);
+      console.log('[ProcessCategorized] Categories with emails:', Object.keys(processedCategories));
+    }
+    
     return processedCategories;
-  }, [categories]);
+  }, [validCategories]);
 
   /**
    * Process emails in batches from the queue
@@ -269,6 +283,7 @@ export function useAutoCategorization(
       
       if (__DEV__) {
         console.log(`[AutoCategorization] Processing queue with ${processingQueue.current.length} emails`);
+        console.log(`[AutoCategorization] Using categories:`, validCategories);
       }
       
       // Set analyzing state (but only if this is the first analysis or forcibly triggered)
@@ -291,12 +306,12 @@ export function useAutoCategorization(
       // Clear the queue before API call to prevent duplicates
       processingQueue.current = [];
       
-      // Perform the API call
+      // Perform the API call with valid categories
       const analysisResult = await analyzeEmails(
         undefined, // count
         undefined, // days
         undefined, // category
-        categories // pass the categories array
+        validCategories // pass the validated categories array
       );
       
       // Update last analysis time
@@ -332,7 +347,7 @@ export function useAutoCategorization(
       setIsAnalyzing(false);
       isProcessingQueue.current = false;
     }
-  }, [categorizedEmails, emails, enabled, minimumTimeBetweenAnalysis, processCategorizedEmails, categories]);
+  }, [categorizedEmails, emails, enabled, minimumTimeBetweenAnalysis, processCategorizedEmails, validCategories]);
 
   /**
    * Queue emails for processing and schedule a background job
@@ -396,14 +411,17 @@ export function useAutoCategorization(
     try {
       setIsAnalyzing(true);
       
-      if (__DEV__) console.log('[AutoCategorization] Forced analysis started');
+      if (__DEV__) {
+        console.log('[AutoCategorization] Forced analysis started');
+        console.log('[AutoCategorization] Using categories:', validCategories);
+      }
       
-      // Call the API
+      // Call the API with valid categories
       const analysisResult = await analyzeEmails(
         undefined, // count
         undefined, // days
         undefined, // category
-        categories // pass the categories array
+        validCategories // pass the validated categories array
       );
       
       // Update last analysis time
@@ -439,7 +457,7 @@ export function useAutoCategorization(
     } finally {
       setIsAnalyzing(false);
     }
-  }, [emails, isAnalyzing, processCategorizedEmails, categories]);
+  }, [emails, isAnalyzing, processCategorizedEmails, validCategories]);
 
   // Initial setup effect - process emails on first load if no cache
   useEffect(() => {
