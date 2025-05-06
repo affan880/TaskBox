@@ -229,7 +229,7 @@ export function EmailScreen() {
   // Get filtered emails based on selected category
   const filteredEmails = useMemo(() => {
     const result = getEmailsForCategory(selectedCategory);
-    console.log('Selected Category:', selectedCategory, 'Filtered Emails:', result.length);
+    // console.log('Selected Category:', selectedCategory, 'Filtered Emails:', result.length);
     return result;
   }, [getEmailsForCategory, selectedCategory]);
 

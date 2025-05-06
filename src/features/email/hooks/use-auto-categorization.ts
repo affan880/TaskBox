@@ -141,10 +141,10 @@ export function useAutoCategorization(
   ): CategorizedEmailsMap => {
     const DEBUG = __DEV__ && true;
     
-    if (DEBUG) {
-      console.log('[ProcessCategorized] Processing categories with:', Object.keys(categorizedEmailsResponse));
-      console.log('[ProcessCategorized] Total emails available:', allEmails.length);
-    }
+    // if (DEBUG) {
+    //   console.log('[ProcessCategorized] Processing categories with:', Object.keys(categorizedEmailsResponse));
+    //   console.log('[ProcessCategorized] Total emails available:', allEmails.length);
+    // }
     
     // Create a map of all emails with both id and threadId as keys for flexible lookup
     const emailMap = new Map<string, EmailData>();

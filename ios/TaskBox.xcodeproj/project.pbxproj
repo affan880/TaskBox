@@ -9,9 +9,9 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		146558639F1F466B419FE643 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		3828BF0F5A44686FDDF2A03C /* libPods-TaskBox.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 377CC50D392CAB319C85A63E /* libPods-TaskBox.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		891B347C2EE7601EC2F8B651 /* Pods_TaskBox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61323443799307074E052254 /* Pods_TaskBox.framework */; };
 		C607FAE32DA5EA2E002526A1 /* High-Resolution-Logo-Black-on-Transparent-Background.svg in Resources */ = {isa = PBXBuildFile; fileRef = C607FAE22DA5EA2E002526A1 /* High-Resolution-Logo-Black-on-Transparent-Background.svg */; };
 		C6B13BBB2D9DA5E3005CE4A7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C6B13BBA2D9DA5E3005CE4A7 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
@@ -22,7 +22,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TaskBox/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = TaskBox/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		153B24317FBD56A41320F5B6 /* Pods-TaskBox.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaskBox.release.xcconfig"; path = "Target Support Files/Pods-TaskBox/Pods-TaskBox.release.xcconfig"; sourceTree = "<group>"; };
-		61323443799307074E052254 /* Pods_TaskBox.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TaskBox.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		377CC50D392CAB319C85A63E /* libPods-TaskBox.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TaskBox.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = TaskBox/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = TaskBox/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C607FAE22DA5EA2E002526A1 /* High-Resolution-Logo-Black-on-Transparent-Background.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "High-Resolution-Logo-Black-on-Transparent-Background.svg"; sourceTree = "<group>"; };
@@ -36,7 +36,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				891B347C2EE7601EC2F8B651 /* Pods_TaskBox.framework in Frameworks */,
+				3828BF0F5A44686FDDF2A03C /* libPods-TaskBox.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,7 +61,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				61323443799307074E052254 /* Pods_TaskBox.framework */,
+				377CC50D392CAB319C85A63E /* libPods-TaskBox.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

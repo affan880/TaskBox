@@ -33,6 +33,7 @@
     "axios": "^1.8.4",
     "classnames": "^2.5.1",
     "date-fns": "^4.1.0",
+    "expo-linear-gradient": "^14.1.4",
     "i": "^0.3.7",
     "nativewind": "^4.1.23",
     "npm": "^10.9.2",

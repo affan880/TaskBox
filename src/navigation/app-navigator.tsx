@@ -93,6 +93,7 @@ const TabItem = React.memo(({
       onPress={onPress}
       onLongPress={onLongPress}
       style={styles.tabItem}
+      activeOpacity={0.7}
     >
       {isFocused ? (
         <View style={[styles.activeTabPill, { backgroundColor: colors.brand.primary }]}>
@@ -419,38 +420,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     height: 56,
-    borderRadius: 5,
+    borderRadius: 12,
     paddingVertical: 8,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    elevation: 4,
-    paddingHorizontal: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    paddingHorizontal: 8,
+    width: '92%',
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     height: 40,
+    minWidth: 64,
   },
   inactiveIconContainer: { 
     alignItems: 'center',    
     justifyContent: 'center',
     paddingHorizontal: 12,
     height: '100%',
+    opacity: 0.7,
   },
   activeTabPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 5,        
+    paddingHorizontal: 16,
+    borderRadius: 8,        
     height: '100%',          
   },
   activeTabText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginLeft: 6,
+    letterSpacing: 0.2,
   },
   loadingContainer: {
     flex: 1,
