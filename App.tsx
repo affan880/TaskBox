@@ -12,7 +12,7 @@ import type { JSX } from 'react';
 import { StatusBar, AppState, AppStateStatus, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppNavigator } from '@/navigation/app-navigator';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/store/slices/auth-slice';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/theme-context';
 import { ErrorBoundary } from '@/components/ui/error-boundary'; 

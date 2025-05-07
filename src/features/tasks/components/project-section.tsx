@@ -2,8 +2,8 @@ import * as React from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useProjectStore } from '@/store/project-store';
-import { useTaskStore } from '@/store/task-store';
+import { useProjectStore } from '@/store/slices/project-slice';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { ProjectWithTasks } from '@/types/project';
 import { TaskData } from '@/types/task';
 import { createStyles } from '../styles';
@@ -25,38 +25,48 @@ export function ProjectSection({ colors, isDark, onNavigate }: Props) {
   const { getTasks } = useTaskStore();
   const { width: screenWidth } = Dimensions.get('window');
   const [tasks, setTasks] = React.useState<TaskData[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   
-  // Load tasks
+  // Load tasks and projects
   React.useEffect(() => {
-    const loadTasks = async () => {
-      const loadedTasks = await getTasks();
-      setTasks(loadedTasks);
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const loadedTasks = await getTasks();
+        setTasks(loadedTasks);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    loadTasks();
+    loadData();
   }, [getTasks]);
 
   // Get all projects with tasks
   const projectsWithTasks = React.useMemo(() => {
+    if (!projects || projects.length === 0) return [];
+
     return projects
       .map(project => {
         const projectWithTasks = getProjectWithTasks(project.id);
         if (!projectWithTasks) return null;
         
         // Filter tasks for this project
-        const projectTasks = tasks.filter((task: TaskData) => task.projectId === project.id);
+        const projectTasks = tasks.filter(task => task.projectId === project.id);
         
         return {
           ...projectWithTasks,
-          tasks: projectTasks
+          tasks: projectTasks,
+          startDate: project.startDate,
+          endDate: project.endDate
         } as ExtendedProjectWithTasks;
       })
       .filter((project): project is ExtendedProjectWithTasks => project !== null)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [projects, tasks]);
-
-  console.log('projectsWithTasks', getProjectWithTasks("project-1746565659181-i7pt1kvxl"));
+  }, [projects, tasks, getProjectWithTasks]);
 
   const renderProjectCard = ({ item: project }: { item: ExtendedProjectWithTasks }) => {
     const completedTasks = project.tasks.filter(task => task.isCompleted).length;
@@ -112,7 +122,23 @@ export function ProjectSection({ colors, isDark, onNavigate }: Props) {
     );
   };
 
-  if (projectsWithTasks.length === 0) {
+  if (isLoading) {
+    return (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <MaterialCommunityIcons name="view-grid-outline" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your projects</Text>
+          </View>
+        </View>
+        <View style={[styles.projectCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.projectTitle, { color: colors.text.primary, textAlign: 'center' }]}>Loading projects...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!projectsWithTasks || projectsWithTasks.length === 0) {
     return (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -130,7 +156,7 @@ export function ProjectSection({ colors, isDark, onNavigate }: Props) {
             style={[styles.addButton, { backgroundColor: colors.brand.primary, marginTop: 16, alignSelf: 'center' }]}
             onPress={() => onNavigate()}
           >
-            <Text style={{ color: colors.text.inverse, fontWeight: '600' }}>Create Project</Text>
+            <FeatherIcon name="plus" size={24} color={colors.text.inverse} />
           </TouchableOpacity>
         </View>
       </View>
@@ -145,7 +171,7 @@ export function ProjectSection({ colors, isDark, onNavigate }: Props) {
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Your projects</Text>
         </View>
         <TouchableOpacity onPress={() => onNavigate()}>
-          <FeatherIcon name="plus" size={24} color={colors.brand.primary} />
+          <FeatherIcon name="chevron-right" size={24} color={colors.brand.primary} />
         </TouchableOpacity>
       </View>
 

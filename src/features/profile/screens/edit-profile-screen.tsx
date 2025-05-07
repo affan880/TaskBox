@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/theme-context';
-import { useAuthStore } from '@/store/auth-store';
+import { useAuthStore } from '@/store/slices/auth-slice';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'react-native-image-picker';
 import { Button } from '@/components/ui/button';

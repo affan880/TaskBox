@@ -21,7 +21,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { useProjectStore } from '@/store/project-store'; 
+import { useProjectStore } from '@/store/slices/project-slice'; 
 import { ProjectCreateInput, ProjectWithTasks } from '@/types/project';
 import { Button } from '@/components/ui/button';
 
@@ -783,7 +783,7 @@ export function ProjectDetailScreen() {
           style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}
         >
           <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light, justifyContent: 'space-between' }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Create project</Text>
               <TouchableOpacity 
                 style={[styles.closeButton, { backgroundColor: colors.surface.primary }]} 

@@ -14,9 +14,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuthStore } from '../../store/auth-store';
-import { useTaskStore } from '@/store/task-store';
-import { useProjectStore } from '@/store/project-store';
+import { useAuthStore } from '@/store/slices/auth-slice';
+import { useTaskStore } from '@/store/slices/task-slice';
+import { useProjectStore } from '@/store/slices/project-slice';
+import { useEmailStore } from '@/store/slices/email-slice';
+import { useEmailSummaryStore } from '@/lib/store/email-summary-store';
+import { storageConfig } from '@/lib/storage';
 import { Screen } from '../../components/ui/screen';
 import { useTheme } from '../../theme/theme-context';
 import { ThemeToggle } from '../../components/ui/theme-toggle';
@@ -27,6 +30,7 @@ import { toast } from '../../components/ui/toast';
 import { Button } from '../../components/ui/button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import types from app-navigator
 type RootStackParamList = {
@@ -97,9 +101,106 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const handleSignOut = async () => {
     try {
+      // Get all store instances
+      const taskStore = useTaskStore.getState();
+      const projectStore = useProjectStore.getState();
+      const emailStore = useEmailStore.getState();
+      const emailSummaryStore = useEmailSummaryStore.getState();
+
+      // Clear task store
+      taskStore.tasks = [];
+      taskStore.selectedTask = null;
+      taskStore.isLoading = false;
+      taskStore.initialized = false;
+      taskStore.isUpdating = {};
+
+      // Clear project store
+      projectStore.projects = [];
+      projectStore.selectedProjectId = null;
+
+      // Clear email store and all related data
+      emailStore.emails = [];
+      emailStore.isLoading = false;
+      emailStore.error = null;
+      emailStore.filter = null;
+      emailStore.selectedCategory = null;
+      emailStore.categories = [];
+      emailStore.priorityCount = {
+        high: 0,
+        medium: 0,
+        low: 0,
+      };
+
+      // Clear email summary store
+      emailSummaryStore.clearSummaries();
+
+      // Clear all storage keys
+      const allStorageKeys = [
+        // Task related
+        'task-storage',
+        'task-cache',
+        'task-metadata',
+        
+        // Project related
+        'project-storage',
+        'project-cache',
+        'project-metadata',
+        
+        // Email related
+        'email-storage',
+        'email-summaries',
+        'email_categories',
+        'snoozed_emails',
+        'email_priority',
+        'email_filters',
+        'email_settings',
+        'email_sync_status',
+        'email_cache',
+        'email_metadata',
+        'categorized_emails',
+        'email_categories_cache',
+        
+        // Auth related
+        'auth-storage',
+        'auth-token',
+        'auth-refresh-token',
+        
+        // App related
+        'settings-storage',
+        'theme-storage',
+        'notification-storage',
+        'user-preferences',
+        'app-settings',
+        'last-sync-time',
+        'cached-data',
+        'offline-data',
+        'temp-storage',
+        
+        // Auto categorization
+        'auto-categorization-cache',
+        'auto-categorization-settings',
+        'auto-categorization-metadata',
+        'categorized_emails_cache',
+        'email_category_counts',
+        'last_email_analysis_time',
+        '@email_categories',
+        '@last_selected_category'
+      ];
+
+      // Remove all storage items
+      for (const key of allStorageKeys) {
+        await storageConfig.removeItem(key);
+        await AsyncStorage.removeItem(key);
+      }
+
+      // Clear all AsyncStorage
+      await AsyncStorage.clear();
+
+      // Sign out user
       await signOut();
       // Navigation will handle by auth state listener in app-navigator
     } catch (error) {
+      console.error('Error during sign out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };

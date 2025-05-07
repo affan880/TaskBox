@@ -9,7 +9,7 @@ import {
   updateTask as updateTaskInApi,
   toggleTaskCompletion as toggleTaskCompletionInApi,
   deleteTask as deleteTaskFromApi
-} from '../api/tasks-api';
+} from '@/api/tasks-api';
 
 export type TaskState = {
   tasks: TaskData[];

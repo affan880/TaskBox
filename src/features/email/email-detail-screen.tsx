@@ -1050,7 +1050,7 @@ export function EmailDetailScreen() {
                                     { color: isDark ? '#FFFFFF' : '#1A73E8' },
                                   ]}
                                 >
-                                  {summaryHtml ? '📄 Original' : '✨ Analyze'}
+                                  {summaryHtml ? '📄 Original' : '✨ Summarize'}
                                 </Text>
                               )}
                             </TouchableOpacity>

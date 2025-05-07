@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -29,7 +29,7 @@ const slides = [
     title: 'Welcome to TaskBox',
     description: 'Organize your tasks, emails, and schedule all in one beautiful place',
     image: require('../../../assets/images/blob1.png'),
-    gradientColors: ['#121212', '#2A2A2A'],
+    gradientColors: ['#1A1A1A', '#2D2D2D'],
     icon: 'inbox-multiple',
   },
   {
@@ -37,7 +37,7 @@ const slides = [
     title: 'Stay Organized',
     description: 'Create to-do lists, set reminders, and never miss a deadline again',
     image: require('../../../assets/images/blob2.png'),
-    gradientColors: ['#232323', '#121212'],
+    gradientColors: ['#2D2D2D', '#1A1A1A'],
     icon: 'check-circle-outline',
   },
   {
@@ -45,7 +45,7 @@ const slides = [
     title: 'Manage Your Emails',
     description: 'Connect your Gmail account to manage emails without leaving the app',
     image: require('../../../assets/images/blob1.png'),
-    gradientColors: ['#121212', '#383838'],
+    gradientColors: ['#1A1A1A', '#2D2D2D'],
     icon: 'email-outline',
   },
 ];
@@ -72,26 +72,30 @@ export function OnboardingScreen() {
       descAnimation.setValue(0);
       buttonAnimation.setValue(0);
       
-      // Start animations in sequence
-      Animated.stagger(150, [
-        Animated.timing(imageAnimation, {
+      // Start animations in sequence with improved timing
+      Animated.stagger(100, [
+        Animated.spring(imageAnimation, {
           toValue: 1,
-          duration: 800,
+          tension: 50,
+          friction: 7,
           useNativeDriver: true,
         }),
-        Animated.timing(titleAnimation, {
+        Animated.spring(titleAnimation, {
           toValue: 1,
-          duration: 800,
+          tension: 50,
+          friction: 7,
           useNativeDriver: true,
         }),
-        Animated.timing(descAnimation, {
+        Animated.spring(descAnimation, {
           toValue: 1,
-          duration: 800,
+          tension: 50,
+          friction: 7,
           useNativeDriver: true,
         }),
-        Animated.timing(buttonAnimation, {
+        Animated.spring(buttonAnimation, {
           toValue: 1,
-          duration: 800,
+          tension: 50,
+          friction: 7,
           useNativeDriver: true,
         }),
       ]).start();
@@ -122,14 +126,20 @@ export function OnboardingScreen() {
     }
   };
 
-  // Common animation styles
+  // Enhanced animation styles
   const imageStyle = {
     opacity: imageAnimation,
     transform: [
       {
         scale: imageAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.9, 1],
+          outputRange: [0.8, 1],
+        }),
+      },
+      {
+        translateY: imageAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, 0],
         }),
       },
     ],
@@ -141,7 +151,7 @@ export function OnboardingScreen() {
       {
         translateY: titleAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0],
+          outputRange: [30, 0],
         }),
       },
     ],
@@ -153,7 +163,7 @@ export function OnboardingScreen() {
       {
         translateY: descAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0],
+          outputRange: [30, 0],
         }),
       },
     ],
@@ -165,7 +175,7 @@ export function OnboardingScreen() {
       {
         translateY: buttonAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0],
+          outputRange: [30, 0],
         }),
       },
     ],
@@ -175,7 +185,7 @@ export function OnboardingScreen() {
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       
-      {/* Animated background gradient - safer implementation */}
+      {/* Animated background gradient */}
       <View style={StyleSheet.absoluteFillObject}>
         {slides.map((slide, index) => {
           const inputRange = [
@@ -214,7 +224,7 @@ export function OnboardingScreen() {
           {/* Progress indicators */}
           <View style={styles.progressContainer}>
             {slides.map((_, index) => (
-              <View
+              <Animated.View
                 key={index}
                 style={[
                   styles.progressDot,
@@ -222,7 +232,7 @@ export function OnboardingScreen() {
                     backgroundColor: 
                       index === currentIndex
                         ? '#FFFFFF'
-                        : 'rgba(255, 255, 255, 0.3)',
+                        : 'rgba(255, 255, 255, 0.2)',
                     width: index === currentIndex ? 24 : 8,
                   },
                 ]}
@@ -259,7 +269,7 @@ export function OnboardingScreen() {
               <Animated.View style={[styles.imageContainer, imageStyle]}>
                 <Image
                   source={item.image}
-                  style={[styles.slideImage, { tintColor: 'rgba(255, 255, 255, 0.08)' }]}
+                  style={[styles.slideImage, { tintColor: 'rgba(255, 255, 255, 0.05)' }]}
                   resizeMode="contain"
                 />
                 <View style={styles.iconCircle}>
@@ -296,7 +306,7 @@ export function OnboardingScreen() {
               <Icon 
                 name={currentIndex === slides.length - 1 ? 'login' : 'arrow-right'} 
                 size={20} 
-                color="#121212" 
+                color="#1A1A1A" 
                 style={styles.nextButtonIcon} 
               />
             )}
@@ -310,7 +320,7 @@ export function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#1A1A1A',
   },
   content: {
     flex: 1,
@@ -334,14 +344,14 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   skipText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   slide: {
     width,
@@ -359,30 +369,31 @@ const styles = StyleSheet.create({
   slideImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.7,
+    opacity: 0.5,
   },
   iconCircle: {
     position: 'absolute',
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
     marginBottom: 16,
+    letterSpacing: 0.5,
   },
   description: {
     fontSize: 18,
@@ -390,6 +401,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 28,
     marginBottom: 40,
+    letterSpacing: 0.3,
   },
   buttonContainer: {
     alignItems: 'center',
@@ -400,27 +412,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
     borderRadius: 30,
     width: width * 0.85,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   nextButtonText: {
-    color: '#121212',
+    color: '#1A1A1A',
     fontSize: 18,
     fontWeight: 'bold',
     marginRight: 8,
+    letterSpacing: 0.5,
   },
   nextButtonIcon: {
     marginLeft: 4,
-  },
-  iosIconFallback: {
-    fontSize: 40,
-    color: '#fff',
   },
 }); 

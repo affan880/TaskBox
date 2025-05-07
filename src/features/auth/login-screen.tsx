@@ -10,7 +10,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { useAuthStore } from '../../store/auth-store';
+import { useAuthStore } from '@/store/slices/auth-slice';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';

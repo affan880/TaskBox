@@ -9,6 +9,8 @@ export type Project = {
   description?: string;
   isCompleted: boolean;
   taskIds: string[];
+  startDate?: string;
+  endDate?: string;
   createdAt: string;
   updatedAt: string;
 };

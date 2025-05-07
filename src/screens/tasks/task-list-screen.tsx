@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import type { TaskStackScreenProps } from '@/navigation/types';
-import { useTaskStore } from '@/store/task-store';
+import { useTaskStore } from '@/store/slices/task-slice';
 
 type Props = TaskStackScreenProps<'Tasks'>;
 

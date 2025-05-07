@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use MaterialCommunityIcons for more variety
 import { useTheme } from 'src/theme/theme-context';
-import { useAuthStore } from 'src/store/auth-store';
+import { useAuthStore } from 'src/store/slices/auth-slice';
 import { AuthNavigator } from './auth-navigator';
 import { ProfileNavigator } from '@/features/profile/navigation/profile-navigator';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

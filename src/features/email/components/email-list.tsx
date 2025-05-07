@@ -141,13 +141,31 @@ export function EmailList({
   const flatListRef = React.useRef<FlatList>(null);
   const lastCategoryChangeTime = React.useRef<number>(Date.now());
   
+  // Add debug logging for category changes
+  React.useEffect(() => {
+    console.log('[EmailList] Category changed:', {
+      selectedCategory,
+      emailsCount: emails.length,
+      isLoading,
+      initialLoadComplete,
+      isListReady,
+      hasSmartSort: !!onSmartSort
+    });
+  }, [selectedCategory, emails.length, isLoading, initialLoadComplete, isListReady, onSmartSort]);
+
   // Set list as ready after the first render is complete
   React.useEffect(() => {
     if (initialLoadComplete && emails.length > 0 && !isListReady) {
+      console.log('[EmailList] Setting list as ready:', {
+        emailsCount: emails.length,
+        initialLoadComplete,
+        isListReady
+      });
+      
       // Use a smaller delay to ensure list is responsive
       const timer = setTimeout(() => {
         setIsListReady(true);
-        if (DEBUG) console.log('[EmailList] List is now ready for load more');
+        console.log('[EmailList] List is now ready for load more');
       }, 300); // Reduced from 1000ms to 300ms
       
       return () => clearTimeout(timer);
@@ -156,18 +174,24 @@ export function EmailList({
   
   // Reset list ready state and track category change time when category changes
   React.useEffect(() => {
+    console.log('[EmailList] Category change detected:', {
+      newCategory: selectedCategory,
+      previousReadyState: isListReady
+    });
+    
     setIsListReady(false);
     lastCategoryChangeTime.current = Date.now();
-    if (DEBUG) console.log('[EmailList] Category changed, updating lastCategoryChangeTime');
   }, [selectedCategory]);
 
-  // Debug log
+  // Debug log for emails updates
   React.useEffect(() => {
-    if (DEBUG) {
-      console.log('[EmailList] Received emails:', emails?.length || 0);
-      console.log('[EmailList] isLoading:', isLoading, 'initialLoadComplete:', initialLoadComplete);
-    }
-  }, [emails, isLoading, initialLoadComplete]);
+    console.log('[EmailList] Emails updated:', {
+      count: emails?.length || 0,
+      category: selectedCategory,
+      isLoading,
+      initialLoadComplete
+    });
+  }, [emails, selectedCategory, isLoading, initialLoadComplete]);
 
   // Handle load more with debounce after category changes
   const handleLoadMoreWrapper = React.useCallback(() => {
@@ -175,14 +199,20 @@ export function EmailList({
     const timeSinceCategoryChange = Date.now() - lastCategoryChangeTime.current;
     const tooSoonAfterCategoryChange = timeSinceCategoryChange < 500;
     
+    console.log('[EmailList] Load more requested:', {
+      isLoadingMore,
+      refreshing,
+      timeSinceCategoryChange,
+      tooSoonAfterCategoryChange
+    });
+    
     // Only block load more if we're already loading more or refreshing or too soon after category change
     if (isLoadingMore || refreshing || tooSoonAfterCategoryChange) {
-      if (DEBUG) console.log('[EmailList] Ignoring load more, already loading or refreshing or category just changed', 
-        { isLoadingMore, refreshing, timeSinceCategoryChange, tooSoonAfterCategoryChange });
+      console.log('[EmailList] Ignoring load more request');
       return;
     }
     
-    if (DEBUG) console.log('[EmailList] Calling handleLoadMore');
+    console.log('[EmailList] Proceeding with load more');
     handleLoadMore();
   }, [isLoadingMore, refreshing, handleLoadMore]);
 
@@ -216,10 +246,7 @@ export function EmailList({
   }
 
   // Empty state for the email list  
-  // Show this when:
-  // 1. We're not loading, and 
-  // 2. There are no emails to display
-  if (!isLoading && initialLoadComplete && emails.length === 0) {
+  if (!isLoading && emails.length === 0) {
     if (DEBUG) console.log('EmailList: Displaying empty state');
     
     let message = `No emails found in "${selectedCategory}"`;
@@ -240,27 +267,29 @@ export function EmailList({
           {description}
         </Text>
         
-        <TouchableOpacity 
-          style={[
-            styles.refreshButton, 
-            { 
-              backgroundColor: colors.brand?.primary || '#6366f1',
-              paddingHorizontal: 24,
-              paddingVertical: 12,
-              borderRadius: 20,
-              marginTop: 16,
-              elevation: 2,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }
-          ]}
-          onPress={handleRefresh}
-        >
-          <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
-        </TouchableOpacity>
+        {selectedCategory === 'All' && (
+          <TouchableOpacity 
+            style={[
+              styles.refreshButton, 
+              { 
+                backgroundColor: colors.brand?.primary || '#6366f1',
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 20,
+                marginTop: 16,
+                elevation: 2,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              }
+            ]}
+            onPress={handleRefresh}
+          >
+            <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
+          </TouchableOpacity>
+        )}
 
         {selectedCategory !== 'All' && !searchQuery && onSmartSort && (
           <TouchableOpacity 
@@ -351,27 +380,29 @@ export function EmailList({
                 <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                   No results found for "{searchQuery}"
                 </Text>
-                <TouchableOpacity 
-                  style={[
-                    styles.refreshButton, 
-                    { 
-                      backgroundColor: colors.brand?.primary || '#6366f1',
-                      paddingHorizontal: 24,
-                      paddingVertical: 12,
-                      borderRadius: 20,
-                      marginTop: 16,
-                      elevation: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                    }
-                  ]}
-                  onPress={handleRefresh}
-                >
-                  <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
-                </TouchableOpacity>
+                {selectedCategory === 'All' && (
+                  <TouchableOpacity 
+                    style={[
+                      styles.refreshButton, 
+                      { 
+                        backgroundColor: colors.brand?.primary || '#6366f1',
+                        paddingHorizontal: 24,
+                        paddingVertical: 12,
+                        borderRadius: 20,
+                        marginTop: 16,
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                      }
+                    ]}
+                    onPress={handleRefresh}
+                  >
+                    <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           }
@@ -383,37 +414,39 @@ export function EmailList({
                 <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                   No emails in this category
                 </Text>
-                <TouchableOpacity 
-                  style={[
-                    styles.smartSortButton, 
-                    { 
-                      backgroundColor: colors.brand.primary,
-                      paddingHorizontal: 24,
-                      paddingVertical: 12,
-                      borderRadius: 20,
-                      marginTop: 16,
-                      elevation: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                    }
-                  ]}
-                  onPress={onSmartSort}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <ActivityIndicator size="small" color="#ffffff" style={styles.buttonIcon} />
-                      <Text style={styles.smartSortButtonText}>Analyzing...</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="sort" size={18} color="#ffffff" style={styles.buttonIcon} />
-                      <Text style={styles.smartSortButtonText}>Smart Sort</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {onSmartSort && (
+                  <TouchableOpacity 
+                    style={[
+                      styles.smartSortButton, 
+                      { 
+                        backgroundColor: colors.brand.primary,
+                        paddingHorizontal: 24,
+                        paddingVertical: 12,
+                        borderRadius: 20,
+                        marginTop: 16,
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                      }
+                    ]}
+                    onPress={onSmartSort}
+                    disabled={isAnalyzing}
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <ActivityIndicator size="small" color="#ffffff" style={styles.buttonIcon} />
+                        <Text style={styles.smartSortButtonText}>Analyzing...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="sort" size={18} color="#ffffff" style={styles.buttonIcon} />
+                        <Text style={styles.smartSortButtonText}>Smart Sort</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             );
           }
@@ -424,7 +457,7 @@ export function EmailList({
               <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
                 {isLoading ? 'Loading emails...' : 'No emails found'}
               </Text>
-              {initialLoadComplete && !isLoading && (
+              {selectedCategory === 'All' && !isLoading && (
                 <TouchableOpacity 
                   style={[
                     styles.refreshButton, 

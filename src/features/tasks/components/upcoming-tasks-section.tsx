@@ -2,7 +2,7 @@ import * as React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useTaskStore } from '@/store/task-store';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { TaskData } from '@/types/task';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProps } from '@/navigation/types';

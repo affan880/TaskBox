@@ -1,23 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { storageConfig } from '@/lib/storage/storage';
-import { Project, ProjectCreateInput, ProjectWithTasks } from '../types/project';
-import { TaskData } from '../types/task';
-import { 
-  loadProjects as loadProjectsFromApi, 
-  saveProjects as saveProjectsToApi,
-  createProject,
-  updateProject as updateProjectInApi,
-  addTaskToProject as addTaskToProjectInApi,
-  removeTaskFromProject as removeTaskFromProjectInApi,
-  deleteProject as deleteProjectFromApi
-} from '../api/projects-api';
-import { useTaskStore } from './task-store';
+import { Project, ProjectCreateInput, ProjectWithTasks } from '@/types/project';
+import { useTaskStore } from './task-slice';
 
 type ProjectStore = {
   projects: Project[];
   selectedProjectId: string | null;
-  addProject: (project: Project) => Project;
+  addProject: (project: ProjectCreateInput) => Project;
   updateProject: (id: string, project: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => void;
   setSelectedProject: (projectId: string | null) => void;
@@ -34,10 +24,12 @@ export const useProjectStore = create<ProjectStore>()(
     (set, get) => ({
       projects: [],
       selectedProjectId: null,
-      addProject: (project) => {
-        const newProject = {
-          ...project,
+      addProject: (projectInput) => {
+        const newProject: Project = {
+          ...projectInput,
           id: `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          isCompleted: false,
+          taskIds: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };

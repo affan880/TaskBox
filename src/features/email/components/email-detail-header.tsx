@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    marginTop: 30,
+    marginTop: Platform.OS === 'ios' ? 20:30,
   },
   headerContent: {
     flex: 1,

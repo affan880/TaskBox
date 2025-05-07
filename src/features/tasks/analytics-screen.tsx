@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '@/theme/theme-context';
-import { useTaskStore } from '@/store/task-store';
-import { useProjectStore } from '@/store/project-store';
+import { useTaskStore } from '@/store/slices/task-slice';
+import { useProjectStore } from '@/store/slices/project-slice';
 import { LineChart, PieChart, BarChart } from 'react-native-chart-kit';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 

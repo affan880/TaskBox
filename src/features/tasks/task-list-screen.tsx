@@ -20,11 +20,11 @@ import type { RouteProp } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { useProjectStore } from '@/store/project-store';
-import { useTaskStore } from '@/store/task-store';
+import { useProjectStore } from '@/store/slices/project-slice';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { ProjectWithTasks } from '@/types/project';
 import { TaskData, TaskPriority, TaskStatus, TaskFilter } from '@/types/task';
-import { TaskCard } from '@/components/task-card';
+import { TaskCard } from './components/task-card';
 import { FileAttachmentsList } from '@/components/file-attachments-list';
 import { Button } from '@/components/ui/button';
 

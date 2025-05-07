@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
-import { useTaskStore } from '@/store/task-store';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { NavigationProp } from '@react-navigation/native';
 import { TaskData } from '@/types/task';

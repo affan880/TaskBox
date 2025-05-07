@@ -30,7 +30,7 @@ import {
   FloatingChatButton,
 } from './components';
 import { useSharedValue } from 'react-native-reanimated';
-import { useEmailStore } from '@/store/email-store';
+import { useEmailStore } from '@/store/slices/email-slice';
 import { storageConfig } from '@/lib/storage';
 
 type RootStackParamList = {

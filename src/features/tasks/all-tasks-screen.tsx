@@ -11,9 +11,8 @@ import {
 } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
-import { useTaskStore } from '@/store/task-store';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { TaskData, TaskPriority } from '@/types/task';
 
 type SortOption = 'dueDate' | 'priority' | 'createdAt';
@@ -95,7 +94,7 @@ export function AllTasksScreen() {
         onPress={() => toggleTaskCompletion(item.id)}
       >
         {item.isCompleted && (
-          <FeatherIcon name="check" size={16} color={colors.text.inverse} />
+          <Icon name="check" size={16} color={colors.text.inverse} />
         )}
       </TouchableOpacity>
       
@@ -122,7 +121,7 @@ export function AllTasksScreen() {
         <View style={styles.taskFooter}>
           {item.dueDate && (
             <View style={styles.taskDateContainer}>
-              <FeatherIcon name="calendar" size={14} color={colors.text.tertiary} />
+              <Icon name="calendar" size={14} color={colors.text.tertiary} />
               <Text style={[styles.taskDate, { color: colors.text.tertiary }]}>
                 {new Date(item.dueDate).toLocaleDateString()}
               </Text>

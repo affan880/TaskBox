@@ -20,7 +20,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { useProjectStore } from '@/store/project-store';
+import { useProjectStore } from '@/store/slices/project-slice';
 import { ProjectWithTasks } from '@/types/project';
 import { Button } from '@/components/ui/button';
 
@@ -39,8 +39,6 @@ export function ProjectListScreen() {
     getAllProjectsWithTasks, 
     addProject, 
     deleteProject, 
-    loadProjects, 
-    saveProjects,
     updateProject 
   } = useProjectStore();
   
@@ -58,13 +56,8 @@ export function ProjectListScreen() {
   
   // Load projects on mount
   useEffect(() => {
-    loadProjectData();
-  }, []);
-  
-  const loadProjectData = async () => {
-    await loadProjects();
     refreshProjects();
-  };
+  }, []);
   
   const refreshProjects = () => {
     const projectsWithTasks = getAllProjectsWithTasks();
@@ -108,21 +101,26 @@ export function ProjectListScreen() {
       return;
     }
     
-    // Create the project
-    const projectId = addProject({
-      title: projectTitle,
-      description: projectDescription,
-      startDate: startDate?.toISOString(),
-      endDate: endDate?.toISOString(),
-    });
-    
-    // Save to storage
-    await saveProjects();
-    
-    // Refresh projects list
-    refreshProjects();
-    
-    handleCloseModal();
+    try {
+      // Create the project
+      const newProject = addProject({
+        title: projectTitle,
+        description: projectDescription,
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+      });
+      
+      // Refresh projects list
+      refreshProjects();
+      
+      handleCloseModal();
+      
+      // Navigate to the task list screen with the new project ID
+      navigation.navigate('TaskList', { projectId: newProject.id });
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      Alert.alert('Error', 'Failed to create project. Please try again.');
+    }
   };
   
   const handleDeleteProject = (projectId: string) => {
@@ -138,9 +136,13 @@ export function ProjectListScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            deleteProject(projectId);
-            await saveProjects();
-            refreshProjects();
+            try {
+              deleteProject(projectId);
+              refreshProjects();
+            } catch (error) {
+              console.error('Failed to delete project:', error);
+              Alert.alert('Error', 'Failed to delete project. Please try again.');
+            }
           },
         },
       ]
@@ -151,7 +153,6 @@ export function ProjectListScreen() {
     try {
       // Prevent event propagation
       e?.stopPropagation();
-      console.log('handleToggleComplete', projectId, currentStatus);
       
       // Update project completion status
       await updateProject(projectId, { isCompleted: !currentStatus });

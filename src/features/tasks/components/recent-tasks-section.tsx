@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
-import { useTaskStore } from '@/store/task-store';
+import { useTaskStore } from '@/store/slices/task-slice';
 import { createStyles } from '../styles';
 
 type Props = {
