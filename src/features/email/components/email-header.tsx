@@ -35,16 +35,16 @@ export function EmailHeader({
       style={[
         styles.container,
         {
-          paddingTop: insets.top + 20,
+          paddingTop: insets.top + Platform.OS === 'ios' ? 30 : 60,
           backgroundColor: colors.background?.primary ?? '#ffffff',
           borderBottomColor: colors.border?.light ?? '#e1e1e1',
         },
       ]}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text?.primary }]}>
+        {/* <Text style={[styles.title, { color: colors.text?.primary }]}>
           {screenTitle}
-        </Text>
+        </Text> */}
         <View style={styles.searchContainer}>
           <View
             style={[

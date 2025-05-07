@@ -12,8 +12,13 @@ const TASKS_STORAGE_KEY = 'tasks';
  */
 export async function loadTasks(): Promise<TaskData[]> {
   try {
-    const tasks = await getItem<TaskData[]>(TASKS_STORAGE_KEY, []);
-    return tasks || [];
+    const tasks = await getItem<TaskData[]>(TASKS_STORAGE_KEY);
+    if (!tasks) {
+      // Initialize with empty array if no tasks exist
+      await setItem(TASKS_STORAGE_KEY, []);
+      return [];
+    }
+    return tasks;
   } catch (error) {
     console.error('Failed to load tasks:', error);
     return [];
@@ -27,7 +32,9 @@ export async function loadTasks(): Promise<TaskData[]> {
  */
 export async function saveTasks(tasks: TaskData[]): Promise<void> {
   try {
-    await setItem(TASKS_STORAGE_KEY, tasks);
+    // Ensure we're saving an array
+    const tasksToSave = Array.isArray(tasks) ? tasks : [];
+    await setItem(TASKS_STORAGE_KEY, tasksToSave);
   } catch (error) {
     console.error('Failed to save tasks:', error);
     throw error;
@@ -52,10 +59,17 @@ export function createTask(
     title: taskData.title,
     description: taskData.description,
     isCompleted: taskData.isCompleted ?? false,
+    status: taskData.status || 'todo',
     dueDate: taskData.dueDate,
     priority: taskData.priority || 'medium',
     tags: taskData.tags || [],
     attachments: taskData.attachments || [],
+    estimatedTime: taskData.estimatedTime,
+    progress: taskData.progress || 0,
+    notes: taskData.notes,
+    isRecurring: taskData.isRecurring || false,
+    recurringInterval: taskData.recurringInterval,
+    projectId: taskData.projectId,
     createdAt: now,
     updatedAt: now,
   };
@@ -75,11 +89,18 @@ export function updateTask(
   taskId: string,
   updates: Partial<Omit<TaskData, 'id' | 'createdAt'>>
 ): TaskData[] {
-  return tasks.map((task) => 
+  const updatedTasks = tasks.map((task) => 
     task.id === taskId 
       ? { ...task, ...updates, updatedAt: new Date().toISOString() } 
       : task
   );
+  
+  // Save the updated tasks
+  saveTasks(updatedTasks).catch(error => {
+    console.error('Failed to save updated tasks:', error);
+  });
+  
+  return updatedTasks;
 }
 
 /**
@@ -89,7 +110,7 @@ export function updateTask(
  * @returns Updated task list
  */
 export function toggleTaskCompletion(tasks: TaskData[], taskId: string): TaskData[] {
-  return tasks.map((task) => 
+  const updatedTasks = tasks.map((task) => 
     task.id === taskId 
       ? { 
           ...task, 
@@ -99,6 +120,13 @@ export function toggleTaskCompletion(tasks: TaskData[], taskId: string): TaskDat
         } 
       : task
   );
+  
+  // Save the updated tasks
+  saveTasks(updatedTasks).catch(error => {
+    console.error('Failed to save task completion:', error);
+  });
+  
+  return updatedTasks;
 }
 
 /**
@@ -108,5 +136,12 @@ export function toggleTaskCompletion(tasks: TaskData[], taskId: string): TaskDat
  * @returns Updated task list
  */
 export function deleteTask(tasks: TaskData[], taskId: string): TaskData[] {
-  return tasks.filter((task) => task.id !== taskId);
+  const updatedTasks = tasks.filter((task) => task.id !== taskId);
+  
+  // Save the updated tasks
+  saveTasks(updatedTasks).catch(error => {
+    console.error('Failed to save after task deletion:', error);
+  });
+  
+  return updatedTasks;
 } 

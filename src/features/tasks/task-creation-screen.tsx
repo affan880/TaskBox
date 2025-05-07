@@ -97,7 +97,14 @@ export function TaskCreationScreen() {
         updatedAt: new Date().toISOString(),
       };
 
+      // Add task to task store
       await addTask(newTask);
+      
+      // Add task to project if a project is selected
+      if (selectedProjectId) {
+        useProjectStore.getState().addTaskToProject(selectedProjectId, newTask.id);
+      }
+
       navigation.goBack();
     } catch (error) {
       console.error('Failed to create task:', error);

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import type { TaskData, TaskPriority, TaskStatus } from '@/types/task';
 
@@ -71,7 +70,7 @@ export function TaskCard({ task, onPress, onDelete, onToggleComplete }: Props) {
           onPress={onToggleComplete}
         >
           {task.isCompleted && (
-            <FeatherIcon name="check" size={16} color={colors.brand.primary} />
+            <MaterialIcons name="check" size={16} color={colors.brand.primary} />
           )}
         </TouchableOpacity>
         
@@ -101,7 +100,7 @@ export function TaskCard({ task, onPress, onDelete, onToggleComplete }: Props) {
           style={styles.deleteButton}
           onPress={onDelete}
         >
-          <Icon name="delete-outline" size={20} color={colors.status.error} />
+          <MaterialIcons name="delete-outline" size={20} color={colors.status.error} />
         </TouchableOpacity>
       </View>
 
@@ -109,7 +108,7 @@ export function TaskCard({ task, onPress, onDelete, onToggleComplete }: Props) {
         <View style={styles.metadata}>
           {/* Status */}
           <View style={styles.metadataItem}>
-            <Icon
+            <MaterialIcons
               name={getStatusIcon(task.status)}
               size={16}
               color={getStatusColor(task.status)}
@@ -121,7 +120,7 @@ export function TaskCard({ task, onPress, onDelete, onToggleComplete }: Props) {
 
           {/* Priority */}
           <View style={styles.metadataItem}>
-            <Icon
+            <MaterialIcons
               name="priority-high"
               size={16}
               color={getPriorityColor(task.priority)}
@@ -134,7 +133,7 @@ export function TaskCard({ task, onPress, onDelete, onToggleComplete }: Props) {
           {/* Due Date */}
           {task.dueDate && (
             <View style={styles.metadataItem}>
-              <FeatherIcon name="calendar" size={16} color={colors.text.secondary} />
+              <MaterialIcons name="event" size={16} color={colors.text.secondary} />
               <Text style={[styles.metadataText, { color: colors.text.secondary }]}>
                 {new Date(task.dueDate).toLocaleDateString()}
               </Text>

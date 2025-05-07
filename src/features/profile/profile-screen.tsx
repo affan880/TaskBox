@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../store/auth-store';
+import { useTaskStore } from '@/store/task-store';
+import { useProjectStore } from '@/store/project-store';
 import { Screen } from '../../components/ui/screen';
 import { useTheme } from '../../theme/theme-context';
 import { ThemeToggle } from '../../components/ui/theme-toggle';
@@ -47,6 +49,31 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [showActions, setShowActions] = React.useState(false);
   const insets = useSafeAreaInsets();
   const { width } = Dimensions.get('window');
+  
+  // Subscribe to task and project stores with selectors
+  const tasks = useTaskStore(state => state.tasks);
+  const projects = useProjectStore(state => state.projects);
+  
+  // Debug logs for tasks
+  React.useEffect(() => {
+    console.log('Tasks updated:', tasks);
+  }, [tasks]);
+  
+  // Calculate task statistics with proper dependencies
+  const taskStats = React.useMemo(() => {
+    const completedTasks = tasks.filter(task => task.status === 'completed' || task.isCompleted).length;
+    const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
+    const todoTasks = tasks.filter(task => task.status === 'todo').length;
+    
+    const stats = {
+      completed: completedTasks,
+      inProgress: inProgressTasks,
+      todo: todoTasks
+    };
+    
+    console.log('Task stats calculated:', stats);
+    return stats;
+  }, [tasks]);
   
   // Animation refs
   const profileRef = React.useRef<Animatable.View & View>(null);
@@ -137,7 +164,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 20 }
+          { paddingBottom: insets.bottom + 100 }
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -182,18 +209,24 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         >
           <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
             <Icon name="check-circle" size={24} color={colors.status.success} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>12</Text>
+            <Text style={[styles.statValue, { color: colors.text.primary }]}>
+              {taskStats.completed}
+            </Text>
             <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Completed</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
             <Icon name="clock-outline" size={24} color={colors.brand.primary} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>5</Text>
+            <Text style={[styles.statValue, { color: colors.text.primary }]}>
+              {taskStats.inProgress}
+            </Text>
             <Text style={[styles.statLabel, { color: colors.text.secondary }]}>In Progress</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <Icon name="star" size={24} color={colors.status.warning} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>3</Text>
-            <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Starred</Text>
+            <Icon name="format-list-checks" size={24} color={colors.status.warning} />
+            <Text style={[styles.statValue, { color: colors.text.primary }]}>
+              {taskStats.todo}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.text.secondary }]}>To Do</Text>
           </View>
         </Animatable.View>
 
@@ -276,8 +309,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 20,
     paddingBottom: 20,
+    zIndex: 1,
   },
   headerContent: {
     flexDirection: 'row',
@@ -304,7 +342,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: -40,
+    marginTop: 100,
   },
   scrollContent: {
     flexGrow: 1,

@@ -8,10 +8,11 @@
 import 'react-native-gesture-handler'; // MUST BE FIRST
 
 import * as React from 'react';
+import type { JSX } from 'react';
 import { StatusBar, AppState, AppStateStatus, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppNavigator } from '@/navigation/app-navigator';
-import { useAuthStore, type AuthState } from '@/store/auth-store';
+import { useAuthStore } from '@/store/auth-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/theme/theme-context';
 import { ErrorBoundary } from '@/components/ui/error-boundary'; 
@@ -26,9 +27,7 @@ LogBox.ignoreLogs([
   'Non-serializable values were found in the navigation state',
 ]);
 
-// --- Google Sign-In Configuration ---
-// IMPORTANT: Configure Google Sign-In here *before* AuthProvider mounts.
-// This should run once when the module is loaded.
+// Google Sign-In Configuration
 GoogleSignin.configure({
   webClientId: process.env.FIREBASE_WEB_CLIENT_ID,
   iosClientId: process.env.FIREBASE_IOS_CLIENT_ID,
@@ -43,62 +42,41 @@ GoogleSignin.configure({
   ],
 });
 
-// Patch Error.stack to handle potential issues with the 'err' package
-if (!('stack' in Error.prototype)) {
-  Object.defineProperty(Error.prototype, 'stack', {
-    configurable: true,
-    get() {
-      try {
-        return this._stack || '';
-      } catch (e) {
-        return '';
-      }
-    },
-    set(value) {
-      this._stack = value;
-    }
-  });
-}
-
-/**
- * TaskBox - A simple task management app with Firebase integration
- */
-export default function App() {
-  const initializeAuthListener = useAuthStore((state: AuthState) => state.initializeAuthListener);
+function useAppStateListener(): void {
   const appState = React.useRef(AppState.currentState);
 
-  // Initialize Auth Listener directly
   React.useEffect(() => {
-    const unsubscribe = initializeAuthListener();
-    
-    // Clean up the listener when the component unmounts
-    return () => {
-      unsubscribe();
-    };
-  }, [initializeAuthListener]);
-
-  // Set up app state change listener to refresh tokens when app comes to foreground
-  React.useEffect(() => {
-    // Handle app state changes to refresh tokens when app comes back to foreground
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('App has come to the foreground, potentially refresh Google token via useAuth?');
-        // NOTE: Token refresh for Google Signin might be handled within AuthProvider
-        // or you could potentially call authContext.handleTokenRefresh() here if needed.
+        console.log('App has come to the foreground');
       }
       appState.current = nextAppState;
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
-    return () => {
-      subscription.remove();
-    };
+    return () => subscription.remove();
   }, []);
+}
+
+function useAuthListener(): void {
+  const initializeAuthListener = useAuthStore(state => state.initializeAuthListener);
+
+  React.useEffect(() => {
+    const unsubscribe = initializeAuthListener();
+    return () => unsubscribe();
+  }, [initializeAuthListener]);
+}
+
+/**
+ * TaskBox - A simple task management app with Firebase integration
+ */
+export default function App(): JSX.Element {
+  useAuthListener();
+  useAppStateListener();
 
   return (
-    <BottomSheetModalProvider>
-      {/* <GestureHandlerRootView style={{ flex: 1 }}> */}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
         <ErrorBoundary>
           <AuthProvider>
             <SafeAreaProvider>
@@ -110,7 +88,7 @@ export default function App() {
             </SafeAreaProvider>
           </AuthProvider>
         </ErrorBoundary>
-      {/* </GestureHandlerRootView> */}
-    </BottomSheetModalProvider>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }

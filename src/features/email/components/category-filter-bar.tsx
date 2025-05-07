@@ -249,7 +249,7 @@ export function CategoryFilterBar({
       justifyContent: 'flex-end',
     },
     modalContent: {
-      backgroundColor: '#fff',
+      backgroundColor: colors.background?.primary ?? '#ffffff',
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: 20,
@@ -257,12 +257,11 @@ export function CategoryFilterBar({
       ...Platform.select({
         android: {
           elevation: 5,
-          // height: 260,
           width: '92%',
           alignSelf: 'center',
         },
         ios: {
-          shadowColor: '#000',
+          shadowColor: colors.text?.primary ?? '#000',
           shadowOffset: {
             width: 0,
             height: -2,
@@ -277,7 +276,7 @@ export function CategoryFilterBar({
       fontSize: 18,
       fontWeight: 'bold' as FontWeight,
       marginBottom: 16,
-      color: colors.text?.primary,
+      color: colors.text?.primary ?? '#000000',
     },
     input: {
       borderWidth: 1,
@@ -285,8 +284,8 @@ export function CategoryFilterBar({
       borderRadius: 8,
       padding: 12,
       marginBottom: 16,
-      color: colors.text?.primary,
-      backgroundColor: colors.background?.primary ?? '#ffffff',
+      color: colors.text?.primary ?? '#000000',
+      backgroundColor: colors.surface?.primary ?? '#ffffff',
     },
     modalButtons: {
       flexDirection: 'row',
@@ -312,7 +311,7 @@ export function CategoryFilterBar({
       fontWeight: '500' as FontWeight,
     },
     cancelButtonText: {
-      color: colors.text?.secondary ?? '#666666',
+      color: colors.text?.primary ?? '#000000',
     },
     addButtonText: {
       color: '#ffffff',

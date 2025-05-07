@@ -1,194 +1,100 @@
 # TaskBox
 
-A simple task management app built with React Native.
+A React Native task management application with Firebase integration.
 
 ## Setup
 
-### Prerequisites
-
-- Node.js >= 18
-- Yarn or npm
-- iOS: XCode and CocoaPods
-- Android: Android Studio with SDK
-
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
-
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-3. For iOS, install Pods:
-
+2. iOS specific setup:
 ```bash
-cd ios && pod install && cd ..
+cd ios
+pod install
+cd ..
+```
+
+3. Create a `.env` file in the root directory with the following variables:
+```
+FIREBASE_WEB_CLIENT_ID=your_web_client_id
+FIREBASE_IOS_CLIENT_ID=your_ios_client_id
 ```
 
 ## Usage
 
-### Running the app
-
-#### iOS
-
-```bash
-npm run ios
-```
-
-#### Android
-
-```bash
-npm run android
-```
-
 ### Development
 
+- Start Metro bundler:
 ```bash
 npm start
 ```
 
-## Stack
+- Run on iOS:
+```bash
+npm run ios
+```
 
-- **React Native**: Core framework
-- **TypeScript**: For type safety
-- **React Navigation**: For navigation between screens
-- **Zustand**: State management
-- **MMKV**: Fast storage
-- **Nativewind/TailwindCSS**: For styling
-- **date-fns**: Date manipulation
-- **react-native-blob-util**: For handling file attachments
-- **react-native-document-picker**: For picking document attachments
-- **Jest**: Testing
+- Run on Android:
+```bash
+npm run android
+```
 
-## Features
+### Testing
 
-### Task Management
-- Create, edit, and delete tasks
-- Set task priorities (low, medium, high)
-- Add due dates and tags
-- Mark tasks as complete
-- Filter tasks by status and priority
+```bash
+npm test
+```
 
-### File Attachments
-- Attach files to tasks
-- View attachments with native file viewers
-- Support for multiple file types (documents, images, PDFs, etc.)
-- Delete attachments from tasks
+### Linting
+
+```bash
+npm run lint
+```
+
+## Tech Stack
+
+- React Native (CLI)
+- TypeScript
+- NativeWind (Tailwind CSS for React Native)
+- React Navigation
+- Firebase (Authentication, Firestore, Storage)
+- Google Sign-In
+- React Query with React Query Kit
+- Zustand (State Management)
+- React Native MMKV (Storage)
+- React Native Gesture Handler
+- React Native Reanimated
+- React Native SVG
 
 ## Folder Structure
 
 ```
 src/
-  ├── api/         # API services
-  │   └── task/    # Task-related API services
-  ├── app/         # App screens
-  │   └── tasks-screen.tsx
-  ├── components/  # Reusable components
-  │   ├── task/    # Task-related components
-  │   └── ui/      # UI components like buttons, inputs
-  ├── lib/         # Shared libraries
-  │   ├── auth/    # Authentication utilities
-  │   ├── hooks/   # Custom React hooks
-  │   ├── storage/ # Storage utilities
-  │   ├── store/   # Zustand stores
-  │   └── utils/   # Utility functions
-  ├── translations/ # i18n translations
-  └── types/       # TypeScript type definitions
+├── api/          # API related code (axios, react-query)
+├── app/          # Screens and navigation setup
+├── components/   # Shared components
+│   └── ui/      # Core UI components (buttons, inputs)
+├── lib/          # Shared libraries
+│   ├── auth/    # Authentication
+│   ├── hooks/   # Custom hooks
+│   └── utils/   # Utility functions
+├── store/        # Zustand store
+├── theme/        # Theme configuration
+├── translations/ # i18n files
+└── types/       # TypeScript types
 ```
 
-# Getting Started
+## Contributing
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Please follow our commit message conventions:
 
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- `fix:` for bug fixes
+- `feat:` for new features
+- `perf:` for performance improvements
+- `docs:` for documentation changes
+- `style:` for formatting changes
+- `refactor:` for code refactoring
+- `test:` for adding missing tests
+- `chore:` for maintenance tasks

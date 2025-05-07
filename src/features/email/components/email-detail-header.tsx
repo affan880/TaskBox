@@ -6,6 +6,7 @@ import { useTheme } from 'src/theme/theme-context';
 import { SPACING, TYPOGRAPHY } from '../../../theme/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+
 type EmailDetailHeaderProps = {
   gmailTheme: any;
   isActionLoading: boolean;
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    marginTop: 30,
   },
   headerContent: {
     flex: 1,

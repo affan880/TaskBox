@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { View, TouchableOpacity, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, Text, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
@@ -11,14 +11,14 @@ import { NavigationProp } from '@react-navigation/native';
 import { TaskData } from '@/types/task';
 import { ProjectWithTasks } from '@/types/project';
 import { createStyles } from './styles';
-import { CalendarSection } from '@/features/tasks/components/calendar-section';
-import { SelectedDateTasks } from '@/features/tasks/components/selected-date-tasks';
-import { VisibleDatesTasks } from '@/features/tasks/components/visible-dates-tasks';
-import { TaskSummarySection } from '@/features/tasks/components/task-summary-section';
-import { UpcomingTasksSection } from '@/features/tasks/components/upcoming-tasks-section';
-import { ProjectSection } from '@/features/tasks/components/project-section';
-import { RecentTasksSection } from '@/features/tasks/components/recent-tasks-section';
-import { AnalyticsSection } from '@/features/tasks/components/analytics-section';
+import { CalendarSection } from './components/calendar-section';
+import { SelectedDateTasks } from './components/selected-date-tasks';
+import { VisibleDatesTasks } from './components/visible-dates-tasks';
+import { TaskSummarySection } from './components/task-summary-section';
+import { UpcomingTasksSection } from './components/upcoming-tasks-section';
+import { ProjectSection } from './components/project-section';
+import { RecentTasksSection } from './components/recent-tasks-section';
+import { AnalyticsSection } from './components/analytics-section';
 
 // Define Tab type
 type ActiveTab = 'Calendar' | 'Overview' | 'Analytics';
@@ -40,52 +40,73 @@ type NavigationPropType = NavigationProp<RootStackParamList>;
 export function TaskScreen() {
   const navigation = useNavigation<NavigationPropType>();
   const { colors, isDark } = useTheme();
-  const styles = createStyles(colors, isDark);
+  const styles = React.useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('Overview');
-  const [tasks, setTasks] = useState<TaskData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { getTasks } = useTaskStore();
+  const { tasks, loadTasks, initialized } = useTaskStore();
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
   const [visibleDates, setVisibleDates] = useState<{ start: Date; end: Date }>({
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date())
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Load tasks when component mounts
   useEffect(() => {
-    let isMounted = true;
-
-    const loadTasks = async () => {
+    const initializeTasks = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const loadedTasks = await getTasks();
-        if (isMounted) {
-          setTasks(loadedTasks || []);
-        }
-      } catch (err) {
-        console.error('Error loading tasks:', err);
-        if (isMounted) {
-          setError('Failed to load tasks. Please try again.');
-        }
+        await loadTasks();
+      } catch (error) {
+        console.error('Failed to load tasks:', error);
+        setError('Failed to load tasks. Please try again.');
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
-    loadTasks();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    if (!initialized) {
+      initializeTasks();
+    } else {
+      setIsLoading(false);
+    }
+  }, [loadTasks, initialized]);
 
   const handleNavigate = (screen: string, params?: any) => {
     navigation.navigate(screen as any, params);
   };
+
+  if (!styles) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={[styles.errorText, { color: colors.status.error }]}>{error}</Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: colors.brand.primary }]}
+            onPress={() => loadTasks()}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.text.inverse }]}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
@@ -126,16 +147,14 @@ export function TaskScreen() {
         </View>
       </View>
       
-      <ScrollView style={styles.contentContainer}>
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.brand.primary} />
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: colors.text.primary }]}>{error}</Text>
-          </View>
-        ) : activeTab === 'Calendar' ? (
+      <ScrollView 
+        style={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: Platform.OS === 'android' ? 120 : 90 // Account for tab bar height + safe area
+        }}
+      >
+        {activeTab === 'Calendar' ? (
           <>
             <CalendarSection
               selectedDate={selectedDate}
@@ -160,10 +179,8 @@ export function TaskScreen() {
               styles={styles} 
               colors={colors} 
               isDark={isDark} 
-              tasks={tasks} 
             />
-            <ProjectSection 
-              styles={styles} 
+            <ProjectSection
               colors={colors} 
               isDark={isDark} 
               onNavigate={(project?: ExtendedProjectWithTasks) => {
@@ -174,19 +191,6 @@ export function TaskScreen() {
                 }
               }} 
             />
-            <RecentTasksSection 
-              styles={styles} 
-              colors={colors} 
-              isDark={isDark} 
-            />
-            <TouchableOpacity 
-              style={[styles.viewAllButton, { backgroundColor: colors.brand.primary }]}
-              onPress={() => handleNavigate('AllTasks')}
-            >
-              <Text style={[styles.viewAllButtonText, { color: colors.text.inverse }]}>
-                View All Tasks
-              </Text>
-            </TouchableOpacity>
           </>
         ) : (
           <AnalyticsSection 

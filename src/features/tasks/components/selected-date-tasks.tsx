@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
 import { TaskData } from '@/types/task';
@@ -18,16 +18,34 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
 
   // Filter tasks for selected date
   const selectedDateTasks = React.useMemo(() => {
-    return tasks.filter(task => 
-      task.dueDate && format(new Date(task.dueDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
-    );
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return tasks
+      .filter(task => {
+        if (!task.dueDate) return false;
+        // Handle ISO date strings
+        const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+        return taskDate === selectedDateStr;
+      })
+      .sort((a, b) => {
+        // Sort by priority first
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // Then by completion status
+        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+
+        // Finally by title
+        return a.title.localeCompare(b.title);
+      });
   }, [tasks, selectedDate]);
 
   return (
     <View style={styles.selectedDateSection}>
       <View style={styles.selectedDateHeader}>
         <Text style={[styles.selectedDateTitle, { color: colors.text.primary }]}>
-          Tasks for {format(selectedDate, 'MMMM d, yyyy')}
+          {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMMM d, yyyy')}
+          {selectedDateTasks.length > 0 && ` • ${selectedDateTasks.length} task${selectedDateTasks.length === 1 ? '' : 's'}`}
         </Text>
         <TouchableOpacity 
           style={[styles.filterButton, { backgroundColor: colors.surface.primary }]}
@@ -41,7 +59,7 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
 
       {selectedDateTasks.length === 0 ? (
         <View style={[styles.emptyDateContainer, { backgroundColor: colors.surface.primary }]}>
-          <FeatherIcon name="calendar" size={24} color={colors.text.tertiary} />
+          <FeatherIcon name="calendar" size={48} color={colors.text.tertiary} />
           <Text style={[styles.emptyDateText, { color: colors.text.secondary }]}>
             No tasks scheduled for this day
           </Text>
@@ -60,17 +78,18 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
             <TouchableOpacity
               key={task.id}
               style={[styles.calendarTaskItem, { backgroundColor: colors.surface.primary }]}
-              onPress={() => onNavigate('TaskList', { tasks: [task] })}
+              onPress={() => onNavigate('TaskDetail', { taskId: task.id })}
             >
-              <View style={[
-                styles.calendarTaskPriorityIndicator,
-                { 
-                  backgroundColor: 
-                    task.priority === 'high' ? colors.status.error :
-                    task.priority === 'medium' ? colors.status.warning :
-                    colors.status.success
-                }
-              ]} />
+              <View 
+                style={[
+                  styles.calendarTaskPriorityIndicator,
+                  { 
+                    backgroundColor: task.priority === 'high' ? colors.status.error :
+                                   task.priority === 'medium' ? colors.status.warning :
+                                   colors.status.success
+                  }
+                ]} 
+              />
               <View style={styles.calendarTaskContent}>
                 <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
                   {task.title}

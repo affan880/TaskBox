@@ -973,6 +973,7 @@ export function EmailDetailScreen() {
                 {/* Main Content */}
                 <View style={styles.contentContainer}>
                   <ScrollView
+                    showsVerticalScrollIndicator={false}
                     ref={scrollViewRef}
                     style={[
                       styles.scrollView, 

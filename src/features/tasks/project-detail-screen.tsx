@@ -18,8 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useProjectStore } from '@/store/project-store'; 
@@ -34,34 +33,6 @@ type NavigationPropType = NavigationProp<RootStackParamList>;
 
 type FilterTab = 'Projects' | 'Completed' | 'Flag';
 
-// Dummy data structure - adjust as needed
-type ProjectTask = {
-  id: string;
-  title: string;
-  deadline: string;
-  priority: 'High' | 'Medium' | 'Low';
-  isDone: boolean;
-  isFlagged?: boolean; // Optional flag state
-};
-
-// Dummy data for different tabs
-const dummyData: Record<FilterTab, ProjectTask[]> = {
-  Projects: [
-    { id: 'p1', title: 'Userflow', deadline: '20/01/2021', priority: 'High', isDone: true },
-    { id: 'p2', title: 'Userflow', deadline: '20/01/2021', priority: 'High', isDone: true },
-    { id: 'p3', title: 'UI design', deadline: '20/01/2021', priority: 'High', isDone: false },
-    { id: 'p4', title: 'UI design', deadline: '20/01/2021', priority: 'High', isDone: false },
-    { id: 'p5', title: 'API Int', deadline: '22/01/2021', priority: 'Medium', isDone: false },
-  ],
-  Completed: [
-    { id: 'c1', title: 'Userflow C', deadline: '19/01/2021', priority: 'High', isDone: true },
-    { id: 'c2', title: 'Onboarding C', deadline: '18/01/2021', priority: 'Low', isDone: true },
-  ],
-  Flag: [
-    { id: 'f1', title: 'Userflow F', deadline: '20/01/2021', priority: 'High', isDone: true, isFlagged: true },
-    { id: 'f2', title: 'UI Design F', deadline: '20/01/2021', priority: 'High', isDone: false, isFlagged: true },
-  ],
-};
 
 const NUM_COLUMNS = 2;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -273,10 +244,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closeButton: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formScrollView: {
     // Add styles if needed
@@ -349,6 +321,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   createButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 16,
   },
   emptyContainer: {
@@ -365,6 +342,7 @@ const styles = StyleSheet.create({
   createEmptyButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
+    borderRadius: 8,
   },
 });
 
@@ -378,11 +356,13 @@ export function ProjectDetailScreen() {
   // Project store
   const { addProject, deleteProject, getAllProjectsWithTasks, updateProject } = useProjectStore();
   const [localProjects, setLocalProjects] = useState<ExtendedProjectWithTasks[]>([]);
+
   
   // Load projects on mount
   useEffect(() => {
     const initializeProjects = async () => {
       const projectsWithTasks = getAllProjectsWithTasks();
+      console.log('projectsWithTasks', projectsWithTasks);
       setLocalProjects(projectsWithTasks);
     };
     
@@ -612,13 +592,13 @@ export function ProjectDetailScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={[styles.cardIconContainer, { backgroundColor: colors.surface.secondary }]}>
-            <Icon name="folder" size={18} color={colors.text.primary} />
+            <MaterialIcons name="folder" size={18} color={colors.text.primary} />
           </View>
           <TouchableOpacity 
             style={styles.cardMenuButton}
             onPress={() => handleDeleteProject(item.id)}
           >
-            <Icon name="more-vert" size={18} color={colors.text.secondary} />
+            <MaterialIcons name="more-vert" size={18} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
         
@@ -633,7 +613,7 @@ export function ProjectDetailScreen() {
         <View style={styles.cardMetadataContainer}>
           {item.startDate && (
             <View style={styles.cardRow}>
-              <FeatherIcon name="calendar" size={14} color={colors.text.secondary} />
+              <MaterialIcons name="event" size={14} color={colors.text.secondary} />
               <Text style={[styles.cardLabel, { color: colors.text.secondary }]}>
                 Start: {formattedStartDate}
               </Text>
@@ -642,7 +622,7 @@ export function ProjectDetailScreen() {
           
           {item.endDate && (
             <View style={styles.cardRow}>
-              <FeatherIcon name="calendar" size={14} color={colors.text.secondary} />
+              <MaterialIcons name="event" size={14} color={colors.text.secondary} />
               <Text style={[styles.cardLabel, { color: colors.text.secondary }]}>
                 Due: {formattedEndDate}
               </Text>
@@ -684,7 +664,7 @@ export function ProjectDetailScreen() {
             onPress={(e) => handleToggleComplete(item.id, item.isCompleted, e)}
             activeOpacity={0.7}
           >
-            {item.isCompleted && <FeatherIcon name="check" size={12} color={colors.text.inverse} />}
+            {item.isCompleted && <MaterialIcons name="check" size={12} color={colors.text.inverse} />}
           </TouchableOpacity>
           <Text style={[styles.checkboxLabel, { color: colors.text.secondary }]}>
             {item.isCompleted ? 'Completed' : 'Mark as complete'}
@@ -700,7 +680,7 @@ export function ProjectDetailScreen() {
                 toggleFlag(item.id);
               }}
             >
-              <FeatherIcon name="flag" size={18} color={colors.brand.primary} />
+              <MaterialIcons name="flag" size={18} color={colors.brand.primary} />
               <Text style={[styles.flagButtonText, { color: colors.brand.primary }]}>Unflag</Text>
             </TouchableOpacity>
           </View>
@@ -714,21 +694,21 @@ export function ProjectDetailScreen() {
       {/* Custom Header */}
       <View style={[styles.headerContainer, { backgroundColor: colors.background.primary }]}>
         <TouchableOpacity onPress={handleGoBack}>
-          <FeatherIcon name="chevron-left" size={28} color={colors.text.primary} />
+          <MaterialIcons name="chevron-left" size={28} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Project</Text>
         <TouchableOpacity 
           style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
           onPress={handleAddItem}
         >
-          <Icon name="add" size={20} color={colors.text.inverse} />
+          <MaterialIcons name="add" size={20} color={colors.text.inverse} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.contentContainer}>
         {/* Search Bar */}
         <View style={[styles.searchBarContainer, { backgroundColor: colors.surface.secondary }]}>
-          <FeatherIcon name="search" size={20} color={colors.text.secondary} style={styles.searchIcon} />
+          <MaterialIcons name="search" size={20} color={colors.text.secondary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text.primary }]}
             placeholder="Search"
@@ -777,7 +757,7 @@ export function ProjectDetailScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Icon name="folder-open" size={60} color={colors.text.secondary} />
+              <MaterialIcons name="folder-open" size={60} color={colors.text.secondary} />
               <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No projects found</Text>
               <Button
                 variant="primary"
@@ -805,8 +785,11 @@ export function ProjectDetailScreen() {
           <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Create project</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
-                <Icon name="close" size={24} color={colors.text.primary} />
+              <TouchableOpacity 
+                style={[styles.closeButton, { backgroundColor: colors.surface.primary }]} 
+                onPress={handleCloseModal}
+              >
+                <MaterialIcons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
 
@@ -841,7 +824,7 @@ export function ProjectDetailScreen() {
                         style={[styles.clearDateButton, { backgroundColor: colors.surface.secondary }]}
                         onPress={() => handleClearDate('start')}
                       >
-                        <FeatherIcon name="x" size={16} color={colors.text.secondary} />
+                        <MaterialIcons name="x" size={16} color={colors.text.secondary} />
                       </TouchableOpacity>
                     )}
                     <DatePickerInput
@@ -859,7 +842,7 @@ export function ProjectDetailScreen() {
                         style={[styles.clearDateButton, { backgroundColor: colors.surface.secondary }]}
                         onPress={() => handleClearDate('end')}
                       >
-                        <FeatherIcon name="x" size={16} color={colors.text.secondary} />
+                        <MaterialIcons name="x" size={16} color={colors.text.secondary} />
                       </TouchableOpacity>
                     )}
                     <DatePickerInput
@@ -916,7 +899,7 @@ export function ProjectDetailScreen() {
                       onPress={() => toggleLabel(label.id)}
                     >
                       {selectedLabels.includes(label.id) && (
-                        <FeatherIcon name="check" size={20} color={colors.brand.primary} />
+                        <MaterialIcons name="check" size={20} color={colors.brand.primary} />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -930,7 +913,7 @@ export function ProjectDetailScreen() {
                     ]} 
                     onPress={() => console.log('Add new label')}
                   >
-                    <FeatherIcon name="plus" size={20} color={colors.text.secondary} />
+                    <MaterialIcons name="plus" size={20} color={colors.text.secondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -939,7 +922,7 @@ export function ProjectDetailScreen() {
               <Button
                 variant="primary"
                 onPress={handleCreateProject}
-                style={styles.createButton}
+                style={[styles.createButton, { backgroundColor: colors.brand.primary }]}
               >
                 Create Project
               </Button>

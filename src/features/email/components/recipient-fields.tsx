@@ -97,7 +97,7 @@ export function RecipientFields({
             inputStyle={styles.chipInput}
             chipStyle={styles.chipStyle}
             validate={validateEmail}
-            autoFocus
+            autoFocus={false}
           />
         </View>
         <TouchableOpacity

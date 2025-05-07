@@ -8,7 +8,7 @@ export type TaskData = {
   description?: string;
   isCompleted: boolean;
   status: TaskStatus;
-  dueDate?: Date;
+  dueDate?: string; // ISO date string
   priority: TaskPriority;
   tags?: string[];
   attachments: TaskAttachment[];
@@ -19,14 +19,14 @@ export type TaskData = {
   parentTaskId?: string; // for subtasks
   subtasks?: string[]; // array of subtask IDs
   assigneeId?: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  completedAt?: string; // ISO date string
   notes?: string;
   labels?: string[];
   dependencies?: string[]; // array of task IDs this task depends on
   progress?: number; // 0-100
-  lastWorkedOn?: string;
+  lastWorkedOn?: string; // ISO date string
   reminder?: string; // ISO date string
   customFields?: Record<string, any>;
 };
@@ -44,7 +44,7 @@ export type TaskStatus = 'todo' | 'in-progress' | 'completed';
 /**
  * Task recurring interval enum
  */
-export type RecurringInterval = 'daily' | 'weekly' | 'monthly';
+export type RecurringInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 /**
  * Task attachment type
@@ -52,10 +52,10 @@ export type RecurringInterval = 'daily' | 'weekly' | 'monthly';
 export type TaskAttachment = {
   id: string;
   name: string;
+  url: string;
   type: string;
   size: number;
-  uri: string;
-  downloadUrl?: string;
+  uploadedAt: string; // ISO date string
 };
 
 /**
@@ -73,12 +73,8 @@ export type TaskList = {
  * Task filter options
  */
 export type TaskFilter = {
-  showCompleted: boolean;
+  showCompleted?: boolean;
   priority?: TaskPriority;
   searchQuery?: string;
   tags?: string[];
-  dateRange?: {
-    start: string;
-    end: string;
-  };
 }; 

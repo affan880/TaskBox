@@ -1,12 +1,8 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
-import FeatherIcon from 'react-native-vector-icons/Feather';
-import { useTheme } from '@/theme/theme-context';
-import { useProjectStore } from '@/store/project-store';
-import { TaskData } from '@/types/task';
-import { LineChart, PieChart, BarChart } from 'react-native-chart-kit';
-import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
-import { createStyles } from '../styles';
+import { View, Text, Dimensions } from 'react-native';
+import { LineChart, PieChart } from 'react-native-chart-kit';
+import { TaskData, TaskPriority } from '@/types/task';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 type Props = {
   styles: any;
@@ -16,161 +12,112 @@ type Props = {
 };
 
 export function AnalyticsSection({ styles, colors, isDark, tasks }: Props) {
-  const { projects } = useProjectStore();
-  const [timeRange, setTimeRange] = React.useState<'week' | 'month' | 'year'>('week');
+  const screenWidth = Dimensions.get('window').width;
 
-  // Calculate completion rate
-  const completionRate = React.useMemo(() => {
-    const completedTasks = tasks.filter(task => task.isCompleted).length;
-    return tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
-  }, [tasks]);
+  // Calculate task statistics
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(task => task.isCompleted).length;
+  const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Calculate tasks by priority
-  const tasksByPriority = React.useMemo(() => {
-    const priorityCounts = {
-      high: 0,
-      medium: 0,
-      low: 0,
-    };
-    tasks.forEach(task => {
-      if (task.priority) {
-        priorityCounts[task.priority]++;
-      }
-    });
-    return priorityCounts;
-  }, [tasks]);
-
-  // Calculate tasks by project
-  const tasksByProject = React.useMemo(() => {
-    const projectCounts = new Map<string, number>();
-    projects.forEach(project => {
-      const projectTasks = tasks.filter(task => project.taskIds?.includes(task.id));
-      projectCounts.set(project.title, projectTasks.length);
-    });
-    return Array.from(projectCounts.entries()).map(([name, count]) => ({
-      name,
-      count,
-    }));
-  }, [tasks, projects]);
-
-  // Calculate daily completion trends
-  const dailyCompletions = React.useMemo(() => {
-    const days = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 365;
-    const lastDays = Array.from({ length: days }, (_, i) => {
-      const date = subDays(new Date(), i);
-      return {
-        date: format(date, 'MMM dd'),
-        count: tasks.filter(task => 
-          task.isCompleted && 
-          task.completedAt && 
-          parseISO(task.completedAt) >= startOfDay(date) &&
-          parseISO(task.completedAt) <= endOfDay(date)
-        ).length
-      };
-    }).reverse();
-    return lastDays;
-  }, [tasks, timeRange]);
-
-  // Chart configurations
-  const chartConfig = {
-    backgroundGradientFrom: colors.surface.primary,
-    backgroundGradientTo: colors.surface.primary,
-    color: (opacity = 1) => isDark ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
-    strokeWidth: 2,
-    barPercentage: 0.5,
-    useShadowColorFromDataset: false,
+  // Calculate priority distribution
+  const priorityDistribution = {
+    high: tasks.filter(task => task.priority === 'high').length,
+    medium: tasks.filter(task => task.priority === 'medium').length,
+    low: tasks.filter(task => task.priority === 'low').length,
   };
 
-  const screenWidth = Dimensions.get('window').width;
+  // Calculate weekly completion trend
+  const today = new Date();
+  const weekStart = startOfWeek(today);
+  const weekEnd = endOfWeek(today);
+  const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  const weeklyData = daysInWeek.map(date => {
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+    
+    // Count tasks completed on this day
+    const completedOnDay = tasks.filter(task => {
+      if (!task.isCompleted || !task.updatedAt) return false;
+      const completionDate = parseISO(task.updatedAt);
+      return isWithinInterval(completionDate, { start: dayStart, end: dayEnd });
+    }).length;
+
+    return {
+      date: format(date, 'EEE'),
+      completed: completedOnDay,
+    };
+  });
+
+  // Find the maximum completed tasks in a day for chart scaling
+  const maxCompletedTasks = Math.max(...weeklyData.map(day => day.completed));
+  const chartMaxValue = maxCompletedTasks > 0 ? maxCompletedTasks + 1 : 5;
+
+  // Prepare data for pie chart
+  const pieChartData = [
+    {
+      name: 'High Priority',
+      population: priorityDistribution.high,
+      color: colors.status.error,
+      legendFontColor: colors.text.primary,
+    },
+    {
+      name: 'Medium Priority',
+      population: priorityDistribution.medium,
+      color: colors.status.warning,
+      legendFontColor: colors.text.primary,
+    },
+    {
+      name: 'Low Priority',
+      population: priorityDistribution.low,
+      color: colors.status.success,
+      legendFontColor: colors.text.primary,
+    },
+  ];
+
+  // Prepare data for line chart
+  const lineChartData = {
+    labels: weeklyData.map(day => day.date),
+    datasets: [
+      {
+        data: weeklyData.map(day => day.completed),
+        color: (opacity = 1) => colors.brand.primary,
+        strokeWidth: 2,
+      },
+    ],
+  };
 
   return (
     <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleContainer}>
-          <FeatherIcon name="bar-chart-2" size={24} color={colors.brand.primary} style={styles.sectionIcon} />
-          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Analytics</Text>
+      {/* Overall Statistics */}
+      <View style={styles.statsContainer}>
+        <View style={[styles.statCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.statValue, { color: colors.text.primary }]}>{totalTasks}</Text>
+          <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Total Tasks</Text>
         </View>
-        <View style={styles.timeRangeContainer}>
-          {(['week', 'month', 'year'] as const).map((range) => (
-            <TouchableOpacity
-              key={range}
-              style={[
-                styles.timeRangeButton,
-                { borderColor: colors.border.light },
-                timeRange === range && [
-                  styles.activeTimeRangeButton,
-                  { 
-                    borderColor: colors.brand.primary,
-                    backgroundColor: `${colors.brand.primary}20`
-                  }
-                ]
-              ]}
-              onPress={() => setTimeRange(range)}
-            >
-              <Text 
-                style={[
-                  styles.timeRangeButtonText,
-                  { color: colors.text.secondary },
-                  timeRange === range && { color: colors.brand.primary }
-                ]}
-              >
-                {range.charAt(0).toUpperCase() + range.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={[styles.statCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.statValue, { color: colors.text.primary }]}>{completedTasks}</Text>
+          <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Completed</Text>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: colors.surface.primary }]}>
+          <Text style={[styles.statValue, { color: colors.text.primary }]}>{completionRate.toFixed(1)}%</Text>
+          <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Completion Rate</Text>
         </View>
       </View>
 
-      {/* Overview Section */}
-      <View style={styles.analyticsSection}>
-        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Overview</Text>
-        <View style={styles.metricsContainer}>
-          <View style={[styles.metricCard, { backgroundColor: colors.surface.primary }]}>
-            <Text style={[styles.metricValue, { color: colors.text.primary }]}>
-              {tasks.length}
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>
-              Total Tasks
-            </Text>
-          </View>
-          <View style={[styles.metricCard, { backgroundColor: colors.surface.primary }]}>
-            <Text style={[styles.metricValue, { color: colors.text.primary }]}>
-              {completionRate.toFixed(1)}%
-            </Text>
-            <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>
-              Completion Rate
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Task Distribution by Priority */}
-      <View style={styles.analyticsSection}>
-        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Task Distribution</Text>
+      {/* Priority Distribution */}
+      <View style={[styles.chartContainer, { backgroundColor: colors.surface.primary }]}>
+        <Text style={[styles.chartTitle, { color: colors.text.primary }]}>Task Priority Distribution</Text>
         <PieChart
-          data={[
-            {
-              name: 'High',
-              population: tasksByPriority.high,
-              color: colors.status.error,
-              legendFontColor: colors.text.primary,
-            },
-            {
-              name: 'Medium',
-              population: tasksByPriority.medium,
-              color: colors.status.warning,
-              legendFontColor: colors.text.primary,
-            },
-            {
-              name: 'Low',
-              population: tasksByPriority.low,
-              color: colors.status.success,
-              legendFontColor: colors.text.primary,
-            },
-          ]}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={chartConfig}
+          data={pieChartData}
+          width={screenWidth - 64}
+          height={200}
+          chartConfig={{
+            backgroundColor: colors.surface.primary,
+            backgroundGradientFrom: colors.surface.primary,
+            backgroundGradientTo: colors.surface.primary,
+            color: (opacity = 1) => colors.text.primary,
+          }}
           accessor="population"
           backgroundColor="transparent"
           paddingLeft="15"
@@ -178,45 +125,102 @@ export function AnalyticsSection({ styles, colors, isDark, tasks }: Props) {
         />
       </View>
 
-      {/* Daily Completion Trends */}
-      <View style={styles.analyticsSection}>
-        <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Completion Trends</Text>
+      {/* Weekly Completion Trend */}
+      <View style={[styles.chartContainer, { backgroundColor: colors.surface.primary }]}>
+        <Text style={[styles.chartTitle, { color: colors.text.primary }]}>Weekly Completion Trend</Text>
         <LineChart
-          data={{
-            labels: dailyCompletions.map(day => day.date),
-            datasets: [{
-              data: dailyCompletions.map(day => day.count)
-            }]
+          data={lineChartData}
+          width={screenWidth - 64}
+          height={200}
+          chartConfig={{
+            backgroundColor: colors.surface.primary,
+            backgroundGradientFrom: colors.surface.primary,
+            backgroundGradientTo: colors.surface.primary,
+            decimalPlaces: 0,
+            color: (opacity = 1) => colors.text.primary,
+            labelColor: (opacity = 1) => colors.text.primary,
+            propsForDots: {
+              r: '6',
+              strokeWidth: '2',
+              stroke: colors.brand.primary,
+            },
+            style: {
+              borderRadius: 16,
+            },
           }}
-          width={screenWidth - 32}
-          height={220}
-          chartConfig={chartConfig}
           bezier
-          style={styles.chart}
+          style={{
+            marginVertical: 8,
+            borderRadius: 16,
+          }}
+          withVerticalLines={false}
+          withHorizontalLines
+          fromZero
+          yAxisInterval={1}
+          yAxisSuffix=""
+          yAxisLabel=""
+          segments={chartMaxValue}
         />
       </View>
 
-      {/* Tasks by Project */}
-      {tasksByProject.length > 0 && (
-        <View style={styles.analyticsSection}>
-          <Text style={[styles.analyticsSectionTitle, { color: colors.text.primary }]}>Tasks by Project</Text>
-          <BarChart
-            data={{
-              labels: tasksByProject.map(item => item.name),
-              datasets: [{
-                data: tasksByProject.map(item => item.count)
-              }]
-            }}
-            width={screenWidth - 32}
-            height={220}
-            chartConfig={chartConfig}
-            style={styles.chart}
-            showValuesOnTopOfBars
-            yAxisLabel=""
-            yAxisSuffix=""
-          />
+      {/* Additional Analytics */}
+      <View style={[styles.additionalStats, { backgroundColor: colors.surface.primary }]}>
+        <Text style={[styles.additionalStatsTitle, { color: colors.text.primary }]}>Task Insights</Text>
+        <View style={styles.insightRow}>
+          <Text style={[styles.insightLabel, { color: colors.text.secondary }]}>Average Completion Time:</Text>
+          <Text style={[styles.insightValue, { color: colors.text.primary }]}>
+            {calculateAverageCompletionTime(tasks)} days
+          </Text>
         </View>
-      )}
+        <View style={styles.insightRow}>
+          <Text style={[styles.insightLabel, { color: colors.text.secondary }]}>Most Common Priority:</Text>
+          <Text style={[styles.insightValue, { color: colors.text.primary }]}>
+            {getMostCommonPriority(tasks)}
+          </Text>
+        </View>
+        <View style={styles.insightRow}>
+          <Text style={[styles.insightLabel, { color: colors.text.secondary }]}>Tasks Due Soon:</Text>
+          <Text style={[styles.insightValue, { color: colors.text.primary }]}>
+            {getTasksDueSoon(tasks)}
+          </Text>
+        </View>
+      </View>
     </View>
   );
+}
+
+// Helper functions
+function calculateAverageCompletionTime(tasks: TaskData[]): string {
+  const completedTasks = tasks.filter(task => task.isCompleted && task.createdAt);
+  if (completedTasks.length === 0) return '0';
+
+  const totalDays = completedTasks.reduce((sum, task) => {
+    const created = new Date(task.createdAt);
+    const completed = new Date(task.updatedAt);
+    const days = Math.ceil((completed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    return sum + days;
+  }, 0);
+
+  return (totalDays / completedTasks.length).toFixed(1);
+}
+
+function getMostCommonPriority(tasks: TaskData[]): string {
+  const priorities = tasks.reduce((acc, task) => {
+    acc[task.priority] = (acc[task.priority] || 0) + 1;
+    return acc;
+  }, {} as Record<TaskPriority, number>);
+
+  const mostCommon = Object.entries(priorities).reduce((a, b) => a[1] > b[1] ? a : b);
+  return mostCommon[0].charAt(0).toUpperCase() + mostCommon[0].slice(1);
+}
+
+function getTasksDueSoon(tasks: TaskData[]): number {
+  const today = new Date();
+  const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  
+  return tasks.filter(task => {
+    if (!task.dueDate || task.isCompleted) return false;
+    const dueDate = new Date(task.dueDate);
+    return dueDate > today && dueDate <= nextWeek;
+  }).length;
 } 

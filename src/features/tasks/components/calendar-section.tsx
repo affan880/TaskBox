@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { View, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, ScrollView, Animated } from 'react-native';
 import { Calendar as RNCalendar, DateData } from 'react-native-calendars';
-import { format, startOfMonth, endOfMonth, isToday, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isToday, parseISO } from 'date-fns';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
-import { TaskData } from '@/types/task';
+import type { TaskData } from '@/types/task';
 import { createStyles } from '../styles';
 
 type Props = {
@@ -30,22 +30,40 @@ export function CalendarSection({
 }: Props) {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Fade in animation
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
   // Get tasks for selected date
   const selectedDateTasks = React.useMemo(() => {
-    return tasks.filter(task => 
-      task.dueDate && isSameDay(new Date(task.dueDate), selectedDate)
-    );
-  }, [tasks, selectedDate]);
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return tasks
+      .filter(task => {
+        if (!task.dueDate) return false;
+        // Handle ISO date strings
+        const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
+        return taskDate === selectedDateStr;
+      })
+      .sort((a, b) => {
+        // Sort by priority first
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
 
-  // Get tasks for visible date range
-  const visibleDateTasks = React.useMemo(() => {
-    return tasks.filter(task => {
-      if (!task.dueDate) return false;
-      const taskDate = new Date(task.dueDate);
-      return taskDate >= visibleDates.start && taskDate <= visibleDates.end;
-    });
-  }, [tasks, visibleDates]);
+        // Then by completion status
+        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+
+        // Finally by title
+        return a.title.localeCompare(b.title);
+      });
+  }, [tasks, selectedDate]);
 
   // Prepare marked dates for calendar
   const markedDates = React.useMemo(() => {
@@ -53,26 +71,25 @@ export function CalendarSection({
     
     tasks.forEach(task => {
       if (task.dueDate) {
+        // Handle ISO date strings
         const dateStr = format(new Date(task.dueDate), 'yyyy-MM-dd');
-        if (!marks[dateStr]) {
-          marks[dateStr] = {
-            marked: true,
-            dotColor: task.isCompleted ? colors.status.success : colors.status.warning,
-            dots: [{
-              color: task.priority === 'high' ? colors.status.error :
-                     task.priority === 'medium' ? colors.status.warning :
-                     colors.status.success,
-              key: task.id
-            }]
-          };
-        } else {
-          marks[dateStr].dots.push({
-            color: task.priority === 'high' ? colors.status.error :
-                   task.priority === 'medium' ? colors.status.warning :
-                   colors.status.success,
-            key: task.id
-          });
+        const existingMarks = marks[dateStr] || {
+          dots: [],
+          marked: true,
+        };
+
+        existingMarks.dots.push({
+          color: task.priority === 'high' ? colors.status.error :
+                 task.priority === 'medium' ? colors.status.warning :
+                 colors.status.success,
+          key: task.id
+        });
+
+        if (task.isCompleted) {
+          existingMarks.dotColor = colors.status.success;
         }
+
+        marks[dateStr] = existingMarks;
       }
     });
 
@@ -81,26 +98,121 @@ export function CalendarSection({
     marks[selectedDateStr] = {
       ...marks[selectedDateStr],
       selected: true,
-      selectedColor: colors.brand.primary
+      selectedColor: colors.brand.primary,
+      selectedTextColor: colors.text.inverse
     };
 
     return marks;
   }, [tasks, selectedDate, colors]);
 
+  const renderTaskItem = React.useCallback((task: TaskData) => (
+    <TouchableOpacity
+      key={task.id}
+      style={[styles.calendarTaskItem, { backgroundColor: colors.surface.primary }]}
+      onPress={() => onNavigate('TaskDetail', { taskId: task.id })}
+    >
+      <View 
+        style={[
+          styles.calendarTaskPriorityIndicator,
+          { 
+            backgroundColor: task.priority === 'high' ? colors.status.error :
+                           task.priority === 'medium' ? colors.status.warning :
+                           colors.status.success
+          }
+        ]} 
+      />
+      <View style={styles.calendarTaskContent}>
+        <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
+          {task.title}
+        </Text>
+        {task.description && (
+          <Text 
+            style={[styles.calendarTaskDescription, { color: colors.text.secondary }]}
+            numberOfLines={2}
+          >
+            {task.description}
+          </Text>
+        )}
+        <View style={styles.calendarTaskMeta}>
+          {task.estimatedTime && (
+            <View style={styles.calendarTaskTime}>
+              <FeatherIcon name="clock" size={12} color={colors.text.secondary} />
+              <Text style={[styles.calendarTaskTimeText, { color: colors.text.secondary }]}>
+                {task.estimatedTime} min
+              </Text>
+            </View>
+          )}
+          {task.tags && task.tags.length > 0 && (
+            <View style={styles.calendarTaskTags}>
+              {task.tags.slice(0, 2).map(tag => (
+                <View 
+                  key={tag}
+                  style={[styles.calendarTaskTag, { backgroundColor: colors.surface.secondary }]}
+                >
+                  <Text style={[styles.calendarTaskTagText, { color: colors.text.secondary }]}>
+                    {tag}
+                  </Text>
+                </View>
+              ))}
+              {task.tags.length > 2 && (
+                <View style={[styles.calendarTaskTag, { backgroundColor: colors.surface.secondary }]}>
+                  <Text style={[styles.calendarTaskTagText, { color: colors.text.secondary }]}>
+                    +{task.tags.length - 2}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+      <View 
+        style={[
+          styles.calendarTaskStatus,
+          { 
+            backgroundColor: task.isCompleted ? colors.status.success :
+                           task.status === 'in-progress' ? colors.status.warning :
+                           colors.surface.secondary
+          }
+        ]}
+      >
+        <Text 
+          style={[
+            styles.calendarTaskStatusText,
+            { 
+              color: task.isCompleted || task.status === 'in-progress' ? 
+                     colors.text.inverse : colors.text.secondary
+            }
+          ]}
+        >
+          {task.isCompleted ? 'Done' : task.status}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ), [colors, onNavigate, styles]);
+
   return (
-    <ScrollView style={styles.calendarContainer}>
-      {/* Calendar Section */}
+    <ScrollView 
+      style={[
+        styles.calendarContainer,
+        { marginBottom: 0 } // Remove bottom margin since parent handles padding
+      ]}
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
+    >
       <View style={styles.calendarSection}>
         <RNCalendar
           current={format(selectedDate, 'yyyy-MM-dd')}
           onDayPress={(day: DateData) => {
-            const newDate = new Date(day.year, day.month - 1, day.day);
+            // Create date at midnight in local timezone to avoid date shifting
+            const newDate = new Date(day.year, day.month - 1, day.day, 12, 0, 0);
             setSelectedDate(newDate);
           }}
           onDayLongPress={(day: DateData) => {
-            const newDate = new Date(day.year, day.month - 1, day.day);
+            // Create date at midnight in local timezone to avoid date shifting
+            const newDate = new Date(day.year, day.month - 1, day.day, 12, 0, 0);
             setSelectedDate(newDate);
-            onNavigate('TaskCreation', { date: newDate });
+            // Pass serialized date string instead of Date object
+            onNavigate('TaskCreation', { date: format(newDate, 'yyyy-MM-dd') });
           }}
           markedDates={markedDates}
           markingType="multi-dot"
@@ -127,27 +239,30 @@ export function CalendarSection({
           firstDay={1}
           showWeekNumbers
           onMonthChange={(date) => {
-            const newDate = new Date(date.timestamp);
+            // Create date at midnight in local timezone to avoid date shifting
+            const newDate = new Date(date.year, date.month - 1, date.day, 12, 0, 0);
             setVisibleDates({
               start: startOfMonth(newDate),
               end: endOfMonth(newDate)
             });
           }}
-          onPressArrowLeft={(subtractMonth) => subtractMonth()}
-          onPressArrowRight={(addMonth) => addMonth()}
-          disableAllTouchEventsForDisabledDays
         />
       </View>
 
-      {/* Selected Date Tasks */}
-      <View style={styles.selectedDateSection}>
+      <Animated.View 
+        style={[
+          styles.selectedDateSection,
+          { opacity: fadeAnim }
+        ]}
+      >
         <View style={styles.selectedDateHeader}>
           <Text style={[styles.selectedDateTitle, { color: colors.text.primary }]}>
             {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMMM d, yyyy')}
+            {selectedDateTasks.length > 0 && ` • ${selectedDateTasks.length} task${selectedDateTasks.length === 1 ? '' : 's'}`}
           </Text>
           <TouchableOpacity 
-            style={[styles.addTaskButton, { backgroundColor: colors.brand.primary }]}
-            onPress={() => onNavigate('TaskCreation', { date: selectedDate })}
+            style={styles.addTaskButton}
+            onPress={() => onNavigate('TaskCreation', { date: format(selectedDate, 'yyyy-MM-dd') })}
           >
             <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
           </TouchableOpacity>
@@ -155,79 +270,7 @@ export function CalendarSection({
 
         {selectedDateTasks.length > 0 ? (
           <View style={styles.taskListContainer}>
-            {selectedDateTasks.map(task => (
-              <TouchableOpacity
-                key={task.id}
-                style={[styles.calendarTaskItem, { backgroundColor: colors.surface.primary }]}
-                onPress={() => onNavigate('TaskDetail', { taskId: task.id })}
-              >
-                <View 
-                  style={[
-                    styles.calendarTaskPriorityIndicator,
-                    { 
-                      backgroundColor: task.priority === 'high' ? colors.status.error :
-                                     task.priority === 'medium' ? colors.status.warning :
-                                     colors.status.success
-                    }
-                  ]} 
-                />
-                <View style={styles.calendarTaskContent}>
-                  <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
-                    {task.title}
-                  </Text>
-                  {task.description && (
-                    <Text style={[styles.calendarTaskDescription, { color: colors.text.secondary }]}>
-                      {task.description}
-                    </Text>
-                  )}
-                  <View style={styles.calendarTaskMeta}>
-                    <View style={styles.calendarTaskTime}>
-                      <FeatherIcon name="clock" size={12} color={colors.text.secondary} />
-                      <Text style={[styles.calendarTaskTimeText, { color: colors.text.secondary }]}>
-                        {task.estimatedTime ? `${task.estimatedTime} min` : 'No time estimate'}
-                      </Text>
-                    </View>
-                    {task.tags && task.tags.length > 0 && (
-                      <View style={styles.calendarTaskTags}>
-                        {task.tags.map(tag => (
-                          <View 
-                            key={tag}
-                            style={[styles.calendarTaskTag, { backgroundColor: colors.surface.secondary }]}
-                          >
-                            <Text style={[styles.calendarTaskTagText, { color: colors.text.secondary }]}>
-                              {tag}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </View>
-                <View 
-                  style={[
-                    styles.calendarTaskStatus,
-                    { 
-                      backgroundColor: task.isCompleted ? colors.status.success :
-                                     task.status === 'in-progress' ? colors.status.warning :
-                                     colors.surface.secondary
-                    }
-                  ]}
-                >
-                  <Text 
-                    style={[
-                      styles.calendarTaskStatusText,
-                      { 
-                        color: task.isCompleted ? colors.text.inverse :
-                               task.status === 'in-progress' ? colors.text.inverse :
-                               colors.text.secondary
-                      }
-                    ]}
-                  >
-                    {task.isCompleted ? 'Done' : task.status}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {selectedDateTasks.map(renderTaskItem)}
           </View>
         ) : (
           <View style={[styles.emptyDateContainer, { backgroundColor: colors.surface.primary }]}>
@@ -236,14 +279,14 @@ export function CalendarSection({
               No tasks scheduled for this day
             </Text>
             <TouchableOpacity 
-              style={[styles.addTaskButton, { backgroundColor: colors.brand.primary }]}
-              onPress={() => onNavigate('TaskCreation', { date: selectedDate })}
+              style={styles.addTaskButton}
+              onPress={() => onNavigate('TaskCreation', { date: format(selectedDate, 'yyyy-MM-dd') })}
             >
               <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </Animated.View>
     </ScrollView>
   );
 } 

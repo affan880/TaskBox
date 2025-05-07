@@ -1,40 +1,47 @@
 import { StyleSheet } from 'react-native';
 
 export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
   headerContainer: { 
     paddingHorizontal: 16,
     paddingTop: 16, 
-    paddingBottom: 0,
-    backgroundColor: colors.background.primary, 
+    paddingBottom: 8,
+    backgroundColor: colors.background.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
   },
   headerTopRow: { 
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   headerTitleContainer: { 
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1,
   },
   headerTitle: { 
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: colors.text.primary,
   },
   headerTitleIcon: { 
     marginLeft: 8,
   },
   addButton: { 
-    backgroundColor: '#7C3AED',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: colors.brand.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   searchBarContainer: { 
     flexDirection: 'row',
@@ -57,29 +64,28 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? colors.border.dark : colors.border.light, 
+    paddingBottom: 8,
   },
   tabButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   activeTabButton: {
-     borderBottomWidth: 2,
-     borderBottomColor: colors.brand.primary,
+    borderBottomWidth: 2,
   },
   tabButtonText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.text.secondary,
+    fontWeight: '600',
   },
   activeTabButtonText: {
     color: colors.brand.primary, 
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -91,12 +97,16 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sectionContainer: { marginTop: 16 },
+  sectionContainer: { 
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    width: '100%',
   },
   sectionTitleContainer: {
     flexDirection: 'row',
@@ -106,7 +116,7 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
     marginRight: 8,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: colors.text.primary,
   },
@@ -410,7 +420,7 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
   viewAllButton: {
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 100,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -427,21 +437,26 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
     fontWeight: 'bold',
     marginBottom: 16,
   },
+  taskStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
   metricsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    marginBottom: 24,
+    width: '100%',
+    gap: 12,
   },
   metricCard: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: 'center',
+    minHeight: 80,
   },
   metricValue: {
     fontSize: 24,
@@ -451,397 +466,32 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
   metricLabel: {
     fontSize: 14,
   },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
+  taskProgressContainer: {
+    width: '100%',
   },
-  deleteModalContent: {
-    padding: 20,
-    borderRadius: 12,
+  taskProgressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  deleteModalTitle: {
-    fontSize: 18,
+  taskProgressText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  taskProgressPercentage: {
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 16,
   },
-  deleteModalText: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginBottom: 20,
-  },
-  deleteModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  deleteModalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  timeRangeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  timeRangeButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  activeTimeRangeButton: {
-    borderWidth: 1.5,
-  },
-  timeRangeButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  upcomingTasksEmpty: {
-    padding: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upcomingTasksEmptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  upcomingTaskCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  upcomingTaskHeader: {
-    marginBottom: 12,
-  },
-  upcomingTaskTitleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  upcomingTaskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 8,
-  },
-  upcomingTaskPriority: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  upcomingTaskPriorityText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  upcomingTaskFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  upcomingTaskDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  upcomingTaskDate: {
-    fontSize: 14,
-    marginLeft: 6,
-  },
-  upcomingTaskDueText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  calendarSection: {
-    paddingHorizontal: 0,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  selectedDateSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  selectedDateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  emptyDateContainer: {
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyDateText: {
-    marginTop: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  addTaskButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addTaskButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  taskListContainer: {
-    gap: 12,
-  },
-  calendarTaskItem: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  calendarTaskPriorityIndicator: {
-    width: 4,
-    height: '100%',
-    borderRadius: 2,
-    marginRight: 12,
-  },
-  calendarTaskContent: {
-    flex: 1,
-  },
-  calendarTaskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  calendarTaskDescription: {
-    fontSize: 14,
-  },
-  calendarTaskStatus: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginLeft: 12,
-  },
-  calendarTaskStatusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  viewModeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 8,
-  },
-  viewModeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  viewModeText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 12,
-  },
-  quickActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectedDateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  filterButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  calendarTaskMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 12,
-  },
-  calendarTaskTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  calendarTaskTimeText: {
-    fontSize: 12,
-  },
-  calendarTaskTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  calendarTaskTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  taskProgressBar: {
+    height: 8,
     borderRadius: 4,
+    overflow: 'hidden',
+    width: '100%',
   },
-  calendarTaskTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  visibleDatesSection: {
-    paddingHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 24,
-  },
-  visibleDatesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  visibleDatesTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  visibleDatesCount: {
-    fontSize: 14,
-  },
-  emptyVisibleDatesContainer: {
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyVisibleDatesText: {
-    marginTop: 12,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  visibleDatesList: {
-    gap: 16,
-  },
-  visibleDateGroup: {
-    gap: 8,
-  },
-  visibleDateGroupTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  visibleDateTaskItem: {
-    flexDirection: 'row',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  visibleDateTaskPriorityIndicator: {
-    width: 4,
+  taskProgressFill: {
     height: '100%',
-    borderRadius: 2,
-    marginRight: 12,
-  },
-  visibleDateTaskContent: {
-    flex: 1,
-  },
-  visibleDateTaskTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  visibleDateTaskMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  visibleDateTaskTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  visibleDateTaskTimeText: {
-    fontSize: 12,
-  },
-  visibleDateTaskStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  visibleDateTaskStatusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  taskStatsSection: {
-    paddingHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  taskStatsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  taskStatsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  taskStatsPeriod: {
-    fontSize: 14,
-  },
-  taskStatsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 16,
+    borderRadius: 4,
   },
   taskStatCard: {
     flex: 1,
@@ -911,5 +561,209 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
   },
   calendarContainer: {
     flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  calendarSection: {
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+  },
+  selectedDateSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  selectedDateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  selectedDateTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  addTaskButton: {
+    backgroundColor: colors.brand.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  taskListContainer: {
+    gap: 12,
+  },
+  calendarTaskItem: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  calendarTaskPriorityIndicator: {
+    width: 4,
+    height: '100%',
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  calendarTaskContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  calendarTaskTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  calendarTaskDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  calendarTaskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  calendarTaskTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surface.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  calendarTaskTimeText: {
+    fontSize: 12,
+  },
+  calendarTaskTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  calendarTaskTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  calendarTaskTagText: {
+    fontSize: 12,
+  },
+  calendarTaskStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  calendarTaskStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  emptyDateContainer: {
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyDateText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  carouselContainer: {
+    marginTop: 16,
+  },
+  carouselContentContainer: {
+    paddingHorizontal: 8,
+  },
+  viewProjectButton: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewProjectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Analytics Section Styles
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  chartContainer: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  additionalStats: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  additionalStatsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  insightLabel: {
+    fontSize: 14,
+  },
+  insightValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
   Text,
   Keyboard,
-  Platform
+  Platform,
+  ViewStyle
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Use MaterialCommunityIcons for more variety
 import { useTheme } from 'src/theme/theme-context';
@@ -28,6 +29,10 @@ import { AllTasksScreen } from 'src/features/tasks/all-tasks-screen';
 import { TaskCreationScreen } from '@/features/tasks/task-creation-screen';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
+import { useState, useEffect } from 'react';
+import { TaskStack } from './task-stack';
+import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { TaskStackParamList } from './types';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -43,6 +48,7 @@ export type RootStackParamList = {
   About: undefined;
   AllTasks: undefined;
   TaskCreation: undefined;
+  TaskStack: NavigatorScreenParams<TaskStackParamList>;
 };
 
 // Updated Tab Param List for the new design
@@ -129,19 +135,22 @@ type CustomTabBarProps = {
 const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabBarProps) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [isKeyboardVisible, setIsKeyboardVisible] = React.useState(false);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const route = useRoute();
+  const navigation = useNavigation();
 
-  React.useEffect(() => {
+  // Hide tab bar when keyboard shows or when in compose screen
+  useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       () => {
-        setIsKeyboardVisible(true);
+        setKeyboardVisible(true);
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
-        setIsKeyboardVisible(false);
+        setKeyboardVisible(false);
       }
     );
 
@@ -151,8 +160,8 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
     };
   }, []);
 
-  // Don't render the tab bar if keyboard is visible on Android
-  if (Platform.OS === 'android' && isKeyboardVisible) {
+  // Don't render tab bar when keyboard is visible or in compose screen
+  if (isKeyboardVisible || route.name === 'Compose') {
     return null;
   }
 
@@ -165,11 +174,13 @@ const CustomTabBar = React.memo(({ activeIndex, routes, onTabPress }: CustomTabB
 
   return (
     <View style={[
-      styles.tabBarContainer, 
-      { 
-        backgroundColor: colors.background.primary, 
-        shadowColor: colors.text.secondary, 
-        paddingBottom: insets.bottom || 8 
+      styles.tabBarContainer,
+      {
+        bottom: Platform.OS === 'ios' ? 20 : 20,
+        backgroundColor: colors.background.primary,
+        shadowColor: colors.text.secondary,
+        paddingBottom: insets.bottom || 8,
+        display: isKeyboardVisible ? 'none' : 'flex'
       }
     ]}>
       {routes.map((route, index) => {
@@ -305,7 +316,7 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
           <Stack.Screen 
             name="Compose" 
             component={ComposeScreen}
-            options={{
+            options={({ navigation }) => ({
               presentation: 'modal',
               animation: 'slide_from_bottom',
               headerShown: true,
@@ -330,11 +341,16 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
                 backgroundColor: colors.background.primary,
               },
               headerTintColor: colors.text.primary,
-            }}
+            })}
           />
           <Stack.Screen
             name="ReadEmail"
             component={EmailDetailScreen}
+          />
+          <Stack.Screen
+            name="TaskStack"
+            component={TaskStack}
+            options={{ headerShown: false }}
           />
         </>
       ) : (
@@ -415,8 +431,7 @@ const styles = StyleSheet.create({
   },
   tabBarContainer: {
     position: 'absolute', 
-    bottom: 20,
-    alignSelf: 'center', 
+    alignSelf: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     height: 56,
@@ -428,6 +443,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     paddingHorizontal: 8,
     width: '92%',
+    zIndex: 1000,
   },
   tabItem: {
     alignItems: 'center',

@@ -17,8 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, NavigationProp } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from '@/theme/theme-context';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useProjectStore } from '@/store/project-store';
@@ -206,7 +205,15 @@ export function TaskListScreen() {
           updatedAt: new Date().toISOString(),
         };
         
-        console.log('Updating task:', updatedTask);
+        console.log('Updating task with data:', {
+          id: updatedTask.id,
+          title: updatedTask.title,
+          status: updatedTask.status,
+          priority: updatedTask.priority,
+          progress: updatedTask.progress,
+          isCompleted: updatedTask.isCompleted
+        });
+        
         updateTask(selectedTask.id, updatedTask);
       } else {
         // Create new task
@@ -215,7 +222,7 @@ export function TaskListScreen() {
           projectId: project.id,
           title: taskTitle.trim(),
           description: taskDescription.trim() || undefined,
-          isCompleted: false,
+          isCompleted: status === 'completed',
           status,
           dueDate: dueDate || undefined,
           priority,
@@ -230,14 +237,34 @@ export function TaskListScreen() {
           recurringInterval: undefined,
         };
         
-        console.log('Creating new task:', newTask);
+        console.log('Creating new task with data:', {
+          id: newTask.id,
+          title: newTask.title,
+          status: newTask.status,
+          priority: newTask.priority,
+          progress: newTask.progress,
+          isCompleted: newTask.isCompleted
+        });
+        
+        // Add task to task store
         addTask(newTask);
+        
+        // Add task to project
+        useProjectStore.getState().addTaskToProject(project.id, newTask.id);
       }
       
       // Refresh project data and tasks
       const updatedProject = await getProjectWithTasks(project.id);
       const updatedTasks = await getTasks();
-      console.log('Updated tasks:', updatedTasks);
+      
+      console.log('After task save - Updated tasks:', updatedTasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        progress: task.progress,
+        isCompleted: task.isCompleted
+      })));
       
       if (updatedProject) {
         setProject(updatedProject);
@@ -345,7 +372,7 @@ export function TaskListScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={colors.text.primary} />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           {project?.title || 'Tasks'}
@@ -354,14 +381,14 @@ export function TaskListScreen() {
           style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
           onPress={handleAddTask}
         >
-          <Icon name="add" size={24} color={colors.text.inverse} />
+          <MaterialIcons name="add" size={24} color={colors.text.inverse} />
         </TouchableOpacity>
       </View>
 
       {/* Search and Filters */}
       <View style={styles.filterContainer}>
         <View style={[styles.searchContainer, { backgroundColor: colors.surface.primary }]}>
-          <Icon name="search" size={20} color={colors.text.secondary} />
+          <MaterialIcons name="search" size={20} color={colors.text.secondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text.primary }]}
             placeholder="Search tasks..."
@@ -494,7 +521,7 @@ export function TaskListScreen() {
         contentContainerStyle={styles.taskList}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <Icon name="check-circle" size={48} color={colors.text.tertiary} />
+            <MaterialIcons name="check-circle" size={48} color={colors.text.tertiary} />
             <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
               No tasks found
             </Text>
@@ -518,8 +545,11 @@ export function TaskListScreen() {
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
                 {selectedTask ? 'Edit Task' : 'Create Task'}
               </Text>
-              <TouchableOpacity onPress={handleCloseTaskModal}>
-                <Icon name="close" size={24} color={colors.text.primary} />
+              <TouchableOpacity 
+                onPress={handleCloseTaskModal}
+                style={[styles.closeButton, { backgroundColor: colors.surface.primary }]}
+              >
+                <MaterialIcons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
             
@@ -577,9 +607,8 @@ export function TaskListScreen() {
                       style={[
                         styles.statusButton,
                         { 
-                          backgroundColor: colors.surface.primary,
+                          backgroundColor: status === s ? colors.brand.primary : colors.surface.primary,
                           borderColor: colors.border.medium,
-                          borderWidth: status === s ? 2 : 1
                         }
                       ]}
                       onPress={() => setStatus(s)}
@@ -588,7 +617,7 @@ export function TaskListScreen() {
                         style={[
                           styles.statusText,
                           { 
-                            color: status === s ? colors.brand.primary : colors.text.secondary
+                            color: status === s ? colors.text.inverse : colors.text.primary
                           }
                         ]}
                       >
@@ -620,9 +649,8 @@ export function TaskListScreen() {
                       style={[
                         styles.priorityButton,
                         { 
-                          backgroundColor: colors.surface.primary,
+                          backgroundColor: priority === p ? colors.brand.primary : colors.surface.primary,
                           borderColor: colors.border.medium,
-                          borderWidth: priority === p ? 2 : 1
                         }
                       ]}
                       onPress={() => setPriority(p)}
@@ -631,7 +659,7 @@ export function TaskListScreen() {
                         style={[
                           styles.priorityText,
                           { 
-                            color: priority === p ? colors.brand.primary : colors.text.secondary
+                            color: priority === p ? colors.text.inverse : colors.text.primary
                           }
                         ]}
                       >
@@ -683,9 +711,8 @@ export function TaskListScreen() {
                       style={[
                         styles.progressButton,
                         { 
-                          backgroundColor: colors.surface.primary,
+                          backgroundColor: progress === value ? colors.brand.primary : colors.surface.primary,
                           borderColor: colors.border.medium,
-                          borderWidth: progress === value ? 2 : 1
                         }
                       ]}
                       onPress={() => setProgress(value)}
@@ -694,7 +721,7 @@ export function TaskListScreen() {
                         style={[
                           styles.progressButtonText,
                           { 
-                            color: progress === value ? colors.brand.primary : colors.text.secondary
+                            color: progress === value ? colors.text.inverse : colors.text.primary
                           }
                         ]}
                       >
@@ -751,7 +778,7 @@ export function TaskListScreen() {
                     style={[styles.addTagButton, { backgroundColor: colors.brand.primary }]}
                     onPress={handleAddTag}
                   >
-                    <Icon name="add" size={20} color={colors.text.inverse} />
+                    <MaterialIcons name="add" size={20} color={colors.text.inverse} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.tagsContainer}>
@@ -762,7 +789,7 @@ export function TaskListScreen() {
                     >
                       <Text style={[styles.tagText, { color: colors.text.inverse }]}>{tag}</Text>
                       <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
-                        <Icon name="close" size={16} color={colors.text.inverse} />
+                        <MaterialIcons name="close" size={16} color={colors.text.inverse} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -775,7 +802,7 @@ export function TaskListScreen() {
               <Button
                 variant="primary"
                 onPress={handleSaveTask}
-                style={styles.saveButton}
+                style={[styles.saveButton, { backgroundColor: colors.brand.primary }]}
               >
                 {selectedTask ? 'Update Task' : 'Create Task'}
               </Button>
@@ -962,6 +989,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   statusText: {
     fontSize: 14,
@@ -978,6 +1006,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   priorityText: {
     fontSize: 14,
@@ -1004,6 +1033,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   progressButtonText: {
     fontSize: 12,
@@ -1050,7 +1080,18 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
   },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   saveButton: {
     width: '100%',
+    height: 48,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }); 

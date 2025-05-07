@@ -102,7 +102,11 @@ export const useProjectStore = create<ProjectStore>()(
         set((state) => ({
           projects: state.projects.map((p) =>
             p.id === projectId
-              ? { ...p, taskIds: [...(p.taskIds || []), taskId] }
+              ? { 
+                  ...p, 
+                  taskIds: [...(p.taskIds || []), taskId],
+                  updatedAt: new Date().toISOString()
+                }
               : p
           ),
         }));
