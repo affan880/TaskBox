@@ -5,6 +5,8 @@ import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
 import { TaskData } from '@/types/task';
 import { createStyles } from '../styles';
+import { CalendarTaskItem } from './calendar-task-item';
+import { useFilteredTasks } from '../hooks/use-filtered-tasks';
 
 type Props = {
   selectedDate: Date;
@@ -16,29 +18,8 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
 
-  // Filter tasks for selected date
-  const selectedDateTasks = React.useMemo(() => {
-    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-    return tasks
-      .filter(task => {
-        if (!task.dueDate) return false;
-        // Handle ISO date strings
-        const taskDate = format(new Date(task.dueDate), 'yyyy-MM-dd');
-        return taskDate === selectedDateStr;
-      })
-      .sort((a, b) => {
-        // Sort by priority first
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priorityDiff !== 0) return priorityDiff;
-
-        // Then by completion status
-        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
-
-        // Finally by title
-        return a.title.localeCompare(b.title);
-      });
-  }, [tasks, selectedDate]);
+  // Use the shared hook for filtering and sorting
+  const selectedDateTasks = useFilteredTasks(tasks, { date: selectedDate });
 
   return (
     <View style={styles.selectedDateSection}>
@@ -48,7 +29,7 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
           {selectedDateTasks.length > 0 && ` • ${selectedDateTasks.length} task${selectedDateTasks.length === 1 ? '' : 's'}`}
         </Text>
         <TouchableOpacity 
-          style={[styles.filterButton, { backgroundColor: colors.surface.primary }]}
+          style={[styles.filterButtons, { backgroundColor: colors.surface.primary }]}
           onPress={() => {
             // Show filter modal
           }}
@@ -67,7 +48,7 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
             style={[styles.addTaskButton, { backgroundColor: colors.brand.primary }]}
             onPress={() => onNavigate('TaskCreation', { date: selectedDate })}
           >
-            <Text style={[styles.addTaskButtonText, { color: colors.text.inverse }]}>
+            <Text style={[styles.addTaskButton, { color: colors.text.inverse }]}>
               Add Task
             </Text>
           </TouchableOpacity>
@@ -75,76 +56,14 @@ export function SelectedDateTasks({ selectedDate, tasks, onNavigate }: Props) {
       ) : (
         <View style={styles.taskListContainer}>
           {selectedDateTasks.map(task => (
-            <TouchableOpacity
+            <CalendarTaskItem
               key={task.id}
-              style={[styles.calendarTaskItem, { backgroundColor: colors.surface.primary }]}
-              onPress={() => onNavigate('TaskDetail', { taskId: task.id })}
-            >
-              <View 
-                style={[
-                  styles.calendarTaskPriorityIndicator,
-                  { 
-                    backgroundColor: task.priority === 'high' ? colors.status.error :
-                                   task.priority === 'medium' ? colors.status.warning :
-                                   colors.status.success
-                  }
-                ]} 
-              />
-              <View style={styles.calendarTaskContent}>
-                <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
-                  {task.title}
-                </Text>
-                {task.description && (
-                  <Text 
-                    style={[styles.calendarTaskDescription, { color: colors.text.secondary }]}
-                    numberOfLines={2}
-                  >
-                    {task.description}
-                  </Text>
-                )}
-                <View style={styles.calendarTaskMeta}>
-                  <View style={styles.calendarTaskTime}>
-                    <FeatherIcon name="clock" size={14} color={colors.text.tertiary} />
-                    <Text style={[styles.calendarTaskTimeText, { color: colors.text.tertiary }]}>
-                      {task.dueDate ? format(new Date(task.dueDate), 'h:mm a') : 'No time set'}
-                    </Text>
-                  </View>
-                  {task.tags && task.tags.length > 0 && (
-                    <View style={styles.calendarTaskTags}>
-                      {task.tags.map(tag => (
-                        <View 
-                          key={tag} 
-                          style={[styles.calendarTaskTag, { backgroundColor: `${colors.brand.primary}20` }]}
-                        >
-                          <Text style={[styles.calendarTaskTagText, { color: colors.brand.primary }]}>
-                            {tag}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </View>
-              <View style={[
-                styles.calendarTaskStatus,
-                { 
-                  backgroundColor: task.isCompleted ? 
-                    `${colors.status.success}20` : 
-                    `${colors.status.warning}20`
-                }
-              ]}>
-                <Text style={[
-                  styles.calendarTaskStatusText,
-                  { 
-                    color: task.isCompleted ? 
-                      colors.status.success : 
-                      colors.status.warning
-                  }
-                ]}>
-                  {task.isCompleted ? 'Completed' : 'Pending'}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              task={task}
+              onPress={(taskId) => onNavigate('TaskDetail', { taskId })}
+              showTime={true}
+              showTags={true}
+              maxTags={2}
+            />
           ))}
         </View>
       )}

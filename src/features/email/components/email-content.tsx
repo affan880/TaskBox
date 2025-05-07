@@ -1,14 +1,6 @@
 import React, { useRef } from 'react';
-import { TextInput, View } from 'react-native';
-import { cssInterop } from 'nativewind';
-
-// Use cssInterop with View
-const StyledView = cssInterop(View, {
-  className: 'style',
-});
-const StyledTextInput = cssInterop(TextInput, {
-  className: 'style',
-});
+import { View, StyleSheet } from 'react-native';
+import { EmailInput } from './shared';
 
 type EmailContentProps = {
   subject: string;
@@ -23,36 +15,41 @@ export function EmailContent({
   onSubjectChange,
   onBodyChange,
 }: EmailContentProps) {
-  const bodyInputRef = useRef<TextInput>(null);
+  const bodyInputRef = useRef<any>(null);
 
   const handleSubjectSubmit = () => {
     bodyInputRef.current?.focus();
   };
 
   return (
-    <>
-      <StyledTextInput
-        className="py-3 text-base"
-        placeholder="Subject"
+    <View style={styles.container}>
+      <EmailInput
         value={subject}
         onChangeText={onSubjectChange}
-        returnKeyType="next"
-        onSubmitEditing={handleSubjectSubmit}
+        placeholder="Subject"
+        label="Subject"
+        leftIcon="tag"
       />
-      <StyledView className="h-[1px] bg-[#e5e5e5]" />
-      <TextInput
-        ref={bodyInputRef}
-        style={{
-          paddingVertical: 12,
-          fontSize: 16,
-          minHeight: 80,
-          textAlignVertical: 'top',
-        }}
-        placeholder="Compose email"
+      <View style={styles.divider} />
+      <EmailInput
         value={body}
         onChangeText={onBodyChange}
+        placeholder="Compose email"
+        label="Message"
+        leftIcon="edit-2"
         multiline
+        numberOfLines={6}
       />
-    </>
+    </View>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e5e5e5',
+  },
+}); 

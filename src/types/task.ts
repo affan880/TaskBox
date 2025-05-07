@@ -52,10 +52,12 @@ export type RecurringInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type TaskAttachment = {
   id: string;
   name: string;
-  url: string;
+  uri: string;
   type: string;
   size: number;
-  uploadedAt: string; // ISO date string
+  createdAt: string;
+  downloadUrl?: string;
+  isUploading?: boolean;
 };
 
 /**

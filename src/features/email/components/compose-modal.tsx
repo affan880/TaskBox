@@ -22,6 +22,7 @@ import * as DocumentPicker from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { EmailAttachment, EmailData } from '@/types/email';
+import { EmailModal, EmailButton, EmailInput } from './shared';
 
 type Props = {
   visible: boolean;
@@ -279,70 +280,98 @@ export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email 
   ), [attachments, handleRemoveAttachment, colors, currentUploadId, uploadProgress]);
 
   return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
-      index={0}
-      enablePanDownToClose
-      onDismiss={onClose}
-      backgroundStyle={{ backgroundColor: colors.background }}
-      handleIndicatorStyle={{ backgroundColor: colors.text }}
+    <EmailModal
+      isVisible={visible}
+      onClose={onClose}
+      title={mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : mode === 'forward' ? 'Forward' : 'New Email'}
+      height="90%"
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { paddingBottom: insets.bottom }]}
+        style={styles.container}
+        keyboardVerticalOffset={insets.bottom}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
-            <Icon name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>Compose Email</Text>
-          <TouchableOpacity onPress={handleAddAttachment} disabled={isLoading}>
-            <Icon name="attach-file" size={24} color={colors.text} />
-          </TouchableOpacity>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View style={styles.headerLeft}>
+            <EmailButton
+              onPress={onClose}
+              icon="arrow-back"
+              label="Back"
+              variant="ghost"
+              size="small"
+            />
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : mode === 'forward' ? 'Forward' : 'New Message'}
+            </Text>
+          </View>
+
+          <View style={styles.headerActions}>
+            <EmailButton
+              onPress={handleAddAttachment}
+              icon="attach-file"
+              label="Add Attachment"
+              variant="ghost"
+              size="small"
+              disabled={isUploading}
+            />
+            <EmailButton
+              onPress={handleSend}
+              icon="send"
+              label="Send"
+              variant="primary"
+              size="small"
+              disabled={isLoading || isUploading}
+            />
+          </View>
         </View>
 
-        <ScrollView style={styles.content}>
-          <TextInput
-            style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-            placeholder="To"
-            placeholderTextColor={colors.textSecondary}
-            value={to}
-            onChangeText={setTo}
-          />
-          <TextInput
-            style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-            placeholder="Subject"
-            placeholderTextColor={colors.textSecondary}
-            value={subject}
-            onChangeText={setSubject}
-          />
-          
-          {attachments.length > 0 && attachmentList}
-          
-          <TextInput
-            style={[styles.input, styles.bodyInput, { color: colors.text, borderColor: colors.border }]}
-            placeholder="Message"
-            placeholderTextColor={colors.textSecondary}
-            value={body}
-            onChangeText={setBody}
-            multiline
-            textAlignVertical="top"
-          />
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.content}>
+            <EmailInput
+              value={to}
+              onChangeText={setTo}
+              placeholder="To"
+              label="Recipients"
+              leftIcon="mail"
+            />
+            <EmailInput
+              value={subject}
+              onChangeText={setSubject}
+              placeholder="Subject"
+              label="Subject"
+              leftIcon="tag"
+            />
+            <EmailInput
+              value={body}
+              onChangeText={setBody}
+              placeholder="Write your message..."
+              label="Message"
+              multiline
+              numberOfLines={6}
+              leftIcon="edit-2"
+            />
+            
+            {attachments.length > 0 && (
+              <View style={styles.attachmentsContainer}>
+                <Text style={[styles.attachmentsTitle, { color: colors.text }]}>
+                  Attachments ({attachments.length})
+                </Text>
+                {attachments.map(attachment => (
+                  <AttachmentItem
+                    key={attachment.id}
+                    attachment={attachment}
+                    onRemove={handleRemoveAttachment}
+                    colors={colors}
+                    currentUploadId={currentUploadId}
+                    uploadProgress={uploadProgress}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
         </ScrollView>
-
-        <View style={styles.footer}>
-          <Button
-            variant="primary"
-            onPress={handleSend}
-            isLoading={isLoading}
-            disabled={isLoading || isUploading}
-          >
-            Send
-          </Button>
-        </View>
       </KeyboardAvoidingView>
-    </BottomSheetModal>
+    </EmailModal>
   );
 });
 
@@ -352,45 +381,46 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
   },
-  title: {
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginLeft: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     padding: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-  },
-  bodyInput: {
-    flex: 1,
-    minHeight: 200,
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
   },
   attachmentsContainer: {
-    marginBottom: 16,
+    marginTop: 16,
+  },
+  attachmentsTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
   },
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
     marginBottom: 8,
+    borderWidth: 1,
   },
   attachmentContent: {
     flex: 1,
@@ -398,12 +428,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   attachmentIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 4,
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
     alignItems: 'center',
-    marginRight: 8,
+    justifyContent: 'center',
+    marginRight: 12,
   },
   attachmentDetails: {
     flex: 1,
@@ -411,12 +442,13 @@ const styles = StyleSheet.create({
   attachmentName: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 2,
   },
   attachmentSize: {
     fontSize: 12,
+    marginTop: 2,
   },
   attachmentRemove: {
-    padding: 6,
+    padding: 8,
+    marginLeft: 8,
   },
 }); 

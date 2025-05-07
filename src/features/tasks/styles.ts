@@ -63,7 +63,7 @@ export const createStyles = (colors: any, isDark: boolean) => StyleSheet.create(
   },
   tabsContainer: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
+    // borderBottomWidth: 1,
     paddingBottom: 8,
   },
   tabButton: {

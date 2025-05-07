@@ -6,7 +6,7 @@ type TaskStore = {
   addTask: (task: TaskData) => void;
   updateTask: (id: string, task: Partial<TaskData>) => void;
   deleteTask: (id: string) => void;
-  toggleTaskComplete: (id: string) => void;
+  toggleTaskCompletion: (id: string) => void;
 };
 
 export const useTaskStore = create<TaskStore>((set) => ({
@@ -25,7 +25,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     set((state) => ({
       tasks: state.tasks.filter((task) => task.id !== id),
     })),
-  toggleTaskComplete: (id) =>
+  toggleTaskCompletion: (id) =>
     set((state) => ({
       tasks: state.tasks.map((task) =>
         task.id === id ? { ...task, isCompleted: !task.isCompleted } : task

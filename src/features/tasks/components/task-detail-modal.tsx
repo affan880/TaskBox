@@ -15,7 +15,7 @@ import { useTheme } from '@/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { TaskData, TaskPriority, TaskAttachment } from '@/types/task';
 import { format } from 'date-fns';
-import { TaskAttachmentsViewer } from './task-attachments-viewer';
+import { TaskAttachments } from './task-attachments';
 
 type TaskDetailModalProps = {
   visible: boolean;
@@ -347,10 +347,8 @@ export function TaskDetailModal({
                 
                 {/* Attachments section */}
                 {task.attachments && task.attachments.length > 0 && (
-                  <TaskAttachmentsViewer 
+                  <TaskAttachments
                     attachments={task.attachments}
-                    title="Attachments"
-                    maxInitialItems={10}
                     onViewAttachment={handleViewAttachment}
                   />
                 )}

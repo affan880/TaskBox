@@ -24,6 +24,7 @@ import { Picker } from '@react-native-picker/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import { useStorage } from '@/lib/storage/use-storage';
 import { useTaskAttachments } from './task-attachment-utils';
+import { TaskAttachments } from './task-attachments';
 
 type TaskFormModalProps = {
   visible: boolean;
@@ -110,7 +111,9 @@ export function TaskFormModal({
       updatedAt: new Date().toISOString(),
       dueDate: dueDate ? dueDate.toISOString() : undefined,
       priority,
-      attachments: attachments.length > 0 ? attachments : undefined
+      attachments: attachments || [],
+      projectId: existingTask?.projectId || '',
+      status: existingTask?.status || 'todo'
     };
     
     onSave(taskData);
@@ -338,27 +341,13 @@ export function TaskFormModal({
                   </TouchableOpacity>
                 </View>
                 
-                {attachments.length > 0 ? (
-                  <FlatList
-                    data={attachments}
-                    renderItem={renderAttachmentItem}
-                    keyExtractor={(item) => item.id}
-                    style={styles.attachmentsList}
+                {attachments.length > 0 && (
+                  <TaskAttachments
+                    attachments={attachments}
+                    showActions={true}
+                    onRemoveAttachment={handleRemoveAttachment}
+                    onViewAttachment={handleViewAttachment}
                   />
-                ) : (
-                  <View 
-                    style={[
-                      styles.emptyAttachmentsContainer,
-                      {
-                        borderColor: colors.border.light,
-                        backgroundColor: colors.background.secondary
-                      }
-                    ]}
-                  >
-                    <Text style={[styles.emptyAttachmentsText, {color: colors.text.tertiary}]}>
-                      No attachments added
-                    </Text>
-                  </View>
                 )}
               </View>
             </ScrollView>

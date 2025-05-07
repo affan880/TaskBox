@@ -1,13 +1,8 @@
 import * as React from 'react';
 import { View as RNView, ViewProps } from 'react-native';
-import { styled } from 'nativewind/dist/styled';
 
-const StyledView = styled(RNView);
-
-export type Props = ViewProps & {
-  className?: string;
-};
+export type Props = ViewProps;
 
 export function View(props: Props) {
-  return <StyledView {...props} />;
+  return <RNView {...props} />;
 } 

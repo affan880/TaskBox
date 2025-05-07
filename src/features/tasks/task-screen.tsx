@@ -123,7 +123,7 @@ export function TaskScreen() {
           </TouchableOpacity>
         </View>
         
-        <View style={[styles.tabsContainer, { borderBottomColor: colors.border.light }]}>
+        <View style={[styles.tabsContainer]}>
           {['Calendar', 'Overview', 'Analytics'].map((tab) => (
             <TouchableOpacity
               key={tab}

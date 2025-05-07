@@ -1,76 +1,67 @@
 import React from 'react';
-import { Modal, View, Text, Button, StyleSheet } from 'react-native';
-import { useTheme } from 'src/theme/theme-context';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/lib/theme';
+import { Text } from '@/components/ui';
+import { EmailModal, EmailButton } from './shared';
 
 type CreateTaskModalProps = {
   isVisible: boolean;
   onClose: () => void;
-  suggestedText?: string; // Text from the detected intent
+  suggestedText?: string;
+  isLoading?: boolean;
+  onCreateTask?: () => void;
 };
 
 export function CreateTaskModal({ 
   isVisible, 
   onClose, 
-  suggestedText 
+  suggestedText,
+  isLoading,
+  onCreateTask
 }: CreateTaskModalProps) {
   const { colors } = useTheme();
 
   return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
+    <EmailModal
+      isVisible={isVisible}
+      onClose={onClose}
+      title="Create Task"
     >
-      <View style={styles.centeredView}>
-        <View style={[styles.modalView, { backgroundColor: colors.background.primary }]}>
-          <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Create Task</Text>
-          
-          {suggestedText && (
-            <Text style={[styles.suggestedText, { color: colors.text.secondary }]}>
-              Suggested Task: {suggestedText}
-            </Text>
-          )}
-          
-          <Text style={{ color: colors.text.primary, marginBottom: 15 }}>
-            (Task creation functionality not yet implemented)
+      <View style={styles.content}>
+        {suggestedText && (
+          <Text style={[styles.suggestedText, { color: colors.textSecondary }]}>
+            Suggested Task: {suggestedText}
           </Text>
+        )}
+        
+        <Text style={[styles.infoText, { color: colors.text }]}>
+          (Task creation functionality not yet implemented)
+        </Text>
 
-          <View style={styles.buttonContainer}>
-            <Button title="Cancel" onPress={onClose} color={colors.text.secondary} />
-            {/* Add a Confirm button later */}
-          </View>
+        <View style={styles.buttonContainer}>
+          <EmailButton
+            onPress={onClose}
+            label="Cancel"
+            variant="ghost"
+            size="small"
+          />
+          <EmailButton
+            onPress={onCreateTask || (() => {})}
+            label={isLoading ? "Creating Task..." : "Create Task"}
+            variant="primary"
+            size="small"
+            disabled={isLoading}
+            loading={isLoading}
+          />
         </View>
       </View>
-    </Modal>
+    </EmailModal>
   );
 }
 
-// Reverted styles
 const styles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalView: {
-    margin: 20,
-    borderRadius: 10,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
+  content: {
+    padding: 16,
   },
   suggestedText: {
     fontSize: 14,
@@ -78,9 +69,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
+  infoText: {
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 16,
   },
 }); 
