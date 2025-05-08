@@ -201,17 +201,26 @@ export function useGmail() {
     subject: string, 
     body: string, 
     attachments: any[] = [],
+    cc?: string,
+    bcc?: string,
     originalHtml?: string
   ): Promise<boolean> => {
-    setIsLoading(true); // Indicate loading state
+    setIsLoading(true); 
     setError(null);
     
     try {
-      await gmailApi.sendEmail(to, subject, body, attachments, originalHtml); 
+      // Call the API function with all fields
+      await gmailApi.sendEmail(to, subject, body, attachments, cc, bcc, originalHtml); 
+      console.log('[useGmail:Send] Email sent successfully via API (including CC/BCC if provided).');
       return true;
     } catch (err: any) {
       console.error('[useGmail:Error] Failed sending email:', err);
-      setError(err.message || 'Failed to send email');
+      let errorMessage = 'Failed to send email.';
+      if (err.message) {
+        errorMessage += ` Details: ${err.message}`;
+      }
+      setError(errorMessage);
+      Alert.alert('Error Sending Email', errorMessage);
       return false;
     } finally {
       setIsLoading(false);

@@ -1,25 +1,29 @@
 import * as React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { LoginScreen } from 'src/features/auth/login-screen';
-import { OnboardingScreen } from 'src/features/auth/onboarding-screen';
+import { LoginScreen } from '@/features/auth/login-screen';
+import { OnboardingScreen } from '@/features/auth/onboarding-screen';
+import { TermsScreen } from '@/features/auth/terms-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '@/store/slices/auth-slice';
+import { useEffect, useState } from 'react';
 
 export type AuthStackParamList = {
-  Onboarding: undefined;
   Login: undefined;
+  Onboarding: undefined;
+  Terms: undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
-const ONBOARDING_COMPLETE = 'onboarding_complete';
 
 export function AuthNavigator() {
-  const [isFirstLaunch, setIsFirstLaunch] = React.useState<boolean | null>(null);
-  
-  React.useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_COMPLETE).then(value => {
+  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
+  const { hasAcceptedTerms } = useAuthStore();
+
+  useEffect(() => {
+    AsyncStorage.getItem('alreadyLaunched').then(value => {
       if (value === null) {
+        AsyncStorage.setItem('alreadyLaunched', 'true');
         setIsFirstLaunch(true);
-        AsyncStorage.setItem(ONBOARDING_COMPLETE, 'true');
       } else {
         setIsFirstLaunch(false);
       }
@@ -27,19 +31,19 @@ export function AuthNavigator() {
   }, []);
 
   if (isFirstLaunch === null) {
-    // We haven't checked AsyncStorage yet
     return null;
   }
-  
+
   return (
     <Stack.Navigator
-      initialRouteName={isFirstLaunch ? 'Onboarding' : 'Login'}
       screenOptions={{
         headerShown: false,
       }}
+      initialRouteName={isFirstLaunch ? 'Onboarding' : hasAcceptedTerms ? 'Login' : 'Terms'}
     >
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} />
     </Stack.Navigator>
   );
 } 

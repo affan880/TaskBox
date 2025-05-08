@@ -23,12 +23,15 @@ export type AuthState = {
   error: string | null;
   hasCheckedAuth: boolean;
   initialized: boolean;
+  hasAcceptedTerms: boolean;
   setUser: (user: FirebaseAuthTypes.User | null) => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   initializeAuthListener: () => () => void;
   checkAndRestoreSession: () => Promise<boolean>;
   refreshAuthentication: () => Promise<boolean>;
+  setHasAcceptedTerms: (accepted: boolean) => void;
+  clear: () => void;
 };
 
 // Token cache key
@@ -132,6 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   hasCheckedAuth: false,
   initialized: false,
+  hasAcceptedTerms: false,
 
   setUser: (user: FirebaseAuthTypes.User | null) => {
     if (JSON.stringify(get().user) !== JSON.stringify(user)) {
@@ -372,6 +376,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (DEBUG) console.log('Firebase sign out successful');
       } catch (firebaseError) {
         console.error('Firebase sign out error:', firebaseError);
+        throw firebaseError; // Re-throw to handle in the outer catch
       }
       
       // Clear saved tokens
@@ -388,8 +393,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error: any) {
       console.error('Sign Out Error:', error);
       set({ error: error.message || 'Failed to sign out' });
+      throw error; // Re-throw to handle in the component
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  setHasAcceptedTerms: (accepted) => set({ hasAcceptedTerms: accepted }),
+
+  clear: () => {
+    set({
+      user: null,
+      isLoading: false,
+      error: null,
+    });
   },
 })); 

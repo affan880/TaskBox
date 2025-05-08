@@ -9,7 +9,6 @@ import {
   Pressable,
   Animated 
 } from 'react-native';
-import { classNames } from '../../utils/styling';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -201,40 +200,33 @@ const styles = StyleSheet.create({
   dangerButton: {
     backgroundColor: '#e74c3c', // danger color
   },
+  smallButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mediumButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  largeButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
   disabledButton: {
     opacity: 0.5,
   },
-  smallButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    minHeight: 32,
-  },
-  mediumButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    minHeight: 44,
-  },
-  largeButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    minHeight: 52,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   buttonText: {
-    fontWeight: '500',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   primaryText: {
     color: '#ffffff',
   },
   outlineText: {
-    color: '#1e293b', // neutral-800
+    color: '#3498db',
   },
   ghostText: {
-    color: '#3498db', // primary color
+    color: '#3498db',
   },
   smallText: {
     fontSize: 14,
@@ -244,6 +236,11 @@ const styles = StyleSheet.create({
   },
   largeText: {
     fontSize: 18,
+  },
+  contentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconLeft: {
     marginRight: 8,

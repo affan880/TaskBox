@@ -271,4 +271,215 @@ export function useStorage<T>(key: string, initialValue: T): [T, (value: T) => v
   };
   
   return [storedValue as T, setValue];
+}
+
+/**
+ * Comprehensive storage cleanup function that handles all storage types
+ */
+export async function clearAllStorage(): Promise<void> {
+  try {
+    // Clear MMKV storage if available
+    if (storage) {
+      storage.clearAll();
+    }
+
+    // Clear AsyncStorage
+    await AsyncStorage.clear();
+
+    // Clear memory storage
+    memoryStorage.clear();
+
+    // Clear all known storage keys
+    const allStorageKeys = [
+      // Task related
+      'task-storage',
+      'task-cache',
+      'task-metadata',
+      
+      // Project related
+      'project-storage',
+      'project-cache',
+      'project-metadata',
+      
+      // Email related
+      'email-storage',
+      'email-summaries',
+      'email_categories',
+      'snoozed_emails',
+      'email_priority',
+      'email_filters',
+      'email_settings',
+      'email_sync_status',
+      'email_cache',
+      'email_metadata',
+      'categorized_emails',
+      'email_categories_cache',
+      
+      // Auth related
+      'auth-storage',
+      'auth-token',
+      'auth-refresh-token',
+      
+      // App related
+      'settings-storage',
+      'theme-storage',
+      'notification-storage',
+      'user-preferences',
+      'app-settings',
+      'last-sync-time',
+      'cached-data',
+      'offline-data',
+      'temp-storage',
+      
+      // Auto categorization
+      'auto-categorization-cache',
+      'auto-categorization-settings',
+      'auto-categorization-metadata',
+      'categorized_emails_cache',
+      'email_category_counts',
+      'last_email_analysis_time',
+      '@email_categories',
+      '@last_selected_category',
+      
+      // Additional keys that might be missed
+      'mmkv_storage',
+      'app-storage',
+      'category-storage',
+      'email-cache',
+      'snooze-settings',
+      'user-settings',
+      'app-config',
+      'last-sync',
+      'offline-queue',
+      'pending-changes',
+      'sync-status',
+      'user-preferences',
+      'app-state',
+      'navigation-state',
+      'form-data',
+      'draft-data',
+      'search-history',
+      'recent-items',
+      'favorites',
+      'bookmarks',
+      'notifications',
+      'permissions',
+      'analytics',
+      'error-logs',
+      'debug-logs',
+      'performance-metrics',
+      'crash-reports',
+      'user-feedback',
+      'survey-responses',
+      'tutorial-progress',
+      'onboarding-state',
+      'feature-flags',
+      'ab-testing',
+      'user-segments',
+      'custom-data',
+      'export-data',
+      'import-data',
+      'backup-data',
+      'restore-points',
+      'sync-tokens',
+      'refresh-tokens',
+      'access-tokens',
+      'session-data',
+      'user-session',
+      'app-session',
+      'device-info',
+      'network-status',
+      'location-data',
+      'geofence-data',
+      'push-tokens',
+      'device-tokens',
+      'fcm-tokens',
+      'apns-tokens',
+      'notification-settings',
+      'sound-settings',
+      'vibration-settings',
+      'display-settings',
+      'accessibility-settings',
+      'language-settings',
+      'timezone-settings',
+      'currency-settings',
+      'measurement-settings',
+      'date-format-settings',
+      'time-format-settings',
+      'number-format-settings',
+      'keyboard-settings',
+      'input-settings',
+      'gesture-settings',
+      'animation-settings',
+      'theme-settings',
+      'color-settings',
+      'font-settings',
+      'size-settings',
+      'spacing-settings',
+      'layout-settings',
+      'position-settings',
+      'alignment-settings',
+      'order-settings',
+      'sort-settings',
+      'filter-settings',
+      'view-settings',
+      'display-settings',
+      'visibility-settings',
+      'privacy-settings',
+      'security-settings',
+      'permission-settings',
+      'notification-preferences',
+      'email-preferences',
+      'sms-preferences',
+      'push-preferences',
+      'in-app-preferences',
+      'sound-preferences',
+      'vibration-preferences',
+      'display-preferences',
+      'accessibility-preferences',
+      'language-preferences',
+      'timezone-preferences',
+      'currency-preferences',
+      'measurement-preferences',
+      'date-format-preferences',
+      'time-format-preferences',
+      'number-format-preferences',
+      'keyboard-preferences',
+      'input-preferences',
+      'gesture-preferences',
+      'animation-preferences',
+      'theme-preferences',
+      'color-preferences',
+      'font-preferences',
+      'size-preferences',
+      'spacing-preferences',
+      'layout-preferences',
+      'position-preferences',
+      'alignment-preferences',
+      'order-preferences',
+      'sort-preferences',
+      'filter-preferences',
+      'view-preferences',
+      'display-preferences',
+      'visibility-preferences',
+      'privacy-preferences',
+      'security-preferences',
+      'permission-preferences'
+    ];
+
+    // Remove all storage items
+    for (const key of allStorageKeys) {
+      try {
+        await storageConfig.removeItem(key);
+        await AsyncStorage.removeItem(key);
+      } catch (error) {
+        console.warn(`Failed to remove storage key ${key}:`, error);
+      }
+    }
+
+    console.log('All storage cleared successfully');
+  } catch (error) {
+    console.error('Error clearing all storage:', error);
+    throw error;
+  }
 } 

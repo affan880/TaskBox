@@ -3,7 +3,7 @@ import { COLORS, DARK_COLORS, ColorTheme } from './colors';
 import { getItem, setItem } from 'src/lib/storage/storage';
 import { useColorScheme } from 'react-native';
 
-type ThemeType = 'light' | 'dark' | 'system';
+export type ThemeType = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   theme: ThemeType;

@@ -37,15 +37,68 @@ const ScrollView = RNScrollView;
 
 type ComposeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-/**
- * Normalizes a file URI to ensure it's correctly formatted for React Native Blob Util
- */
+// Helper function to normalize file URIs for consistent handling
 function normalizeFileUri(uri: string): string {
-  // On iOS, convert file URLs to paths for RNBlobUtil
-  if (Platform.OS === 'ios' && uri.startsWith('file://')) {
-    return decodeURIComponent(uri).replace('file://', '');
+  // Remove 'file://' prefix if present
+  let normalizedUri = uri.replace('file://', '');
+  
+  // Handle private paths on iOS
+  if (normalizedUri.startsWith('/private/')) {
+    normalizedUri = normalizedUri.replace('/private/', '/');
   }
-  return uri;
+  
+  // Remove any double slashes
+  normalizedUri = normalizedUri.replace(/\/\/+/g, '/');
+  
+  return normalizedUri;
+}
+
+// Helper function to copy file to app's document directory, ensuring unique filenames
+async function copyToAppStorage(sourceUri: string, originalFileName: string): Promise<string> {
+  try {
+    const documentsDir = RNBlobUtil.fs.dirs.DocumentDir;
+    let fileName = originalFileName;
+    let destinationPath = `${documentsDir}/${fileName}`;
+    let counter = 1;
+
+    // Normalize source URI first
+    const normalizedSourceUri = normalizeFileUri(sourceUri);
+
+    // Check if source file exists
+    const sourceExists = await RNBlobUtil.fs.exists(normalizedSourceUri);
+    if (!sourceExists) {
+      console.error('[ComposeScreen:CopyToStorage] Source file does not exist:', normalizedSourceUri);
+      throw new Error(`Source file does not exist: ${sourceUri}`);
+    }
+
+    // Check if destination file exists and generate a unique name if necessary
+    // Ensure we handle files with no extension correctly
+    const nameParts = originalFileName.lastIndexOf('.') > 0 ? originalFileName.split('.') : [originalFileName, ''];
+    const baseName = nameParts.length > 1 ? nameParts.slice(0, -1).join('.') : nameParts[0];
+    const extension = nameParts.length > 1 ? nameParts.pop() : '';
+
+    while (await RNBlobUtil.fs.exists(destinationPath)) {
+      console.warn(`[ComposeScreen:CopyToStorage] File already exists at ${destinationPath}. Generating new name.`);
+      fileName = extension ? `${baseName}_${counter}.${extension}` : `${baseName}_${counter}`;
+      destinationPath = `${documentsDir}/${fileName}`;
+      counter++;
+    }
+    
+    console.log(`[ComposeScreen:CopyToStorage] Copying from ${normalizedSourceUri} to unique path ${destinationPath}`);
+    await RNBlobUtil.fs.cp(normalizedSourceUri, destinationPath);
+    
+    // Return the normalized path without file:// prefix
+    return destinationPath;
+  } catch (error) {
+    console.error('[ComposeScreen:CopyToStorage] Error copying file to app storage:', {
+      sourceUri,
+      originalFileName,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Re-throw the error so it can be caught by handleFilePick
+    throw error;
+  }
 }
 
 /**
@@ -142,7 +195,7 @@ export function ComposeScreen() {
   const { sendEmail } = useGmail();
   
   // Add keyboard avoiding offset
-  const KEYBOARD_OFFSET = Platform.OS === 'ios' ? 90 : 0;
+  const KEYBOARD_OFFSET = Platform.OS === 'ios' ? -400 : 0;
   
   // Email recipients state
   const [recipients, setRecipients] = useState<string[]>([]);
@@ -298,22 +351,30 @@ export function ComposeScreen() {
               size: file.size
             });
 
-            // Verify file exists before processing
-            const fileExists = await RNBlobUtil.fs.exists(file.uri);
+            // Create a local copy in the Documents directory
+            const fileName = file.name || 'unnamed-file';
+            const localPath = await copyToAppStorage(file.uri, fileName);
+            console.log('[ComposeScreen] Copied to app storage at:', localPath);
+
+            // Verify the copied file exists and is accessible
+            const fileExists = await RNBlobUtil.fs.exists(localPath);
             if (!fileExists) {
-              console.error('[ComposeScreen] File does not exist:', file.uri);
-              return null;
+              throw new Error(`Failed to copy file: ${fileName}`);
             }
 
-            const localUri = await createLocalCopy(file.uri, file.name || 'unnamed-file');
-            console.log('[ComposeScreen] Created local copy at:', localUri);
+            // Get file stats to verify size
+            const stats = await RNBlobUtil.fs.stat(localPath);
+            if (!stats || stats.size === 0) {
+              throw new Error(`Invalid file size for: ${fileName}`);
+            }
 
+            // Create attachment with the local path (without file:// prefix)
             return {
               id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              uri: localUri,
+              uri: localPath, // Store the raw path without file:// prefix
               type: file.type || 'application/octet-stream',
-              name: file.name || 'unnamed-file',
-              size: file.size || 0,
+              name: fileName,
+              size: stats.size || file.size || 0,
               createdAt: new Date().toISOString(),
             } as EmailAttachment;
           } catch (error) {
@@ -338,7 +399,7 @@ export function ComposeScreen() {
       console.log('[ComposeScreen] Adding attachments:', validAttachments.length);
       setAttachments(prev => [...prev, ...validAttachments]);
     } catch (err: any) {
-      // Check for both Android and iOS cancel codes
+      // Handle picker cancellation
       if (err?.code === 'DOCUMENT_PICKER_CANCELED' || 
           err?.code === 'OPERATION_CANCELED' || 
           err?.message?.includes('cancel')) {
@@ -352,11 +413,8 @@ export function ComposeScreen() {
         stack: err?.stack
       });
       
-      // Show more specific error message
       let errorMessage = 'Failed to attach file. ';
-      if (err?.code === 'permission') {
-        errorMessage += 'Please check app permissions.';
-      } else if (err?.message?.includes('permission')) {
+      if (err?.code === 'permission' || err?.message?.includes('permission')) {
         errorMessage += 'Please check app permissions.';
       } else {
         errorMessage += 'Please try again.';
@@ -406,82 +464,72 @@ export function ComposeScreen() {
   };
 
   const handleSend = async () => {
-    // Validate all recipients (main, cc, bcc)
-    if (recipients.length === 0) {
-      Alert.alert('Error', 'Please enter at least one recipient');
+    // Filter out invalid or empty email addresses from recipients
+    const validRecipients = recipients.filter(email => email.trim());
+    const validCcRecipients = ccRecipients.filter(email => email.trim());
+    const validBccRecipients = bccRecipients.filter(email => email.trim());
+
+    if (validRecipients.length === 0) {
+      Alert.alert('Error', 'Please enter at least one valid recipient in the "To" field.');
       return;
     }
 
     setIsSending(true);
 
     try {
-      // Prepare recipient strings (joined with commas)
-      const toField = [...recipients];
-      if (ccRecipients.length > 0) {
-        toField.push(`CC: ${ccRecipients.join(',')}`);
-      }
-      if (bccRecipients.length > 0) {
-        toField.push(`BCC: ${bccRecipients.join(',')}`);
-      }
-      const finalToField = toField.join(',');
-      
+      const toField = validRecipients.join(',');
+      const ccField = validCcRecipients.length > 0 ? validCcRecipients.join(',') : undefined;
+      const bccField = validBccRecipients.length > 0 ? validBccRecipients.join(',') : undefined;
+
+      console.log('[ComposeScreen] Sending email with:', {
+        to: toField,
+        cc: ccField,
+        bcc: bccField,
+        subject,
+        attachmentsCount: attachments.length,
+      });
+
       // Log attachment details before sending
       if (attachments.length > 0) {
-        console.log(`[ComposeScreen] Sending ${attachments.length} attachments:`);
-        
-        // Final verification of all attachments before sending
+        console.log(`[ComposeScreen] Verifying ${attachments.length} attachments:`);
         for (const attachment of attachments) {
-          console.log(`[ComposeScreen] Attachment: ${attachment.name}, type: ${attachment.type}, size: ${attachment.size || 'unknown'} bytes`);
-          console.log(`[ComposeScreen] URI: ${attachment.uri}`);
-          
-          // Verify file exists before sending
-          const normalizedUri = normalizeFileUri(attachment.uri);
-          const exists = await RNBlobUtil.fs.exists(normalizedUri);
-          console.log(`[ComposeScreen] File exists: ${exists ? 'YES' : 'NO'}`);
-          
-          if (!exists) {
-            throw new Error(`Attachment file not found: ${attachment.name} at path: ${normalizedUri}`);
+          console.log(`[ComposeScreen] Attachment: ${attachment.name}, URI: ${attachment.uri}, Type: ${attachment.type}, Size: ${attachment.size}`);
+          const fileExists = await RNBlobUtil.fs.exists(attachment.uri);
+          if (!fileExists) {
+            throw new Error(`Attachment file not found: ${attachment.name} at path: ${attachment.uri}`);
           }
-          
-          // Check file size
-          try {
-            const stat = await RNBlobUtil.fs.stat(normalizedUri);
-            console.log(`[ComposeScreen] File stat: ${JSON.stringify(stat)}`);
-            
-            // Update attachment size if needed
-            if (!attachment.size && stat.size) {
-              attachment.size = stat.size;
-            }
-            
-            // Check if file is empty
-            if (stat.size === 0) {
-              throw new Error(`Attachment file is empty: ${attachment.name}`);
-            }
-          } catch (statError) {
-            console.error(`[ComposeScreen] Error getting file stats for ${attachment.name}:`, statError);
+          const stat = await RNBlobUtil.fs.stat(attachment.uri);
+          if (stat.size === 0) {
+            throw new Error(`Attachment file is empty: ${attachment.name}`);
           }
         }
       }
-      
-      // Send email using Gmail API
-      const success = await sendEmail(finalToField, subject, content, attachments);
-      
+
+      // Call the sendEmail function from useGmail hook with all fields
+      const success = await sendEmail(
+        toField,
+        subject,
+        content,
+        attachments,
+        ccField, // Pass CC field
+        bccField // Pass BCC field
+      );
+
       setIsSending(false);
-      
+
       if (success) {
-        // Reset form on success
         resetForm();
-        
         Alert.alert('Success', 'Email sent successfully', [
-          { text: 'OK', onPress: () => navigation.navigate('MainTabs', { initialScreen: 'Email' }) }
+          { text: 'OK', onPress: () => navigation.navigate('MainTabs', { initialScreen: 'Email' }) },
         ]);
       } else {
-        Alert.alert('Error', 'Failed to send email. Please try again.');
+        // Error is handled by the useGmail hook, but we can show a generic message here too
+        Alert.alert('Error', 'Failed to send email. Please check your connection and try again.');
       }
     } catch (error) {
       setIsSending(false);
-      console.error('[ComposeScreen] Error sending email:', error);
-      Alert.alert('Error', `Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('[ComposeScreen] Critical error during send process:', error);
+      Alert.alert('Error', `An unexpected error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -691,10 +739,10 @@ export function ComposeScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={KEYBOARD_OFFSET}
+        keyboardVerticalOffset={0}
         enabled={Platform.OS === 'ios'}
       >
-        <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{ flex: 1 }}>
           {/* Modern Header with Gradient */}
           <View style={[styles.header, { 
             backgroundColor: colors.background.primary,
@@ -751,7 +799,7 @@ export function ComposeScreen() {
             contentContainerStyle={{ 
               flexGrow: 1,
               paddingBottom: Platform.OS === 'ios' 
-                ? (isKeyboardVisible ? keyboardHeight + 80 : 60)
+                ? (isKeyboardVisible ? 80 : 60)
                 : 120
             }}
             showsVerticalScrollIndicator={false}
@@ -851,7 +899,7 @@ export function ComposeScreen() {
             </View>
           </ScrollView>
 
-          {/* Modern Keyboard Toolbar */}
+          {/* Modern Keyboard Toolbar - now sibling to ScrollView */}
           {isKeyboardVisible && (
             <Animated.View 
               style={[
@@ -859,11 +907,12 @@ export function ComposeScreen() {
                 { 
                   backgroundColor: isDark ? colors.background.primary : colors.background.primary,
                   position: 'absolute',
-                  bottom: Platform.OS === 'ios' ? keyboardHeight : 0,
                   left: 0,
                   right: 0,
+                  bottom: 0,
+                  zIndex: 1000,
+                  elevation: 10,
                   borderTopColor: isDark ? colors.border.dark : colors.border.light,
-                  elevation: Platform.OS === 'android' ? 8 : 0,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: -4 },
                   shadowOpacity: 0.1,

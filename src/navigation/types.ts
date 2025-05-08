@@ -1,5 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AuthStackParamList } from './auth-navigator';
 
 export type TaskStackParamList = {
   'Tasks': undefined;
@@ -22,6 +24,15 @@ export type RootStackParamList = {
   AllTasks: undefined;
   TaskCreation: undefined;
   TaskStack: NavigatorScreenParams<TaskStackParamList>;
+  Main: undefined;
+  Profile: undefined;
+  UIShowcase: undefined;
+  ThemeSettings: undefined;
+  NotificationSettings: undefined;
+  HelpSupport: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  DeleteAccount: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> = 
@@ -35,4 +46,8 @@ export type TaskStackScreenProps<T extends keyof TaskStackParamList> =
 
 export type NavigationProps = {
   navigation: RootStackScreenProps<keyof RootStackParamList>['navigation'];
-}; 
+};
+
+export type AuthNavigationProp = NativeStackNavigationProp<AuthStackParamList>;
+
+export type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>; 

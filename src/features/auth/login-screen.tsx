@@ -14,6 +14,8 @@ import { useAuthStore } from '@/store/slices/auth-slice';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { AuthNavigationProp } from '@/navigation/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,9 +24,8 @@ const GOOGLE_BLUE = '#4285F4';
 const GOOGLE_WHITE = '#FFFFFF';
 
 export function LoginScreen() {
-  const signInWithGoogle = useAuthStore(state => state.signInWithGoogle);
-  const isLoading = useAuthStore(state => state.isLoading);
-  const error = useAuthStore(state => state.error);
+  const { signInWithGoogle, hasAcceptedTerms, isLoading, error } = useAuthStore();
+  const navigation = useNavigation<AuthNavigationProp>();
 
   // Animation values
   const logoAnimation = React.useRef(new Animated.Value(0)).current;
@@ -123,6 +124,14 @@ export function LoginScreen() {
     }
   }, [isLoading]);
 
+  const handleSignIn = async () => {
+    if (!hasAcceptedTerms) {
+      navigation.navigate('Terms');
+      return;
+    }
+    await signInWithGoogle();
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -168,7 +177,7 @@ export function LoginScreen() {
           <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
             <TouchableOpacity 
               style={[styles.googleButton, isLoading && styles.buttonDisabled]}
-              onPress={signInWithGoogle}
+              onPress={handleSignIn}
               disabled={isLoading}
               activeOpacity={0.9}
             >

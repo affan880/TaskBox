@@ -31,6 +31,7 @@ export type TaskState = {
   setUpdating: (taskId: string, isUpdating: boolean) => void;
   completeTask: (taskId: string) => void;
   setSelectedTask: (task: TaskData | null) => void;
+  clear: () => void;
 };
 
 export const useTaskStore = create<TaskState>()(
@@ -223,6 +224,16 @@ export const useTaskStore = create<TaskState>()(
         set(() => ({
           selectedTask: task,
         })),
+
+      clear: () => {
+        set({
+          tasks: [],
+          selectedTask: null,
+          isLoading: false,
+          initialized: false,
+          isUpdating: {},
+        });
+      },
     }),
     {
       name: 'task-storage',

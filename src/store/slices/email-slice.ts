@@ -66,6 +66,7 @@ type EmailActions = {
   fetchCategories: () => Promise<void>;
   setSelectedCategory: (category: string) => Promise<void>;
   sortEmails: () => void;
+  clear: () => void;
 };
 
 type EmailStore = EmailState & EmailActions;
@@ -221,6 +222,22 @@ export const useEmailStore = create<EmailStore>()((set, get) => ({
       });
 
       return { emails: sortedEmails };
+    });
+  },
+
+  clear: () => {
+    set({
+      emails: [],
+      isLoading: false,
+      error: null,
+      filter: null,
+      selectedCategory: null,
+      categories: [],
+      priorityCount: {
+        high: 0,
+        medium: 0,
+        low: 0,
+      },
     });
   },
 }));

@@ -205,13 +205,30 @@ function calculateAverageCompletionTime(tasks: TaskData[]): string {
 }
 
 function getMostCommonPriority(tasks: TaskData[]): string {
+  if (!tasks || tasks.length === 0) {
+    return 'N/A'; // Handle empty task list case
+  }
+
   const priorities = tasks.reduce((acc, task) => {
-    acc[task.priority] = (acc[task.priority] || 0) + 1;
+    // Ensure priority exists and is valid before incrementing
+    if (task.priority && ['low', 'medium', 'high'].includes(task.priority)) {
+      acc[task.priority] = (acc[task.priority] || 0) + 1;
+    }
     return acc;
   }, {} as Record<TaskPriority, number>);
 
-  const mostCommon = Object.entries(priorities).reduce((a, b) => a[1] > b[1] ? a : b);
-  return mostCommon[0].charAt(0).toUpperCase() + mostCommon[0].slice(1);
+  const priorityEntries = Object.entries(priorities);
+
+  if (priorityEntries.length === 0) {
+    return 'N/A'; // Handle case where no tasks had valid priorities
+  }
+
+  // Now it's safe to reduce, as priorityEntries is not empty
+  const mostCommon = priorityEntries.reduce((a, b) => (a[1] > b[1] ? a : b));
+  
+  // Capitalize the result
+  const priorityName = mostCommon[0];
+  return priorityName.charAt(0).toUpperCase() + priorityName.slice(1);
 }
 
 function getTasksDueSoon(tasks: TaskData[]): number {

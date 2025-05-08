@@ -31,6 +31,7 @@ import { Email } from '../types/email';
 const BASE_URL = process.env.BASE_URL;
 
 // Base URL for Gmail API
+console.log('BASE_URL', BASE_URL);
 const GMAIL_API_BASE_URL = `${BASE_URL}/api/gmail`;
 
 // --- Token Caching and Refresh Synchronization ---
@@ -493,6 +494,8 @@ export async function sendEmail(
   subject: string,
   body: string,
   attachments: EmailAttachment[] = [],
+  cc?: string,
+  bcc?: string,
   originalHtml?: string
 ) {
   try {
@@ -501,65 +504,75 @@ export async function sendEmail(
       throw new Error('Failed to get access token');
     }
 
-    console.log(`[gmailApi:Email] Sending email to: ${to}`);
+    if (!to || typeof to !== 'string' || to.trim() === '') {
+      console.error('[gmailApi:Email:Validation] "To" field is invalid:', to);
+      throw new Error('Invalid "To" field: Recipient address is required.');
+    }
+
+    console.log(`[gmailApi:Email] Preparing to send email to: ${to.trim()}`);
+    if (cc && cc.trim()) console.log(`[gmailApi:Email] CC: ${cc.trim()}`);
+    if (bcc && bcc.trim()) console.log(`[gmailApi:Email] BCC: ${bcc.trim()}`);
     console.log(`[gmailApi:Email] Subject: ${subject}`);
-    console.log(`[gmailApi:Email] With ${attachments.length} attachments`);
+    console.log(`[gmailApi:Email] Attachments count: ${attachments.length}`);
 
     const fromEmail = await getEmailAddress();
     
-    // Creating the email content
-    const messageParts = [];
-    
-    // Add email headers
     const headers = [
       `From: ${fromEmail}`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      'MIME-Version: 1.0',
+      `To: ${to.trim()}`,
     ];
-    
-    // If we have attachments, create a multipart message
+
+    // Add CC and BCC headers if present and valid
+    if (cc && cc.trim()) {
+      headers.push(`Cc: ${cc.trim()}`);
+    }
+    if (bcc && bcc.trim()) {
+      headers.push(`Bcc: ${bcc.trim()}`);
+    }
+
+    headers.push(`Subject: ${subject}`);
+    headers.push('MIME-Version: 1.0');
+
+    let emailBodyContent = '';
+    const messageBodyParts = [];
+
     if (attachments.length > 0) {
-      const multipartBoundary = `------MultipartBoundary${Date.now().toString(16)}`;
+      const multipartBoundary = `----MultipartBoundary_${Date.now().toString(16)}`;
       headers.push(`Content-Type: multipart/mixed; boundary="${multipartBoundary}"`);
-      
-      // Add the text/html part
-      messageParts.push(
-        `--${multipartBoundary}\r\n` +
-        'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
-        (originalHtml || body) + '\r\n'
+
+      messageBodyParts.push(
+        `--${multipartBoundary}`,
+        'Content-Type: text/html; charset=UTF-8',
+        '',
+        originalHtml || body,
+        ''
       );
       
-      // Add attachments
       for (const attachment of attachments) {
         const fileData = await RNBlobUtil.fs.readFile(attachment.uri, 'base64');
-        const attachmentBoundary = `------Attachment${Date.now().toString(16)}`;
-        
-        messageParts.push(
-          `--${multipartBoundary}\r\n` +
-          `Content-Type: ${attachment.type}; name="${attachment.name}"\r\n` +
-          'Content-Transfer-Encoding: base64\r\n' +
-          `Content-Disposition: attachment; filename="${attachment.name}"\r\n\r\n` +
-          fileData + '\r\n'
+        messageBodyParts.push(
+          `--${multipartBoundary}`,
+          `Content-Type: ${attachment.type}; name="${attachment.name}"`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${attachment.name}"`,
+          '',
+          fileData,
+          ''
         );
       }
-      
-      messageParts.push(`--${multipartBoundary}--`);
+      messageBodyParts.push(`--${multipartBoundary}--`);
+      emailBodyContent = messageBodyParts.join('\r\n');
     } else {
-      // Simple email without attachments
       headers.push('Content-Type: text/html; charset=UTF-8');
-      messageParts.push(headers.join('\r\n') + '\r\n\r\n' + (originalHtml || body));
+      emailBodyContent = originalHtml || body;
     }
     
-    // Join all parts to create the raw message
-    const rawMessage = messageParts.join('');
+    const rawMessage = headers.join('\r\n') + '\r\n\r\n' + emailBodyContent;
     
-    // URL-safe base64 encode the message
-    console.log(`[gmailApi:Email] Encoding email message...`);
+    console.log('[gmailApi:Email] Raw message constructed (first 300 chars):', rawMessage.substring(0,300));
     const encodedMessage = encodeBase64UrlForRN(rawMessage);
-    console.log(`[gmailApi:Email] Email encoded, sending to Gmail API...`);
     
-    // Using the appropriate Gmail API endpoint for sending messages
+    console.log(`[gmailApi:Email] Sending encoded message to Gmail API...`);
     const response = await fetch(
       'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
       {
@@ -569,24 +582,28 @@ export async function sendEmail(
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ 
-          raw: encodedMessage 
-        }),
+        body: JSON.stringify({ raw: encodedMessage }),
       }
     );
     
-    // Check for response issues
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[gmailApi:Email:Error] Gmail API error response:', errorText);
-      throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
+      console.error('[gmailApi:Email:Error] Gmail API error response text:', errorText);
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error && errorJson.error.message) {
+          throw new Error(`Gmail API Error: ${errorJson.error.message} (Status: ${response.status})`);
+        }
+      } catch (parseError) {
+        console.warn('[gmailApi:Email:Error] Could not parse API error response as JSON:', parseError);
+      }
+      throw new Error(`Failed to send email via API: ${response.status} ${response.statusText}`);
     }
     
     console.log(`[gmailApi:Email] Email sent successfully!`);
-    const responseData = await response.json();
-    return responseData;
+    return await response.json();
   } catch (error) {
-    console.error('[gmailApi:Email:Error] Error sending email:', error);
+    console.error('[gmailApi:Email:Error] Error in sendEmail function execution:', error);
     throw error;
   }
 }
@@ -1036,6 +1053,84 @@ export async function forwardEmail(
     return await sendEmail(to, subject, htmlBody, attachments);
   } catch (error) {
     console.error('[gmailApi:Error] Failed to forward email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete user account and all associated data
+ * @returns Object containing deletion status and counts
+ * @throws Error if deletion fails
+ */
+export async function deleteAccount(): Promise<{
+  message: string;
+  deletedData: {
+    user: boolean;
+    tasks: number;
+  };
+}> {
+  try {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      throw new Error('No authentication token available');
+    }
+
+    console.log('[gmailApi:Account] Initiating account deletion...');
+    
+    // Delete the account first
+    const response = await fetch(`${BASE_URL}/delete-account`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to delete account';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      // Handle specific error cases
+      switch (response.status) {
+        case 400:
+          throw new Error('User ID is required');
+        case 401:
+          throw new Error('Authentication failed');
+        case 404:
+          throw new Error('User not found');
+        default:
+          throw new Error(errorMessage);
+      }
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.warn('[gmailApi:Account] Failed to parse response as JSON, using default success message');
+      data = {
+        message: 'Account successfully deleted',
+        deletedData: {
+          user: true,
+          tasks: 0
+        }
+      };
+    }
+
+    // After successful deletion, revoke Gmail access
+    await revokeGmailAccess();
+    console.log('[gmailApi:Account] Gmail access revoked');
+
+    console.log('[gmailApi:Account] Account deletion successful');
+    return data;
+  } catch (error: any) {
+    console.error('[gmailApi:Account:Error] Account deletion failed:', error);
     throw error;
   }
 }

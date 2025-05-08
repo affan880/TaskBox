@@ -17,6 +17,7 @@ type ProjectStore = {
   addTaskToProject: (projectId: string, taskId: string) => void;
   removeTaskFromProject: (projectId: string, taskId: string) => void;
   getProjectWithTasks: (id: string) => ProjectWithTasks | null;
+  clear: () => void;
 };
 
 export const useProjectStore = create<ProjectStore>()(
@@ -127,6 +128,12 @@ export const useProjectStore = create<ProjectStore>()(
           ...project,
           tasks
         };
+      },
+      clear: () => {
+        set({
+          projects: [],
+          selectedProjectId: null,
+        });
       },
     }),
     {

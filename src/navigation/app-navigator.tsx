@@ -33,6 +33,12 @@ import { useState, useEffect } from 'react';
 import { TaskStack } from './task-stack';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { TaskStackParamList } from './types';
+import { ThemeSettingsScreen } from '@/features/settings/theme-settings-screen';
+import { NotificationSettingsScreen } from '@/features/settings/notification-settings-screen';
+import { HelpSupportScreen } from '@/features/settings/help-support-screen';
+import { PrivacyPolicyScreen } from '@/features/settings/privacy-policy-screen';
+import { TermsOfServiceScreen } from '@/features/settings/terms-of-service-screen';
+import { DeleteAccountScreen } from '@/features/settings/delete-account-screen';
 
 // Define navigator types
 export type RootStackParamList = {
@@ -49,6 +55,12 @@ export type RootStackParamList = {
   AllTasks: undefined;
   TaskCreation: undefined;
   TaskStack: NavigatorScreenParams<TaskStackParamList>;
+  ThemeSettings: undefined;
+  NotificationSettings: undefined;
+  HelpSupport: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  DeleteAccount: undefined;
 };
 
 // Updated Tab Param List for the new design
@@ -323,11 +335,9 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
               headerLeft: () => (
                 <TouchableOpacity
                   onPress={() => {
-                    // If we're in the pager view, go back to the previous page
                     if (pagerRef.current) {
                       pagerRef.current.setPage(0);
                     } else {
-                      // If we're in the modal, go back
                       navigation.goBack();
                     }
                   }}
@@ -351,6 +361,78 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             name="TaskStack"
             component={TaskStack}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ThemeSettings"
+            component={ThemeSettingsScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Theme Settings',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
+          />
+          <Stack.Screen
+            name="NotificationSettings"
+            component={NotificationSettingsScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Notification Settings',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
+          />
+          <Stack.Screen
+            name="HelpSupport"
+            component={HelpSupportScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Help & Support',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
+          />
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Privacy Policy',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
+          />
+          <Stack.Screen
+            name="TermsOfService"
+            component={TermsOfServiceScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Terms of Service',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
+          />
+          <Stack.Screen
+            name="DeleteAccount"
+            component={DeleteAccountScreen}
+            options={{
+              headerShown: true,
+              headerTitle: 'Delete Account',
+              headerStyle: {
+                backgroundColor: colors.background.primary,
+              },
+              headerTintColor: colors.text.primary,
+            }}
           />
         </>
       ) : (
