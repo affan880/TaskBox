@@ -1,6 +1,6 @@
-# TaskBox Task Attachment System
+# Plexar Task Attachment System
 
-This document provides an overview of how file attachments are handled within the TaskBox application.
+This document provides an overview of how file attachments are handled within the Plexar application.
 
 ## Components and Utilities
 
@@ -46,8 +46,8 @@ tasks/attachments/{attachmentId}/{filename}
 
 1. Files are downloaded using `RNBlobUtil` (react-native-blob-util)
 2. Downloads are saved to appropriate directories based on the platform:
-   - iOS: `{DocumentDir}/TaskBox/Attachments/`
-   - Android: `{DownloadDir}/TaskBox/`
+   - iOS: `{DocumentDir}/Plexar/Attachments/`
+   - Android: `{DownloadDir}/Plexar/`
 3. Download progress is tracked and displayed to the user
 4. Downloaded files can be opened with the device's default file viewer
 

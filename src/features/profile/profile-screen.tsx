@@ -143,8 +143,8 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const handleShareProfile = async () => {
     try {
       await Share.share({
-        message: `Check out TaskBox - Your Personal Task Manager!\n\nOrganize your tasks, track your progress, and boost your productivity with TaskBox.\n\nDownload now: https://taskbox.space`,
-        title: 'TaskBox - Task Manager App',
+        message: `Check out Plexar - Your Personal Task Manager!\n\nOrganize your tasks, track your progress, and boost your productivity with Plexar.\n\nDownload now: https://taskbox.space`,
+        title: 'Plexar - Task Manager App',
       });
     } catch (error) {
       toast.show({

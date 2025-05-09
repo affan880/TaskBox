@@ -43,7 +43,7 @@ export function SettingsScreen() {
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
-      'Are you sure you want to sign out of TaskBox?',
+      'Are you sure you want to sign out of Plexar?',
       [
         {
           text: 'Cancel',
@@ -144,7 +144,7 @@ export function SettingsScreen() {
         },
         {
           id: 'about',
-          label: 'About TaskBox',
+          label: 'About Plexar',
           icon: 'information-outline',
           iconColor: colors.brand.primary,
           action: () => navigation.navigate('About'),

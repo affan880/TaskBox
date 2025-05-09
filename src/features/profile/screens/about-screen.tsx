@@ -19,25 +19,25 @@ const LINKS = [
     id: 'website',
     title: 'Visit Website',
     icon: 'web',
-    url: 'https://taskbox.app',
+    url: 'https://Plexar.app',
   },
   {
     id: 'privacy',
     title: 'Privacy Policy',
     icon: 'shield-check',
-    url: 'https://taskbox.app/privacy',
+    url: 'https://Plexar.app/privacy',
   },
   {
     id: 'terms',
     title: 'Terms of Service',
     icon: 'file-document',
-    url: 'https://taskbox.app/terms',
+    url: 'https://Plexar.app/terms',
   },
   {
     id: 'opensource',
     title: 'Open Source Libraries',
     icon: 'source-branch',
-    url: 'https://taskbox.app/opensource',
+    url: 'https://Plexar.app/opensource',
   },
 ];
 
@@ -45,17 +45,17 @@ const SOCIAL_LINKS = [
   {
     id: 'twitter',
     icon: 'twitter',
-    url: 'https://twitter.com/taskboxapp',
+    url: 'https://twitter.com/Plexarapp',
   },
   {
     id: 'github',
     icon: 'github',
-    url: 'https://github.com/taskboxapp',
+    url: 'https://github.com/Plexarapp',
   },
   {
     id: 'linkedin',
     icon: 'linkedin',
-    url: 'https://linkedin.com/company/taskboxapp',
+    url: 'https://linkedin.com/company/Plexarapp',
   },
 ];
 
@@ -88,7 +88,7 @@ export function AboutScreen() {
         </TouchableOpacity>
         
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
-          About TaskBox
+          About Plexar
         </Text>
         
         <View style={styles.headerButton} />
@@ -105,7 +105,7 @@ export function AboutScreen() {
             resizeMode="contain"
           />
           <Text style={[styles.appName, { color: colors.text.primary }]}>
-            TaskBox
+            Plexar
           </Text>
           <Text style={[styles.version, { color: colors.text.secondary }]}>
             Version {version}
@@ -166,7 +166,7 @@ export function AboutScreen() {
         </View>
 
         <Text style={[styles.copyright, { color: colors.text.tertiary }]}>
-          © 2025 TaskBox. All rights reserved.
+          © 2025 Plexar. All rights reserved.
         </Text>
       </ScrollView>
     </View>

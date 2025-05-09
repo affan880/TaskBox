@@ -1,6 +1,6 @@
-# File Management in TaskBox
+# File Management in Plexar
 
-This directory contains utilities for file operations in the TaskBox app, including downloading, uploading, and managing files.
+This directory contains utilities for file operations in the Plexar app, including downloading, uploading, and managing files.
 
 ## Components
 
@@ -119,8 +119,8 @@ function UploadExample() {
 
 The utilities handle platform differences automatically:
 
-- iOS: Files are stored in `{DocumentDir}/TaskBox/Downloads/`
-- Android: Files are saved to `{DownloadDir}/TaskBox/`
+- iOS: Files are stored in `{DocumentDir}/Plexar/Downloads/`
+- Android: Files are saved to `{DownloadDir}/Plexar/`
 
 ## Error Handling
 

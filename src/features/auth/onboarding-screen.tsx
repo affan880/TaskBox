@@ -26,7 +26,7 @@ const { width, height } = Dimensions.get('window');
 const slides = [
   {
     id: '1',
-    title: 'Welcome to TaskBox',
+    title: 'Welcome to Plexar',
     description: 'Organize your tasks, emails, and schedule all in one beautiful place',
     image: require('../../../assets/images/blob1.png'),
     gradientColors: ['#1A1A1A', '#2D2D2D'],

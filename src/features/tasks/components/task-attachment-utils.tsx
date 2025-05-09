@@ -68,7 +68,7 @@ async function createLocalFileCopy(sourceUri: string, filename: string): Promise
     const sanitizedFilename = filename.replace(/[\/\\?%*:|"<>]/g, '_');
     
     // Create app-specific storage location
-    const targetDir = `${RNBlobUtil.fs.dirs.DocumentDir}/TaskBox/TempAttachments`;
+    const targetDir = `${RNBlobUtil.fs.dirs.DocumentDir}/Plexar/TempAttachments`;
     
     // Ensure directory exists
     const dirExists = await RNBlobUtil.fs.exists(targetDir);

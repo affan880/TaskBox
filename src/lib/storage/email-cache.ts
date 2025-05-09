@@ -15,7 +15,7 @@ let storage: MMKV | null = null;
 try {
   storage = new MMKV({
     id: 'email-cache',
-    encryptionKey: 'taskbox-secure-storage',
+    encryptionKey: 'Plexar-secure-storage',
   });
 } catch (error) {
   console.warn('MMKV initialization failed for email cache, falling back to AsyncStorage', error);

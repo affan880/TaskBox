@@ -22,8 +22,8 @@ export type DownloadResult = {
 async function ensureDownloadDirectoryExists(): Promise<string> {
   // Different paths for iOS and Android
   const targetDir = Platform.OS === 'ios' 
-    ? `${RNBlobUtil.fs.dirs.DocumentDir}/TaskBox/Downloads`
-    : `${RNBlobUtil.fs.dirs.DownloadDir}/TaskBox`;
+    ? `${RNBlobUtil.fs.dirs.DocumentDir}/Plexar/Downloads`
+    : `${RNBlobUtil.fs.dirs.DownloadDir}/Plexar`;
   
   // Ensure directory exists
   const dirExists = await RNBlobUtil.fs.exists(targetDir);

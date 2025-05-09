@@ -15,7 +15,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'TaskBox' do
+target 'Plexar' do
   config = use_native_modules!
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true

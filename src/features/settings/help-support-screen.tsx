@@ -37,7 +37,7 @@ export function HelpSupportScreen() {
     {
       id: '1',
       question: 'How do I connect my Gmail account?',
-      answer: 'Go to Settings > Account Management > Connected Account and follow the prompts to connect your Gmail account. You\'ll need to grant permission for TaskBox to access your emails.',
+      answer: 'Go to Settings > Account Management > Connected Account and follow the prompts to connect your Gmail account. You\'ll need to grant permission for Plexar to access your emails.',
     },
     {
       id: '2',
@@ -46,8 +46,8 @@ export function HelpSupportScreen() {
     },
     {
       id: '3',
-      question: 'Can I use TaskBox offline?',
-      answer: 'Yes, TaskBox works offline. Your tasks and projects are stored locally, and emails will sync when you\'re back online.',
+      question: 'Can I use Plexar offline?',
+      answer: 'Yes, Plexar works offline. Your tasks and projects are stored locally, and emails will sync when you\'re back online.',
     },
     {
       id: '4',
@@ -62,28 +62,28 @@ export function HelpSupportScreen() {
       title: 'Email Support',
       description: 'Get help via email',
       icon: 'email',
-      action: () => Linking.openURL('mailto:support@taskbox.app'),
+      action: () => Linking.openURL('mailto:support@Plexar.app'),
     },
     {
       id: 'chat',
       title: 'Live Chat',
       description: 'Chat with our support team',
       icon: 'chat',
-      action: () => Linking.openURL('https://taskbox.app/support/chat'),
+      action: () => Linking.openURL('https://Plexar.app/support/chat'),
     },
     {
       id: 'docs',
       title: 'Documentation',
       description: 'Browse our help center',
       icon: 'book-open-variant',
-      action: () => Linking.openURL('https://taskbox.app/docs'),
+      action: () => Linking.openURL('https://Plexar.app/docs'),
     },
     {
       id: 'community',
       title: 'Community Forum',
       description: 'Join our user community',
       icon: 'forum',
-      action: () => Linking.openURL('https://community.taskbox.app'),
+      action: () => Linking.openURL('https://community.Plexar.app'),
     },
   ];
 

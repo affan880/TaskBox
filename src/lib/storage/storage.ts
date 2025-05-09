@@ -9,7 +9,7 @@ let isRemoteDebugging = false;
 try {
   storage = new MMKV({
     id: 'app-storage',
-    encryptionKey: 'taskbox-secure-storage',
+    encryptionKey: 'Plexar-secure-storage',
   });
 } catch (error) {
   console.warn('MMKV initialization failed, falling back to AsyncStorage', error);

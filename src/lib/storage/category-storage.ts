@@ -10,7 +10,7 @@ let storage: MMKV | null = null;
 try {
   storage = new MMKV({
     id: 'category-storage',
-    encryptionKey: 'taskbox-secure-storage',
+    encryptionKey: 'Plexar-secure-storage',
   });
 } catch (error) {
   console.warn('MMKV initialization failed for categories, falling back to AsyncStorage', error);

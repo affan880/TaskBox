@@ -21,38 +21,38 @@ export function TermsOfServiceScreen() {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Acceptance of Terms</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>By accessing or using TaskBox, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing TaskBox.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>By accessing or using Plexar, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using or accessing Plexar.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Use License</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>Permission is granted to temporarily use TaskBox for personal, non-commercial purposes. This is the grant of a license, not a transfer of title, and under this license you may not:</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>Permission is granted to temporarily use Plexar for personal, non-commercial purposes. This is the grant of a license, not a transfer of title, and under this license you may not:</Text>
           <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>• Modify or copy the materials</Text>
           <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>• Use the materials for any commercial purpose</Text>
-          <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>• Attempt to decompile or reverse engineer any software contained in TaskBox</Text>
+          <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>• Attempt to decompile or reverse engineer any software contained in Plexar</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>User Account</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>To use certain features of TaskBox, you must create an account. You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>To use certain features of Plexar, you must create an account. You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>User Content</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>You retain all rights to any content you submit, post, or display on or through TaskBox. By submitting content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and distribute your content.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>You retain all rights to any content you submit, post, or display on or through Plexar. By submitting content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and distribute your content.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Disclaimer</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>TaskBox is provided "as is". We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties, including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>Plexar is provided "as is". We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties, including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Limitations</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>In no event shall TaskBox or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use TaskBox.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>In no event shall Plexar or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use Plexar.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Revisions and Errata</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>The materials appearing on TaskBox could include technical, typographical, or photographic errors. We do not warrant that any of the materials on TaskBox are accurate, complete, or current.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>The materials appearing on Plexar could include technical, typographical, or photographic errors. We do not warrant that any of the materials on Plexar are accurate, complete, or current.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Contact Information</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>If you have any questions about these Terms of Service, please contact us at legal@taskbox.app</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>If you have any questions about these Terms of Service, please contact us at legal@Plexar.app</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

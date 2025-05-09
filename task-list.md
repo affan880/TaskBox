@@ -1,8 +1,8 @@
-# TaskBox Task Management Feature
+# Plexar Task Management Feature
 
 ## Overview
 
-The TaskBox app now includes a robust task management feature that enables users to create, edit, and organize tasks. The task management system complements the existing email functionality to provide a comprehensive productivity solution.
+The Plexar app now includes a robust task management feature that enables users to create, edit, and organize tasks. The task management system complements the existing email functionality to provide a comprehensive productivity solution.
 
 ## Features
 

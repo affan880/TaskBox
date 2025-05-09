@@ -1,4 +1,4 @@
-# TaskBox: React Native CLI + Firebase Integration
+# Plexar: React Native CLI + Firebase Integration
 
 A task management application built with React Native CLI and Firebase, showcasing authentication, Firestore database operations, and storage functionality.
 
@@ -34,7 +34,7 @@ src
 1. Clone the repo:
    ```bash
    git clone [your-repo-url]
-   cd TaskBox
+   cd Plexar
    ```
 
 2. Install dependencies:
@@ -46,7 +46,7 @@ src
    - Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
    - Add an iOS app and/or Android app to your Firebase project
    - Download config files:
-     - iOS: GoogleService-Info.plist → place in `ios/TaskBox/`
+     - iOS: GoogleService-Info.plist → place in `ios/Plexar/`
      - Android: google-services.json → place in `android/app/`
    - Enable Authentication, Firestore, and Storage in Firebase Console
 

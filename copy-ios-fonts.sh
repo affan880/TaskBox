@@ -3,15 +3,15 @@
 echo "Copying Material Community Icons font to iOS app..."
 
 # Create the fonts directory if it doesn't exist
-mkdir -p ios/TaskBox/Fonts
+mkdir -p ios/Plexar/Fonts
 
 # Find the Material Community Icons font in node_modules
 FONT_PATH="node_modules/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"
 
 if [ -f "$FONT_PATH" ]; then
   # Copy the font to the iOS app
-  cp "$FONT_PATH" ios/TaskBox/Fonts/
-  echo "Successfully copied MaterialCommunityIcons.ttf to ios/TaskBox/Fonts/"
+  cp "$FONT_PATH" ios/Plexar/Fonts/
+  echo "Successfully copied MaterialCommunityIcons.ttf to ios/Plexar/Fonts/"
 else
   echo "Error: Could not find $FONT_PATH"
   exit 1

@@ -1,7 +1,7 @@
 import { COLORS } from './colors';
 
 /**
- * TaskBox - Design System
+ * Plexar - Design System
  * 
  * A comprehensive design system that defines spacing, typography, 
  * shadows, borders, and other design elements for consistent UI.

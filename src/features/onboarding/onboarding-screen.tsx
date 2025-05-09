@@ -40,7 +40,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
         style={[styles.header, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Welcome to TaskBox</Text>
+          <Text style={styles.headerTitle}>Welcome to Plexar</Text>
           <Text style={styles.headerSubtitle}>Your Personal Task Manager</Text>
         </View>
       </LinearGradient>

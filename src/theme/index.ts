@@ -1,5 +1,5 @@
 /**
- * TaskBox Theme System
+ * Plexar Theme System
  * 
  * Central export file for the entire theme system.
  * Import from here to access all theme-related constants.

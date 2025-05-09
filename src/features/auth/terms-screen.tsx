@@ -76,7 +76,7 @@ export function TermsScreen() {
         >
           <View style={styles.header}>
             <Icon name="shield-check" size={48} color="#4CAF50" />
-            <Text style={styles.title}>Welcome to TaskBox!</Text>
+            <Text style={styles.title}>Welcome to Plexar!</Text>
             <Text style={styles.subtitle}>
               To continue, please review and agree to our terms
             </Text>
@@ -85,7 +85,7 @@ export function TermsScreen() {
           <View style={styles.termsContainer}>
             <Text style={styles.termsTitle}>Terms of Service</Text>
             <Text style={styles.termsText}>
-              By using TaskBox, you agree to our Terms of Service and Privacy Policy. 
+              By using Plexar, you agree to our Terms of Service and Privacy Policy. 
               These terms outline how we handle your data and what you can expect from our service.
             </Text>
 

@@ -85,7 +85,7 @@ export function EmailDrawerContent(props: DrawerContentComponentProps) {
           
           {/* App Title */}
           <Text style={[styles.headerTitle, { color: colors.text?.primary || '#334155' }]}>
-            TaskBox Mail
+            Plexar Mail
           </Text>
         </View>
         

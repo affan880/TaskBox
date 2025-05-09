@@ -1,4 +1,4 @@
-# TaskBox
+# Plexar
 
 A React Native task management application with Firebase integration.
 

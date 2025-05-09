@@ -160,7 +160,7 @@ export function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.logoText}>TaskBox</Text>
+          <Text style={styles.logoText}>Plexar</Text>
           <Text style={styles.logoTagline}>Organize your life, one task at a time</Text>
         </Animated.View>
         

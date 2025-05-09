@@ -1,5 +1,5 @@
 /**
- * TaskBox - Modern Color System with Dark Mode Support
+ * Plexar - Modern Color System with Dark Mode Support
  * 
  * A vibrant, accessible color palette with good contrast ratios,
  * consistent semantic meaning, and dark/light mode support.

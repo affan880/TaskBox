@@ -122,21 +122,37 @@ export function EmailScreen() {
   const [showSortCompleteModal, setShowSortCompleteModal] = useState(false);
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
-  // Handle category changes
+  // Handle selecting a new category: clear search and then set category
+  const handleSelectCategory = useCallback((newCategory: string) => {
+    setSearchQuery(''); // Clear search input
+    setSubmittedSearchQuery(''); // Clear submitted search query
+    clearSearch(); // Clear search results and state in the hook
+    setSelectedCategory(newCategory); // Set the newly selected category
+  }, [setSearchQuery, setSubmittedSearchQuery, clearSearch, setSelectedCategory]);
+
+  // Handle category changes (for managing the list of available categories)
   const handleCategoriesChange = useCallback(async (newCategories: string[]) => {
     try {
-      // Ensure "All" category is included
-      const categoriesWithAll = newCategories.includes(INITIAL_CATEGORY) 
-        ? newCategories 
+      const categoriesWithAll = newCategories.includes(INITIAL_CATEGORY)
+        ? newCategories
         : [INITIAL_CATEGORY, ...newCategories];
-      
       setEmailCategories(categoriesWithAll);
       await storageConfig.setItem('email_categories', categoriesWithAll);
     } catch (error) {
       console.error('Error saving categories:', error);
       Alert.alert('Error', 'Failed to save categories. Please try again.');
     }
-  }, []);
+  }, [setEmailCategories]);
+
+  // Determine the effective loading state for the EmailList
+  const effectiveIsLoading = useMemo(() => {
+    // If a search has been submitted and is actively running, prioritize isSearching
+    if (submittedSearchQuery.trim().length > 0 && isSearching) {
+      return true;
+    }
+    // Otherwise, use the general isLoading state (for initial load, refresh, load more)
+    return isLoading;
+  }, [submittedSearchQuery, isSearching, isLoading]);
 
   // Add auto-categorization with the enhanced hook
   const {
@@ -196,42 +212,40 @@ export function EmailScreen() {
     }
   }, [suggestedCategory]);
 
-  // Helper function to get emails for a specific category
-  const getEmailsForCategory = useCallback((categoryName: string): EmailData[] => {
-    // For 'All' category, return all emails regardless of search state
-    if (categoryName.toLowerCase() === 'all') {
-      return emails;
-    }
-    
-    // If search is active, return search results
-    if (searchQuery.trim().length > 0) {
+  // Helper function to get emails for display based on category and search state
+  const getEmailsForDisplay = useCallback((): EmailData[] => {
+    // If a search query has been submitted and is active, always prioritize search results
+    if (submittedSearchQuery.trim().length > 0) {
+      // console.log(`[EmailScreen] Using search results for query: "${submittedSearchQuery}"`);
       return searchResults || [];
     }
-    
-    // If we have categorized emails, use those for specific categories
+
+    // If no active search, filter by selected category
+    if (selectedCategory.toLowerCase() === 'all') {
+      // console.log(`[EmailScreen] Using all emails for 'All' category`);
+      return emails; // Use the main email list from useEmailActions
+    }
+
+    // Filter by a specific category using categorizedEmails
     if (categorizedEmails) {
-      // Find the actual category key by case-insensitive comparison
       const actualCategoryKey = Object.keys(categorizedEmails).find(
-        key => key.toLowerCase() === categoryName.toLowerCase()
+        key => key.toLowerCase() === selectedCategory.toLowerCase()
       );
-      
       if (actualCategoryKey) {
-        const categoryEmails = categorizedEmails[actualCategoryKey];
-        console.log('Category:', categoryName, 'Actual Key:', actualCategoryKey, 'Emails:', categoryEmails?.length || 0);
-        return categoryEmails || [];
+        // console.log(`[EmailScreen] Using emails for category: ${actualCategoryKey}`);
+        return categorizedEmails[actualCategoryKey] || [];
       }
     }
-    
-    // No categorized emails available, return empty array for non-All categories
-    return [];
-  }, [categorizedEmails, emails, searchQuery, searchResults]);
 
-  // Get filtered emails based on selected category
-  const filteredEmails = useMemo(() => {
-    const result = getEmailsForCategory(selectedCategory);
-    // console.log('Selected Category:', selectedCategory, 'Filtered Emails:', result.length);
-    return result;
-  }, [getEmailsForCategory, selectedCategory]);
+    // Fallback: No search, not 'All', or category not found
+    // console.log(`[EmailScreen] No emails found for category: ${selectedCategory}`);
+    return [];
+  }, [submittedSearchQuery, searchResults, selectedCategory, emails, categorizedEmails]);
+
+  // Get emails for display based on the refined logic
+  const displayEmails = useMemo(() => {
+    return getEmailsForDisplay();
+  }, [getEmailsForDisplay]);
 
   // Define toggleEmailSelection first
   const toggleEmailSelection = useCallback((emailId: string) => {
@@ -361,22 +375,22 @@ export function EmailScreen() {
   }, [hasAuthFailed, gmailError]);
 
   
-  // Update the search handler to only trigger on submission
+  // Update the search handler to set submitted query and trigger search
   const handleSearchSubmit = useCallback(() => {
-    if (searchQuery.trim()) {
-      setSubmittedSearchQuery(searchQuery);
-      triggerImmediateSearch();
+    const trimmedQuery = searchQuery.trim();
+    setSubmittedSearchQuery(trimmedQuery); // Set the state for display logic
+    if (trimmedQuery) {
+      triggerImmediateSearch(); // Call the hook function
     } else {
-      setSubmittedSearchQuery('');
-      clearSearch();
+      clearSearch(); // Clear hook state if query is empty
     }
   }, [searchQuery, triggerImmediateSearch, clearSearch, setSubmittedSearchQuery]);
 
-  // Update the clear search handler
+  // Update the clear search handler to clear submitted query
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
-    setSubmittedSearchQuery('');
-    clearSearch();
+    setSubmittedSearchQuery(''); // Clear the submitted query state
+    clearSearch(); // Clear hook state (searchResults, etc.)
   }, [clearSearch, setSearchQuery, setSubmittedSearchQuery]);
 
   // Update the search input change handler
@@ -406,24 +420,24 @@ export function EmailScreen() {
           insets={insets}
           screenTitle={screenTitle}
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onSearchSubmit={triggerImmediateSearch}
-          onClearSearch={clearSearch}
+          onSearchChange={handleSearchChange}
+          onSearchSubmit={handleSearchSubmit}
+          onClearSearch={handleClearSearch}
           onSmartSort={handleSmartSort}
           isSmartSorting={isSmartSorting}
         />
         <CategoryFilterBar
           categories={emailCategories}
           selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
+          onSelectCategory={handleSelectCategory}
           categoryCounts={categoryCounts}
           isAnalyzing={isAnalyzing}
           isFirstLoad={!hasInitializedFromCache}
           onCategoriesChange={handleCategoriesChange}
         />
         <EmailList
-          emails={filteredEmails}
-          isLoading={isLoading}
+          emails={displayEmails}
+          isLoading={effectiveIsLoading}
           refreshing={isRefreshing}
           handleRefresh={handleRefresh}
           handleOpenEmail={handleOpenEmail}

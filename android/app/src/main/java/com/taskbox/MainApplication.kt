@@ -1,4 +1,4 @@
-package com.taskbox
+package com.plexar
 
 import android.app.Application
 import com.facebook.react.PackageList

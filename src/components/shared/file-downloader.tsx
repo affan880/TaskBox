@@ -40,9 +40,9 @@ export function FileDownloader({
   // Get directory path based on platform
   const getDownloadDir = React.useCallback(() => {
     if (Platform.OS === 'ios') {
-      return `${RNBlobUtil.fs.dirs.DocumentDir}/TaskBox/Downloads`;
+      return `${RNBlobUtil.fs.dirs.DocumentDir}/Plexar/Downloads`;
     } else {
-      return `${RNBlobUtil.fs.dirs.DownloadDir}/TaskBox`;
+      return `${RNBlobUtil.fs.dirs.DownloadDir}/Plexar`;
     }
   }, []);
   

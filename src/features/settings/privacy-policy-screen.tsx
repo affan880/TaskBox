@@ -25,7 +25,7 @@ export function PrivacyPolicyScreen() {
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>How We Use Your Information</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>We use the information we collect to provide, maintain, and improve our services, to develop new features, and to protect TaskBox and our users. We also use this information to communicate with you about our services.</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>We use the information we collect to provide, maintain, and improve our services, to develop new features, and to protect Plexar and our users. We also use this information to communicate with you about our services.</Text>
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Information Sharing</Text>
@@ -45,7 +45,7 @@ export function PrivacyPolicyScreen() {
         </View>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Contact Us</Text>
-          <Text style={[styles.text, { color: colors.text.secondary }]}>If you have any questions about this privacy policy, please contact us at privacy@taskbox.app</Text>
+          <Text style={[styles.text, { color: colors.text.secondary }]}>If you have any questions about this privacy policy, please contact us at privacy@Plexar.app</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

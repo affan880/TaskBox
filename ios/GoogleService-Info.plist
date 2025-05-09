@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>383417509865-0kvhv5r2e2jlpuf1dghqv2j9p34mk4ns.apps.googleusercontent.com</string>
+	<string>383417509865-29kjmi5h3r749681eqfma63v1jted9qr.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.383417509865-0kvhv5r2e2jlpuf1dghqv2j9p34mk4ns</string>
+	<string>com.googleusercontent.apps.383417509865-29kjmi5h3r749681eqfma63v1jted9qr</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>383417509865-i5n5lsrph162ks3am5id8rtn88jvbrkk.apps.googleusercontent.com</string>
+	<string>383417509865-0nmbotpb4pn6217tp0hj7ttdve306r5a.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDZKPe2otc34Wvf0jFTJnudziNIOJnpkAo</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>org.reactjs.native.example.multitaskbox</string>
+	<string>com.plexar</string>
 	<key>PROJECT_ID</key>
 	<string>taskbox-fc4da</string>
 	<key>STORAGE_BUCKET</key>

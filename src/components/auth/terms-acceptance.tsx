@@ -30,7 +30,7 @@ export function TermsAcceptance({ onAccept, isLoading }: Props) {
     >
       <View style={styles.content}>
         <Text style={styles.title}>
-          Welcome to TaskBox!
+          Welcome to Plexar!
         </Text>
         
         <Text style={styles.subtitle}>

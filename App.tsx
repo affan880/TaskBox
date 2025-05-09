@@ -68,7 +68,7 @@ function useAuthListener(): void {
 }
 
 /**
- * TaskBox - A simple task management app with Firebase integration
+ * Plexar - A simple task management app with Firebase integration
  */
 export default function App(): JSX.Element {
   useAuthListener();
