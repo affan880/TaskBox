@@ -321,7 +321,123 @@ export const TaskListItem = memo(TaskListItemComponent);
 
 const styles = StyleSheet.create({
   container: {
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 3,
+    padding: 16,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  selectedContainer: {
+    transform: [{ rotate: '1deg' }],
+    borderWidth: 3,
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.3,
+  },
+  header: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 3,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '2deg' }],
+  },
+  checkboxChecked: {
+    transform: [{ rotate: '-2deg' }],
+  },
+  content: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  metadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metadataItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
+  },
+  metadataText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    gap: 8,
+  },
+  tag: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '-1deg' }],
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    marginTop: 12,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  attachmentsContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  attachmentItem: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
+  },
+  attachmentText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   gradient: {
     flexDirection: 'row',
@@ -333,14 +449,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: 'center',
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   contentSection: {
     flex: 1,
     justifyContent: 'center',
@@ -350,20 +458,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  title: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-    marginRight: 8,
-  },
   priorityIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  description: {
-    fontSize: 14,
-    marginBottom: 8,
   },
   meta: {
     flexDirection: 'row',
@@ -381,24 +479,6 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
   },
-  tagsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tag: {
-    padding: 4,
-    borderRadius: 4,
-    marginRight: 4,
-  },
-  tagText: {
-    fontSize: 12,
-  },
-  moreTag: {
-    fontSize: 12,
-  },
-  rightSection: {
-    paddingLeft: 8,
-  },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,5 +487,11 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     marginLeft: 4,
+  },
+  moreTag: {
+    fontSize: 12,
+  },
+  rightSection: {
+    paddingLeft: 8,
   },
 }); 

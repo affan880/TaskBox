@@ -8,12 +8,19 @@ import {
   Text,
   TouchableOpacity,
   Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useEmailActions } from './hooks/use-email-actions';
 import { useAutoCategorization } from './hooks/use-auto-categorization';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme } from 'src/theme/theme-context';
-import type { EmailData } from 'src/types/email';
+import { useTheme } from '@/theme/theme-context';
+import type { EmailData } from '@/types/email';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getCurrentScreenTitle } from 'src/lib/utils/utils';
@@ -32,6 +39,7 @@ import {
 import { useSharedValue } from 'react-native-reanimated';
 import { useEmailStore } from '@/store/slices/email-slice';
 import { storageConfig } from '@/lib/storage';
+import { ComposeModal } from './components/compose-modal';
 
 type RootStackParamList = {
   ReadEmail: { email: EmailData };
@@ -121,6 +129,20 @@ export function EmailScreen() {
   const [isSmartSorting, setIsSmartSorting] = useState(false);
   const [showSortCompleteModal, setShowSortCompleteModal] = useState(false);
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+  const [isComposeModalVisible, setIsComposeModalVisible] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+
+  // Animation values
+  const composeTranslateY = useSharedValue(0);
+
+  // Add refreshing state for the main ScrollView
+  const [isMainRefreshing, setIsMainRefreshing] = React.useState(false);
+
+  const handleMainRefresh = React.useCallback(async () => {
+    setIsMainRefreshing(true);
+    await handleRefresh();
+    setIsMainRefreshing(false);
+  }, [handleRefresh]);
 
   // Handle selecting a new category: clear search and then set category
   const handleSelectCategory = useCallback((newCategory: string) => {
@@ -168,8 +190,6 @@ export function EmailScreen() {
     pollingInterval: 60000, // 1 minute
     minimumTimeBetweenAnalysis: 300000, // 5 minutes
   });
-
-  const composeButtonTranslateY = useSharedValue(0);
 
   // Get screen title using the utility
   const currentScreenName = route.name;
@@ -413,127 +433,171 @@ export function EmailScreen() {
     }
   }, [markAsRead, markAsUnread]);
 
+  // Add scroll handler for infinite scrolling
+  const handleScroll = useCallback(async (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 50; // Load more when within 50 pixels of the bottom
+    
+    const isCloseToBottom = 
+      layoutMeasurement.height + contentOffset.y >= 
+      contentSize.height - paddingToBottom;
+
+    if (isCloseToBottom && !isLoadingMore && !isRefreshing) {
+      try {
+        await handleLoadMore();
+      } catch (error) {
+        console.error('Error loading more emails:', error);
+      }
+    }
+  }, [handleLoadMore, isLoadingMore, isRefreshing]);
+
   return (
-    <BottomSheetModalProvider>
-      <View style={[styles.container, { backgroundColor: colors.background?.primary }]}>
-        <EmailHeader
-          insets={insets}
-          screenTitle={screenTitle}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          onSearchSubmit={handleSearchSubmit}
-          onClearSearch={handleClearSearch}
-          onSmartSort={handleSmartSort}
-          isSmartSorting={isSmartSorting}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background?.primary }]}>
+      <BottomSheetModalProvider>
+        <ScrollView
+          style={styles.mainScrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isMainRefreshing}
+              onRefresh={handleMainRefresh}
+              colors={[colors.brand?.primary || '#6366f1']}
+              tintColor={colors.brand?.primary || '#6366f1'}
+            />
+          }
+          onScroll={handleScroll}
+          scrollEventThrottle={16} // For smooth scroll event handling
+        >
+          {/* Header Section */}
+          <View style={styles.headerContainer}>
+            <EmailHeader
+              insets={insets}
+              screenTitle={screenTitle}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onClearSearch={handleClearSearch}
+              onCompose={() => setIsComposeModalVisible(true)}
+              onSmartSort={handleSmartSort}
+              isSmartSorting={isSmartSorting}
+            />
+            <CategoryFilterBar
+              categories={emailCategories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={handleSelectCategory}
+              categoryCounts={categoryCounts}
+              isAnalyzing={isAnalyzing}
+              isFirstLoad={!hasInitializedFromCache}
+              onCategoriesChange={handleCategoriesChange}
+            />
+          </View>
+
+          {/* Email List Section */}
+          <View style={styles.emailListContainer}>
+            <EmailList
+              emails={displayEmails}
+              isLoading={effectiveIsLoading}
+              refreshing={isRefreshing}
+              handleRefresh={handleRefresh}
+              handleOpenEmail={handleOpenEmail}
+              handleLongPress={handleLongPress}
+              selectedEmails={selectedEmails}
+              isMultiSelectMode={isMultiSelectMode}
+              isLoadingMore={isLoadingMore}
+              initialLoadComplete={hasInitializedFromCache}
+              handleLoadMore={handleLoadMore}
+              selectedCategory={selectedCategory}
+              onSmartSort={handleSmartSort}
+              isAnalyzing={isAnalyzing}
+              searchQuery={searchQuery}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAsUnread={handleMarkAsUnread}
+              onDelete={handleDelete}
+              onCloseMultiSelect={handleCloseMultiSelect}
+              onToggleRead={handleToggleRead}
+              autoCategorizationEnabled={true}
+            />
+          </View>
+
+          {/* Loading More Indicator */}
+          {isLoadingMore && (
+            <View style={styles.loadingMoreContainer}>
+              <ActivityIndicator size="small" color={colors.brand?.primary} />
+              <Text style={[styles.loadingMoreText, { color: colors.text?.secondary }]}>
+                Loading more emails...
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Floating Action Buttons */}
+        {/* <View style={styles.floatingButtonsContainer}>
+          <ComposeButton
+            onPress={() => setIsComposeModalVisible(true)}
+            composeTranslateY={composeTranslateY}
+          />
+          <FloatingChatButton
+            onPress={() => setShowChatModal(true)}
+            visible={selectedEmails.length > 0}
+          />
+        </View> */}
+
+        {/* Modals */}
+        <ComposeModal
+          visible={isComposeModalVisible}
+          onClose={() => setIsComposeModalVisible(false)}
+          onSend={sendEmail}
         />
-        <CategoryFilterBar
-          categories={emailCategories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={handleSelectCategory}
-          categoryCounts={categoryCounts}
-          isAnalyzing={isAnalyzing}
-          isFirstLoad={!hasInitializedFromCache}
-          onCategoriesChange={handleCategoriesChange}
-        />
-        <EmailList
-          emails={displayEmails}
-          isLoading={effectiveIsLoading}
-          refreshing={isRefreshing}
-          handleRefresh={handleRefresh}
-          handleOpenEmail={handleOpenEmail}
-          handleLongPress={handleLongPress}
-          selectedEmails={selectedEmails}
-          isMultiSelectMode={isMultiSelectMode}
-          isLoadingMore={isLoadingMore}
-          initialLoadComplete={hasInitializedFromCache}
-          handleLoadMore={handleLoadMore}
-          selectedCategory={selectedCategory}
-          onSmartSort={handleSmartSort}
-          isAnalyzing={isAnalyzing}
-          searchQuery={searchQuery}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAsUnread={handleMarkAsUnread}
-          onDelete={handleDelete}
-          onCloseMultiSelect={handleCloseMultiSelect}
-          onToggleRead={handleToggleRead}
-          autoCategorizationEnabled={true}
-        />
-        {/* <ComposeButton 
-          onPress={() => navigation.navigate('Compose')} 
-          composeTranslateY={useSharedValue(0)}
-        /> */}
-        <LabelModal
-          visible={showLabelModal}
-          onClose={() => setShowLabelModal(false)}
-          onSelectLabel={handleApplyLabel}
-        />
-        <SnoozeModal
-          visible={showSnoozeModal}
-          onClose={() => setShowSnoozeModal(false)}
-          onSnooze={(date: Date) => {
-            if (selectedEmailIdForModal) {
-              handleSnoozeEmail(selectedEmailIdForModal, date);
-            }
-          }}
-        />
+
+        {showSortCompleteModal && (
+          <View style={styles.modalContainer}>
+            <Modal
+              visible={showSortCompleteModal}
+              onRequestClose={() => setShowSortCompleteModal(false)}
+              transparent
+              animationType="fade"
+            >
+              <TouchableOpacity 
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowSortCompleteModal(false)}
+              >
+                <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
+                  <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+                    Smart Sort Complete
+                  </Text>
+                  <Text style={[styles.modalText, { color: colors.text.secondary }]}>
+                    Most of your emails have been categorized as "{suggestedCategory}". Would you like to switch to this category?
+                  </Text>
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, { backgroundColor: colors.brand.primary }]}
+                      onPress={handleSwitchCategory}
+                    >
+                      <Text style={styles.modalButtonText}>Switch Category</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, { backgroundColor: colors.background.secondary }]}
+                      onPress={() => setShowSortCompleteModal(false)}
+                    >
+                      <Text style={[styles.modalButtonText, { color: colors.text.primary }]}>Stay Here</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          </View>
+        )}
+
         <ChatModal
           visible={showChatModal}
           onClose={() => setShowChatModal(false)}
           onAction={(action) => {
-            // Handle AI assistant actions
             console.log('AI Action:', action);
           }}
         />
-        <FloatingChatButton
-          onPress={() => setShowChatModal(true)}
-          visible={selectedEmails.length > 0}
-        />
-
-        {/* Add Sort Complete Modal */}
-
-        {
-          showSortCompleteModal && (
-        <View style={{width: '100%', height: '100%', position: 'absolute'}}>
-          <Modal
-          visible={showSortCompleteModal}
-          onRequestClose={() => setShowSortCompleteModal(false)}
-          transparent
-          animationType="fade"
-        >
-          <TouchableOpacity 
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowSortCompleteModal(false)}
-          >
-            <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                Smart Sort Complete
-              </Text>
-              <Text style={[styles.modalText, { color: colors.text.secondary }]}>
-                Most of your emails have been categorized as "{suggestedCategory}". Would you like to switch to this category?
-              </Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: colors.brand.primary }]}
-                  onPress={handleSwitchCategory}
-                >
-                  <Text style={styles.modalButtonText}>Switch Category</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, { backgroundColor: colors.background.secondary }]}
-                  onPress={() => setShowSortCompleteModal(false)}
-                >
-                  <Text style={[styles.modalButtonText, { color: colors.text.primary }]}>Stay Here</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-        </View>
-          )
-        }
-      </View>
-    </BottomSheetModalProvider>
+      </BottomSheetModalProvider>
+    </SafeAreaView>
   );
 }
 
@@ -541,30 +605,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    zIndex: 1,
+  mainScrollView: {
+    flex: 1,
   },
-  actionBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  scrollViewContent: {
+    flexGrow: 1,
   },
-  actionBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 4,
+    borderBottomColor: '#000000',
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+    zIndex: 10,
   },
-  actionBarText: {
-    fontSize: 16,
-    fontWeight: '500',
+  emailListContainer: {
+    flex: 1,
+    paddingTop: 16,
   },
-  actionButton: {
-    padding: 8,
-    marginLeft: 16,
+  floatingButtonsContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: Platform.select({ ios: 100, android: 90 }),
+    zIndex: 5,
+    transform: [{ rotate: '2deg' }],
+  },
+  modalContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
   },
   modalOverlay: {
     flex: 1,
@@ -605,5 +678,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
   },
 }); 

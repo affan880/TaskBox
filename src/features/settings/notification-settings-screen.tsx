@@ -5,13 +5,9 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '@/theme/theme-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import type { RootStackParamList } from '@/navigation/app-navigator';
 
-type SettingsStackParamList = {
-  Settings: undefined;
-  NotificationSettings: undefined;
-};
-
-type NotificationSettingsScreenNavigationProp = NativeStackNavigationProp<SettingsStackParamList, 'NotificationSettings'>;
+type NotificationSettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'NotificationSettings'>;
 
 type NotificationSetting = {
   id: string;
@@ -87,29 +83,64 @@ export function NotificationSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.secondary }]}>
+      <View style={[styles.header, { 
+        backgroundColor: colors.brand.primary,
+        transform: [{ rotate: '-1deg' }],
+        borderWidth: 4,
+        borderColor: '#000000',
+        shadowColor: '#000000',
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 0,
+        elevation: 8,
+      }]}>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF', transform: [{ rotate: '1deg' }] }]}>
+          Notifications
+        </Text>
+      </View>
+
       <ScrollView style={styles.content}>
-        <Text style={[styles.sectionTitle, { color: colors.text.secondary }]}>
+        <Text style={[styles.sectionTitle, { 
+          color: colors.text.primary,
+          transform: [{ rotate: '-1deg' }],
+        }]}>
           Manage your notification preferences
         </Text>
 
-        <View style={styles.settingsList}>
-          {settings.map((setting) => (
+        <View style={[styles.settingsList, {
+          transform: [{ rotate: '1deg' }],
+          borderWidth: 3,
+          borderColor: '#000000',
+          shadowColor: '#000000',
+          shadowOffset: { width: 4, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 0,
+          elevation: 8,
+        }]}>
+          {settings.map((setting, index) => (
             <View
               key={setting.id}
               style={[
                 styles.settingItem,
                 {
                   backgroundColor: colors.surface.primary,
-                  borderBottomColor: colors.border.light,
+                  borderBottomWidth: index === settings.length - 1 ? 0 : 2,
+                  borderBottomColor: '#000000',
+                  transform: [{ rotate: index % 2 === 0 ? '-0.5deg' : '0.5deg' }],
                 },
               ]}
             >
               <View style={styles.settingLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: setting.iconColor + '20' }]}>
+                <View style={[styles.iconContainer, { 
+                  backgroundColor: setting.iconColor + '20',
+                  borderWidth: 2,
+                  borderColor: '#000000',
+                  transform: [{ rotate: '-2deg' }],
+                }]}>
                   <Icon name={setting.icon} size={24} color={setting.iconColor} />
                 </View>
-                <View style={styles.settingInfo}>
+                <View style={[styles.settingInfo, { transform: [{ rotate: '1deg' }] }]}>
                   <Text style={[styles.settingTitle, { color: colors.text.primary }]}>
                     {setting.title}
                   </Text>
@@ -118,19 +149,48 @@ export function NotificationSettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <Switch
-                value={setting.enabled}
-                onValueChange={() => toggleSetting(setting.id)}
-                trackColor={{ false: colors.border.light, true: setting.iconColor }}
-                thumbColor={colors.surface.primary}
-              />
+              <View style={[styles.switchContainer, {
+                transform: [{ rotate: '2deg' }],
+                borderWidth: 2,
+                borderColor: '#000000',
+                borderRadius: 16,
+                padding: 2,
+                backgroundColor: setting.enabled ? setting.iconColor + '20' : colors.surface.secondary,
+              }]}>
+                <Switch
+                  value={setting.enabled}
+                  onValueChange={() => toggleSetting(setting.id)}
+                  trackColor={{ false: colors.border.light, true: setting.iconColor }}
+                  thumbColor={colors.surface.primary}
+                />
+              </View>
             </View>
           ))}
         </View>
 
-        <View style={[styles.infoBox, { backgroundColor: colors.brand.primary + '10' }]}>
-          <Icon name="information" size={24} color={colors.brand.primary} />
-          <Text style={[styles.infoText, { color: colors.text.primary }]}>
+        <View style={[styles.infoBox, { 
+          backgroundColor: colors.surface.primary,
+          transform: [{ rotate: '-1deg' }],
+          borderWidth: 3,
+          borderColor: '#000000',
+          shadowColor: '#000000',
+          shadowOffset: { width: 4, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 0,
+          elevation: 8,
+        }]}>
+          <View style={[styles.infoIconContainer, {
+            backgroundColor: colors.brand.primary + '20',
+            borderWidth: 2,
+            borderColor: '#000000',
+            transform: [{ rotate: '2deg' }],
+          }]}>
+            <Icon name="information" size={24} color={colors.brand.primary} />
+          </View>
+          <Text style={[styles.infoText, { 
+            color: colors.text.primary,
+            transform: [{ rotate: '1deg' }],
+          }]}>
             Some notifications may still appear based on your device settings
           </Text>
         </View>
@@ -144,17 +204,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    padding: 20,
+    marginBottom: 20,
   },
-  backButton: {
-    marginRight: 16,
-  },
-  title: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
   },
   content: {
@@ -162,19 +216,20 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
     marginBottom: 16,
   },
   settingsList: {
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
+    marginBottom: 24,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -182,9 +237,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -200,13 +255,24 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 14,
   },
+  switchContainer: {
+    overflow: 'hidden',
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     marginTop: 24,
-    gap: 12,
+    marginBottom: 24,
+  },
+  infoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   infoText: {
     flex: 1,

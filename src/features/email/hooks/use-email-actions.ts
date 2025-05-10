@@ -8,6 +8,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin'; // Nee
 
 // Import the new search function from the API layer
 import * as gmailApi from '../../../api/gmail-api';
+import { useEmailStore } from '@/store/slices/email-slice';
 
 // --- Local Types for API response (simplified) ---
 type MessageReference = {
@@ -55,6 +56,8 @@ export function useEmailActions() {
     checkSnoozedEmails,
     fetchAttachment: coreFetchAttachment,
   } = useGmail();
+
+  const { markAsRead: emailStoreMarkAsRead, sendEmail: emailStoreSendEmail, refetchEmails } = useEmailStore();
 
   // --- Screen-Specific State ---
   const [screenEmails, setScreenEmails] = useState<EmailData[]>(coreEmails);
@@ -146,7 +149,11 @@ export function useEmailActions() {
     console.log('useEmailActions: handleRefresh triggered');
     setIsRefreshing(true);
     currentPageToken.current = null;
-    await loadInitialEmails(true);
+    try {
+      await loadInitialEmails(true);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [loadInitialEmails, isRefreshing]);
 
   /**
@@ -455,5 +462,10 @@ export function useEmailActions() {
     isSearching,
     triggerImmediateSearch,
     clearSearch, // Keep this exposed
+
+    // New actions from email store
+    handleEmailPress: emailStoreMarkAsRead,
+    handleSendEmail: emailStoreSendEmail,
+    refetchEmails,
   };
 }

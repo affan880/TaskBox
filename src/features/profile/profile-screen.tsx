@@ -52,6 +52,19 @@ type RootStackParamList = {
 
 type ProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
+type SettingItem = {
+  icon: string;
+  color: string;
+  label: string;
+  onPress: () => void | Promise<void>;
+  isDanger?: boolean;
+};
+
+type SettingSection = {
+  title: string;
+  items: SettingItem[];
+};
+
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const user = useAuthStore(state => state.user);
   const signOut = useAuthStore(state => state.signOut);
@@ -304,194 +317,182 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background.primary }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.secondary }]}>
       <StatusBar 
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent
       />
       
-      {/* Header with gradient background */}
-      <LinearGradient
-        colors={[colors.brand.primary, colors.brand.secondary]}
-        style={[styles.headerGradient, { paddingTop: insets.top + 20 }]}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerActions}>
-            <ThemeToggle size="md" />
-            <TouchableOpacity 
-              style={styles.headerButton}
-              onPress={handleShareProfile}
-            >
-              <Icon name="share-variant" size={20} color={colors.text.inverse} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </LinearGradient>
-
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 100 }
+          { paddingBottom: insets.bottom + 20 }
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Section */}
-        <Animatable.View 
-          ref={profileRef}
-          style={[styles.profileContainer, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}
-        >
-          <TouchableOpacity 
-            style={styles.profileImageContainer}
-            onPress={handleEditProfile}
-          >
-            {user?.photoURL ? (
-              <Image 
-                source={{ uri: user.photoURL }} 
-                style={styles.profileImage} 
-              />
-            ) : (
-              <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.surface.secondary }]}> 
-                <Text style={[styles.profileImagePlaceholderText, { color: colors.text.secondary }]}> 
-                  {user?.displayName?.charAt(0) || user?.email?.charAt(0) || '?'}
-                </Text>
-              </View>
-            )}
-            <View style={[styles.editOverlay, { backgroundColor: colors.brand.primary, borderColor: colors.surface.primary }]}> 
-              <Icon name="camera" size={24} color={colors.text.inverse} />
+        {/* Profile Header */}
+        <View style={[styles.header, { 
+          backgroundColor: colors.brand.primary,
+          transform: [{ rotate: '-1deg' }]
+        }]}>
+          <View style={styles.headerTop}>
+            <Text style={[styles.headerTitle, { transform: [{ rotate: '1deg' }] }]}>Profile</Text>
+            <View style={[styles.headerActions, { transform: [{ rotate: '1deg' }] }]}>
+              <ThemeToggle size="md" />
+              <TouchableOpacity 
+                style={[styles.headerButton, { transform: [{ rotate: '2deg' }] }]}
+                onPress={handleShareProfile}
+              >
+                <Icon name="share-variant" size={20} color={colors.text.inverse} />
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-          
-          <Text style={[styles.userName, { color: colors.text.primary }]}> 
-            {user?.displayName || 'User'}
-          </Text>
-          <Text style={[styles.userEmail, { color: colors.text.secondary }]}> 
-            {user?.email || 'No email'}
-          </Text>
-        </Animatable.View>
-
-        {/* Stats Section */}
-        <Animatable.View 
-          ref={statsRef}
-          style={styles.statsContainer}
-        >
-          <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <Icon name="check-circle" size={24} color={colors.status.success} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>
-              {taskStats.completed}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Completed</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <Icon name="clock-outline" size={24} color={colors.brand.primary} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>
-              {taskStats.inProgress}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.text.secondary }]}>In Progress</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <Icon name="format-list-checks" size={24} color={colors.status.warning} />
-            <Text style={[styles.statValue, { color: colors.text.primary }]}>
-              {taskStats.todo}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.text.secondary }]}>To Do</Text>
-          </View>
-        </Animatable.View>
-
-        {/* Settings Section */}
-        <View style={styles.settingsContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Settings</Text>
-          
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <TouchableOpacity 
-              style={[styles.settingItem]}
-              onPress={() => handleNavigateToSettings('ThemeSettings')}
-            >
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.brand.primary + '20' }]}> 
-                  <Icon name="palette" size={24} color={colors.brand.primary} />
-                </View>
-                <Text style={[styles.settingText, { color: colors.text.primary }]}>Appearance</Text>
-              </View>
-              <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.settingItem]}
-              onPress={() => handleNavigateToSettings('NotificationSettings')}
-            >
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.status.warning + '20' }]}> 
-                  <Icon name="bell-outline" size={24} color={colors.status.warning} />
-                </View>
-                <Text style={[styles.settingText, { color: colors.text.primary }]}>Notifications</Text>
-              </View>
-              <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
-            </TouchableOpacity>
           </View>
 
-          <Text style={[styles.sectionTitle, { color: colors.text.primary, marginTop: 24 }]}>Legal</Text>
-          
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
+          {/* Profile Info */}
+          <View style={[styles.profileInfo, { transform: [{ rotate: '1deg' }] }]}>
             <TouchableOpacity 
-              style={[styles.settingItem]}
-              onPress={handleOpenTerms}
+              style={styles.profileImageContainer}
+              onPress={handleEditProfile}
             >
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.status.success + '20' }]}> 
-                  <Icon name="file-document-outline" size={24} color={colors.status.success} />
+              {user?.photoURL ? (
+                <Image 
+                  source={{ uri: user.photoURL }} 
+                  style={styles.profileImage} 
+                />
+              ) : (
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: colors.surface.secondary }]}> 
+                  <Text style={[styles.profileImagePlaceholderText, { color: colors.text.inverse }]}> 
+                    {user?.displayName?.charAt(0) || user?.email?.charAt(0) || '?'}
+                  </Text>
                 </View>
-                <Text style={[styles.settingText, { color: colors.text.primary }]}>Terms of Use</Text>
+              )}
+              <View style={[styles.editOverlay, { backgroundColor: colors.surface.primary }]}> 
+                <Icon name="camera" size={20} color={colors.brand.primary} />
               </View>
-              <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.settingItem]}
-              onPress={handleOpenPrivacy}
-            >
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.status.success + '20' }]}> 
-                  <Icon name="shield-outline" size={24} color={colors.status.success} />
-                </View>
-                <Text style={[styles.settingText, { color: colors.text.primary }]}>Privacy Policy</Text>
-              </View>
-              <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={[styles.sectionTitle, { color: colors.text.primary, marginTop: 24 }]}>Account</Text>
-          
-          <View style={[styles.settingsCard, { backgroundColor: colors.surface.primary, shadowColor: isDark ? '#000' : '#000' }]}> 
-            <TouchableOpacity 
-              style={[styles.settingItem]}
-              onPress={handleDeleteAccount}
-            >
-              <View style={styles.settingLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: colors.status.error + '20' }]}> 
-                  <Icon name="account-remove-outline" size={24} color={colors.status.error} />
-                </View>
-                <Text style={[styles.settingText, { color: colors.status.error }]}>Delete Account</Text>
-              </View>
-              <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
-            </TouchableOpacity>
+            <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
+            <Text style={styles.userEmail}>{user?.email || 'No email'}</Text>
           </View>
         </View>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          {[
+            { icon: "check-circle", color: colors.status.success, label: "Completed", value: taskStats.completed },
+            { icon: "clock-outline", color: colors.brand.primary, label: "In Progress", value: taskStats.inProgress },
+            { icon: "format-list-checks", color: colors.status.warning, label: "To Do", value: taskStats.todo }
+          ].map((stat, index) => (
+            <View 
+              key={stat.label}
+              style={[
+                styles.statCard, 
+                { 
+                  backgroundColor: colors.surface.primary,
+                  transform: [{ rotate: `${index % 2 === 0 ? '1deg' : '-1deg'}` }],
+                  borderWidth: 3,
+                  borderColor: '#000000',
+                }
+              ]}
+            >
+              <Icon name={stat.icon} size={24} color={stat.color} />
+              <Text style={[styles.statValue, { color: colors.text.primary }]}>{stat.value}</Text>
+              <Text style={[styles.statLabel, { color: colors.text.secondary }]}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Settings Sections */}
+        {([
+          {
+            title: 'Settings',
+            items: [
+              { icon: 'palette', color: colors.brand.primary, label: 'Appearance', onPress: () => handleNavigateToSettings('ThemeSettings') },
+              { icon: 'bell-outline', color: colors.status.warning, label: 'Notifications', onPress: () => handleNavigateToSettings('NotificationSettings') }
+            ]
+          },
+          {
+            title: 'Legal',
+            items: [
+              { icon: 'file-document-outline', color: colors.status.success, label: 'Terms of Use', onPress: handleOpenTerms },
+              { icon: 'shield-outline', color: colors.status.success, label: 'Privacy Policy', onPress: handleOpenPrivacy }
+            ]
+          },
+          {
+            title: 'Account',
+            items: [
+              { icon: 'account-remove-outline', color: colors.status.error, label: 'Delete Account', onPress: handleDeleteAccount, isDanger: true }
+            ]
+          }
+        ] as SettingSection[]).map((section, sectionIndex) => (
+          <View key={section.title} style={styles.settingsContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>{section.title}</Text>
+            <View 
+              style={[
+                styles.settingsCard, 
+                { 
+                  backgroundColor: colors.surface.primary,
+                  transform: [{ rotate: sectionIndex % 2 === 0 ? '1deg' : '-1deg' }],
+                  borderWidth: 3,
+                  borderColor: '#000000',
+                }
+              ]}
+            >
+              {section.items.map((item, index) => (
+                <TouchableOpacity 
+                  key={item.label}
+                  style={[
+                    styles.settingItem,
+                    index !== section.items.length - 1 && {
+                      borderBottomWidth: 2,
+                      borderBottomColor: '#000000',
+                    }
+                  ]}
+                  onPress={item.onPress}
+                >
+                  <View style={styles.settingLeft}>
+                    <View style={[styles.settingIcon, { 
+                      backgroundColor: item.color + '20',
+                      transform: [{ rotate: '-2deg' }],
+                      borderWidth: 2,
+                      borderColor: '#000000',
+                    }]}> 
+                      <Icon name={item.icon} size={24} color={item.color} />
+                    </View>
+                    <Text style={[
+                      styles.settingText, 
+                      { color: item.isDanger ? colors.status.error : colors.text.primary }
+                    ]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <Icon name="chevron-right" size={24} color={colors.text.tertiary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
 
         {/* Sign Out Button */}
         <View style={styles.footer}>
-          <Button
-            variant="danger"
+          <TouchableOpacity
+            style={[
+              styles.signOutButton,
+              {
+                backgroundColor: colors.status.error,
+                transform: [{ rotate: '-1deg' }],
+                borderWidth: 3,
+                borderColor: '#000000',
+              }
+            ]}
             onPress={handleSignOut}
-            style={styles.signOutButton}
           >
-            Sign Out
-          </Button>
+            <Text style={styles.signOutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -499,19 +500,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    zIndex: 1,
+  scrollView: {
+    flex: 1,
   },
-  headerContent: {
+  scrollContent: {
+    flexGrow: 1,
+  },
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 20 : (StatusBar.currentHeight || 20) + 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 30,
   },
   headerTitle: {
     fontSize: 28,
@@ -531,31 +544,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  scrollView: {
-    flex: 1,
-    marginTop: 100,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  profileContainer: {
+  profileInfo: {
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 20,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
   profileImageContainer: {
     position: 'relative',
@@ -565,19 +555,21 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
   profileImagePlaceholder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
   profileImagePlaceholderText: {
     fontSize: 40,
     fontWeight: 'bold',
-    color: '#9CA3AF',
   },
   editOverlay: {
     position: 'absolute',
@@ -586,7 +578,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -595,51 +586,42 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    color: '#6B7280',
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginHorizontal: 20,
     marginTop: 20,
+    gap: 12,
   },
   statCard: {
     flex: 1,
-    marginHorizontal: 4,
     padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
   },
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
     marginVertical: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
     textAlign: 'center',
   },
   settingsContainer: {
-    marginTop: 20,
+    marginTop: 30,
     paddingHorizontal: 20,
   },
   sectionTitle: {
@@ -648,20 +630,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   settingsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 8,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
   },
   settingItem: {
     flexDirection: 'row',
@@ -669,7 +644,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   settingLeft: {
     flexDirection: 'row',
@@ -678,7 +653,7 @@ const styles = StyleSheet.create({
   settingIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -693,5 +668,20 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     width: '100%',
+    height: 50,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  signOutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    transform: [{ rotate: '1deg' }],
   },
 }); 
