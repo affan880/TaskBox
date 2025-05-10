@@ -16,11 +16,11 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
 
   const handleOpenTerms = () => {
-    Linking.openURL('https://taskbox.space/Terms-of-Use.html');
+    Linking.openURL('http://plexar.xyz/terms-of-use/');
   };
 
   const handleOpenPrivacy = () => {
-    Linking.openURL('https://taskbox.space/Privacy-Policy.html');
+    Linking.openURL('http://plexar.xyz/privacy-policy/');
   };
 
   const handleGetStarted = () => {
