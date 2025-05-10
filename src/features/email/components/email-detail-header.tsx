@@ -1,6 +1,6 @@
 // src/screens/email/components/email-detail-header.tsx
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from 'src/theme/theme-context';
 import { SPACING, TYPOGRAPHY } from '../../../theme/theme';
@@ -189,48 +189,85 @@ export function EmailDetailHeader({
 
 const styles = StyleSheet.create({
   header: {
-    height: 56,
-    borderBottomWidth: 1,
+    height: 64,
+    borderBottomWidth: 3,
     borderBottomColor: '#e0e0e0',
-    marginTop: Platform.OS === 'ios' ? 20:30,
+    marginTop: Platform.OS === 'ios' ? 20 : 30,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+    marginBottom: 8,
   },
   headerContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   backButton: {
-    padding: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 4,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   headerIconButton: {
-    padding: 8,
-    marginLeft: 8,
-    borderRadius: 4,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   menuContainer: {
     width: '80%',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 12,
+    borderWidth: 3,
+    padding: 20,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 0,
+    elevation: 10,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
   },
   menuItemText: {
     marginLeft: 16,
     fontSize: 16,
+    fontWeight: '600',
   },
 });

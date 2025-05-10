@@ -56,125 +56,164 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 3,
+    transform: [{ rotate: '-1deg' }],
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '800',
   },
   addButton: {
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
+    borderWidth: 3,
+    transform: [{ rotate: '2deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 0,
+    elevation: 8,
   },
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginVertical: 8,
+    borderRadius: 12,
+    borderWidth: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginVertical: 12,
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 6,
   },
   searchIcon: { 
-    marginRight: 8 
+    marginRight: 12 
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
+    fontWeight: '600',
     paddingVertical: 4,
   },
   tabsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 12,
+    marginVertical: 16,
+    paddingHorizontal: 8,
   },
   tabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 3,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 4,
   },
   activeTabButton: {
-    backgroundColor: '#7C3AED',
+    transform: [{ rotate: '1deg' }],
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.3,
   },
   tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   listContainer: {
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   columnWrapper: {
     justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   card: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderWidth: 3,
+    padding: 20,
+    marginBottom: 20,
     width: (SCREEN_WIDTH - 16 * 3) / NUM_COLUMNS,
+    transform: [{ rotate: '-1deg' }],
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    minHeight: 180,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 0,
+    elevation: 8,
+    minHeight: 200,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardMenuButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 2,
   },
   cardIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    transform: [{ rotate: '2deg' }],
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     marginBottom: 12,
   },
   cardDescription: {
-    fontSize: 13,
+    fontSize: 14,
     marginBottom: 12,
+    lineHeight: 20,
   },
   cardMetadataContainer: {
     flex: 1,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   cardLabel: {
-    fontSize: 12,
-    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   progressContainer: {
-    marginTop: 12,
+    marginTop: 16,
   },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '600',
   },
   progressPercentage: {
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '800',
   },
   progressBar: {
-    height: 4,
-    borderRadius: 2,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
     overflow: 'hidden',
   },
   progressFill: {
@@ -185,20 +224,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 'auto',
-    paddingTop: 12,
-    borderTopWidth: 1,
+    paddingTop: 16,
+    borderTopWidth: 3,
   },
   checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    marginRight: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 3,
+    marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    transform: [{ rotate: '2deg' }],
   },
   checkboxChecked: {
-    borderWidth: 1.5,
+    borderWidth: 3,
+    transform: [{ rotate: '-2deg' }],
   },
   checkboxLabel: {
     fontSize: 12,
@@ -759,13 +800,36 @@ export function ProjectDetailScreen() {
             <View style={styles.emptyContainer}>
               <MaterialIcons name="folder-open" size={60} color={colors.text.secondary} />
               <Text style={[styles.emptyText, { color: colors.text.secondary }]}>No projects found</Text>
-              <Button
-                variant="primary"
+              <TouchableOpacity
+                style={[
+                  styles.createEmptyButton,
+                  {
+                    backgroundColor: colors.brand.primary,
+                    borderWidth: 3,
+                    borderColor: '#000000',
+                    transform: [{ rotate: '2deg' }],
+                    shadowColor: '#000',
+                    shadowOffset: { width: 4, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 0,
+                    elevation: 8,
+                    paddingHorizontal: 24,
+                    paddingVertical: 16,
+                    borderRadius: 12,
+                  }
+                ]}
                 onPress={handleAddItem}
-                style={styles.createEmptyButton}
+                activeOpacity={0.8}
               >
-                Create Project
-              </Button>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '800',
+                  color: colors.text.inverse,
+                  transform: [{ rotate: '-1deg' }]
+                }}>
+                  Create Project
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         />

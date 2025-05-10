@@ -32,6 +32,9 @@ interface AutoCategorizationResult {
   hasInitializedFromCache: boolean;
 }
 
+// Add a counter for unique IDs
+let tempIdCounter = 0;
+
 /**
  * Hook for automatic email categorization with caching
  * 
@@ -141,14 +144,10 @@ export function useAutoCategorization(
   ): CategorizedEmailsMap => {
     const DEBUG = __DEV__ && true;
     
-    // if (DEBUG) {
-    //   console.log('[ProcessCategorized] Processing categories with:', Object.keys(categorizedEmailsResponse));
-    //   console.log('[ProcessCategorized] Total emails available:', allEmails.length);
-    // }
-    
     // Create a map of all emails with both id and threadId as keys for flexible lookup
     const emailMap = new Map<string, EmailData>();
     const threadMap = new Map<string, EmailData[]>();
+    const processedIds = new Set<string>(); // Track processed IDs
     
     allEmails.forEach(email => {
       // Add to ID map
@@ -205,10 +204,19 @@ export function useAutoCategorization(
               dateStr = new Date().toISOString();
             }
             
+            // Generate a unique ID
+            let uniqueId: string;
+            do {
+              tempIdCounter++;
+              uniqueId = `temp-${Date.now()}-${tempIdCounter}`;
+            } while (processedIds.has(uniqueId));
+            
+            processedIds.add(uniqueId);
+            
             // Create a new EmailData object from the API response
             matchedEmail = {
-              id: messageId || `temp-${Date.now()}-${Math.random()}`,
-              threadId: threadId || messageId || '',
+              id: uniqueId,
+              threadId: threadId || uniqueId,
               snippet: emailData.body?.substring(0, 100) || '',
               subject: emailData.subject || 'No subject',
               from: emailData.from || 'Unknown sender',
@@ -225,7 +233,12 @@ export function useAutoCategorization(
           
           return matchedEmail;
         })
-        .filter((email): email is EmailData => email !== null && email !== undefined);
+        .filter((email): email is EmailData => {
+          if (!email) return false;
+          if (processedIds.has(email.id)) return false;
+          processedIds.add(email.id);
+          return true;
+        });
       
       // Add the category with full email objects to the result
       processedCategories[normalizedCategory] = fullEmails;

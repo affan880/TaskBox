@@ -21,6 +21,7 @@ import { EmailAttachment, EmailData } from '@/types/email';
 import { replyToEmail, replyAllToEmail, forwardEmail } from '@/api/gmail-api';
 import * as ImagePicker from 'react-native-image-picker';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
 type ReplyMode = 'reply' | 'reply-all' | 'forward';
 
@@ -71,10 +72,13 @@ export function ReplyModal({
   originalTo,
   originalCc,
 }: ReplyModalProps) {
-  const { colors, isDark } = useTheme();
-  const [content, setContent] = React.useState('');
-  const [attachments, setAttachments] = React.useState<EmailAttachment[]>([]);
-  const [isSending, setIsSending] = React.useState(false);
+  const [to, setTo] = useState(originalTo || '');
+  const [subject, setSubject] = useState(originalSubject || '');
+  const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
+  const [isSending, setIsSending] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Initialize content with the original message
   React.useEffect(() => {
@@ -102,18 +106,47 @@ export function ReplyModal({
       switch (mode) {
         case 'reply':
         case 'reply-all':
-          setContent(`\n\nOn ${formatDate(new Date(email.date))}, ${formatEmailAddress(email.from)} wrote:\n\n${email.body}`);
+          setBody(`\n\nOn ${formatDate(new Date(email.date))}, ${formatEmailAddress(email.from)} wrote:\n\n${email.body}`);
           break;
         case 'forward':
-          setContent(`\n\n---------- Forwarded message ---------\nFrom: ${formatEmailAddress(email.from)}\nDate: ${formatDate(new Date(email.date))}\nSubject: ${email.subject}\nTo: ${formatEmailAddress(email.to)}\n\n${email.body}`);
+          setBody(`\n\n---------- Forwarded message ---------\nFrom: ${formatEmailAddress(email.from)}\nDate: ${formatDate(new Date(email.date))}\nSubject: ${email.subject}\nTo: ${formatEmailAddress(email.to)}\n\n${email.body}`);
           break;
       }
     }
   }, [email, mode]);
 
+  const handleAddAttachment = async () => {
+    try {
+      setIsUploading(true);
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+        allowMultiSelection: true,
+      });
+      
+      const newAttachments = result.map(file => ({
+        id: `attachment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: file.name || 'Unnamed file',
+        uri: file.uri,
+        type: file.type || 'application/octet-stream',
+        size: file.size || 0,
+        createdAt: new Date().toISOString(),
+      }));
+      
+      setAttachments(prev => [...prev, ...newAttachments]);
+    } catch (err) {
+      console.error('Error picking document:', err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
   const handleSend = async () => {
-    if (!content.trim()) {
-      Alert.alert('Error', 'Please enter a message');
+    if (!to) {
+      // Show error
       return;
     }
 
@@ -125,11 +158,12 @@ export function ReplyModal({
     setIsSending(true);
 
     try {
+      setIsLoading(true);
       let success = false;
       const errorMessage = 'Failed to send message. Please try again.';
 
       // Format the content with proper line breaks
-      const formattedContent = content.replace(/\n/g, '<br>');
+      const formattedContent = body.replace(/\n/g, '<br>');
 
       switch (mode) {
         case 'reply':
@@ -147,7 +181,7 @@ export function ReplyModal({
 
       if (success) {
         onClose();
-        setContent('');
+        setBody('');
         setAttachments([]);
       } else {
         Alert.alert('Error', errorMessage);
@@ -157,39 +191,8 @@ export function ReplyModal({
       Alert.alert('Error', 'Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
+      setIsLoading(false);
     }
-  };
-
-  const handlePickFile = async () => {
-    try {
-      const result = await DocumentPicker.pick({
-        type: [DocumentPicker.types.allFiles],
-        copyTo: 'cachesDirectory',
-      });
-
-      if (result && result.length > 0) {
-        const file = result[0];
-        const newAttachment: EmailAttachment = {
-          id: Date.now().toString(),
-          name: file.name || 'Unnamed file',
-          type: file.type || 'application/octet-stream',
-          size: file.size || 0,
-          uri: file.uri,
-          createdAt: new Date().toISOString(),
-        };
-        setAttachments(prev => [...prev, newAttachment]);
-      }
-    } catch (err) {
-      if (err instanceof Error && 'code' in err && err.code === 'DOCUMENT_PICKER_CANCELED') {
-        return;
-      }
-      console.error('[ReplyModal] Error picking file:', err);
-      Alert.alert('Error', 'Failed to pick file. Please try again.');
-    }
-  };
-
-  const handleRemoveAttachment = (attachmentId: string) => {
-    setAttachments(prev => prev.filter(att => att.id !== attachmentId));
   };
 
   const handleCameraPress = () => {
@@ -257,21 +260,48 @@ export function ReplyModal({
   };
 
   const renderAttachmentItem = (attachment: EmailAttachment) => (
-    <View key={attachment.id} style={[styles.attachmentItem, { backgroundColor: colors.background.secondary }]}>
-      <Icon name={getFileIcon(attachment.type)} size={24} color={colors.text.secondary} />
-      <View style={styles.attachmentInfo}>
-        <Text style={[styles.attachmentName, { color: colors.text.primary }]} numberOfLines={1}>
-          {attachment.name}
-        </Text>
-        <Text style={[styles.attachmentSize, { color: colors.text.secondary }]}>
-          {formatFileSize(attachment.size)}
-        </Text>
+    <View
+      key={attachment.id}
+      style={[
+        styles.attachmentItem,
+        {
+          backgroundColor: '#ffffff',
+          borderColor: '#000000',
+          transform: [{ rotate: '-0.5deg' }],
+        }
+      ]}
+    >
+      <View style={styles.attachmentContent}>
+        <View style={[
+          styles.attachmentIcon,
+          {
+            backgroundColor: '#0066ff',
+            borderColor: '#000000',
+          }
+        ]}>
+          <Icon name="insert-drive-file" size={20} color="#ffffff" />
+        </View>
+        <View style={styles.attachmentDetails}>
+          <Text style={styles.attachmentName} numberOfLines={1}>
+            {attachment.name}
+          </Text>
+          <Text style={styles.attachmentSize}>
+            {(attachment.size / 1024 / 1024).toFixed(2)} MB
+          </Text>
+        </View>
       </View>
       <TouchableOpacity
         onPress={() => handleRemoveAttachment(attachment.id)}
-        style={styles.removeAttachmentButton}
+        style={[
+          styles.attachmentRemove,
+          {
+            backgroundColor: '#ff3333',
+            borderColor: '#000000',
+            transform: [{ rotate: '1deg' }],
+          }
+        ]}
       >
-        <Icon name="close" size={20} color={colors.text.secondary} />
+        <Icon name="close" size={20} color="#ffffff" />
       </TouchableOpacity>
     </View>
   );
@@ -291,238 +321,302 @@ export function ReplyModal({
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.background.primary }]}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoidingView}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-          >
-            <View style={[styles.modalContent, { backgroundColor: colors.background.primary }]}>
-              <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
-                <View style={styles.headerLeft}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Icon name="arrow-back" size={24} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <Text style={[styles.title, { color: colors.text.primary }]}>
-                    {mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : 'Forward'}
-                  </Text>
-                </View>
-                <View style={styles.headerRight}>
-                  <TouchableOpacity
-                    onPress={handleCameraPress}
-                    style={[styles.headerButton, { backgroundColor: colors.background.secondary }]}
-                  >
-                    <Icon name="camera-alt" size={20} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleGalleryPress}
-                    style={[styles.headerButton, { backgroundColor: colors.background.secondary }]}
-                  >
-                    <Icon name="photo-library" size={20} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handlePickFile}
-                    style={[styles.headerButton, { backgroundColor: colors.background.secondary }]}
-                  >
-                    <Icon name="attach-file" size={20} color={colors.text.primary} />
-                  </TouchableOpacity>
-                  <Button
-                    onPress={handleSend}
-                    disabled={isSending}
-                    style={[styles.sendButton, { backgroundColor: colors.brand.primary }]}
-                  >
-                    {isSending ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.sendButtonText}>Send</Text>
-                    )}
-                  </Button>
-                </View>
-              </View>
+      <View style={styles.container}>
+        <View style={[
+          styles.header,
+          {
+            backgroundColor: '#ffde59',
+            borderColor: '#000000',
+            transform: [{ rotate: '-0.5deg' }],
+          }
+        ]}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[
+                styles.headerButton,
+                {
+                  backgroundColor: '#ff3333',
+                  borderColor: '#000000',
+                  transform: [{ rotate: '1deg' }],
+                }
+              ]}
+            >
+              <Icon name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>
+              {mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : 'Forward'}
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleAddAttachment}
+              disabled={isUploading}
+              style={[
+                styles.headerButton,
+                {
+                  backgroundColor: '#0066ff',
+                  borderColor: '#000000',
+                  transform: [{ rotate: '-1deg' }],
+                }
+              ]}
+            >
+              <Icon name="attach-file" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={isLoading}
+              style={[
+                styles.headerButton,
+                {
+                  backgroundColor: isLoading ? '#666666' : '#ff3333',
+                  borderColor: '#000000',
+                  transform: [{ rotate: '1deg' }],
+                }
+              ]}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Icon name="send" size={24} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
 
-              <ScrollView 
-                style={styles.content}
-                contentContainerStyle={styles.contentContainer}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="none"
-              >
-                <View style={styles.recipientsContainer}>
-                  <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>To:</Text>
-                  <Text style={[styles.recipientText, { color: colors.text.primary }]}>{originalTo}</Text>
-                </View>
-                {originalCc && (
-                  <View style={styles.recipientsContainer}>
-                    <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Cc:</Text>
-                    <Text style={[styles.recipientText, { color: colors.text.primary }]}>{originalCc}</Text>
-                  </View>
-                )}
-                <View style={styles.recipientsContainer}>
-                  <Text style={[styles.recipientLabel, { color: colors.text.secondary }]}>Subject:</Text>
-                  <Text style={[styles.recipientText, { color: colors.text.primary }]}>{originalSubject}</Text>
-                </View>
-
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.content}
+        >
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>To:</Text>
                 <TextInput
+                  value={to}
+                  onChangeText={setTo}
+                  placeholder="Recipients"
+                  placeholderTextColor="#666666"
                   style={[
-                    styles.messageInput,
-                    { 
-                      color: colors.text.primary,
-                      backgroundColor: colors.background.primary 
+                    styles.input,
+                    {
+                      backgroundColor: '#ffffff',
+                      borderColor: '#000000',
+                      transform: [{ rotate: '0.5deg' }],
                     }
                   ]}
-                  value={content}
-                  onChangeText={setContent}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Subject:</Text>
+                <TextInput
+                  value={subject}
+                  onChangeText={setSubject}
+                  placeholder="Subject"
+                  placeholderTextColor="#666666"
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: '#ffffff',
+                      borderColor: '#000000',
+                      transform: [{ rotate: '-0.5deg' }],
+                    }
+                  ]}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  value={body}
+                  onChangeText={setBody}
                   placeholder="Write your message..."
-                  placeholderTextColor={colors.text.tertiary}
+                  placeholderTextColor="#666666"
                   multiline
                   textAlignVertical="top"
+                  style={[
+                    styles.messageInput,
+                    {
+                      backgroundColor: '#ffffff',
+                      borderColor: '#000000',
+                      transform: [{ rotate: '0.5deg' }],
+                    }
+                  ]}
                 />
+              </View>
 
-                {attachments.length > 0 && (
-                  <View style={styles.attachmentsContainer}>
-                    <Text style={[styles.attachmentsTitle, { color: colors.text.secondary }]}>
-                      Attachments ({attachments.length})
-                    </Text>
-                    <View style={styles.attachmentsList}>
-                      {attachments.map(renderAttachmentItem)}
-                    </View>
+              {attachments.length > 0 && (
+                <View style={styles.attachmentsContainer}>
+                  <Text style={styles.attachmentsTitle}>
+                    Attachments ({attachments.length})
+                  </Text>
+                  <View style={styles.attachmentsList}>
+                    {attachments.map(attachment => renderAttachmentItem(attachment))}
                   </View>
-                )}
-              </ScrollView>
+                </View>
+              )}
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  container: {
     flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    height: '90%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: 'hidden',
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  modalContent: {
-    flex: 1,
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    borderBottomWidth: 4,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
     marginLeft: 16,
   },
-  closeButton: {
-    padding: 8,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerButton: {
-    padding: 8,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
   },
   content: {
     flex: 1,
   },
-  contentContainer: {
+  scrollView: {
+    flex: 1,
+  },
+  form: {
     padding: 16,
   },
-  recipientsContainer: {
-    flexDirection: 'row',
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
     marginBottom: 8,
-    paddingVertical: 4,
   },
-  recipientLabel: {
-    width: 80,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  recipientText: {
-    flex: 1,
-    fontSize: 14,
+  input: {
+    height: 48,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#000000',
+    borderWidth: 4,
+    borderRadius: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   messageInput: {
-    flex: 1,
-    minHeight: 200,
+    height: 200,
+    padding: 16,
     fontSize: 16,
-    padding: 8,
-    marginTop: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    fontFamily: 'Inter-Regular',
+    color: '#000000',
+    borderWidth: 4,
+    borderRadius: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   attachmentsContainer: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+    marginTop: 24,
   },
   attachmentsTitle: {
-    fontSize: 14,
-    marginBottom: 8,
-    fontWeight: '500',
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    marginBottom: 12,
   },
   attachmentsList: {
-    gap: 8,
+    gap: 12,
   },
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: 4,
+    borderRadius: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
-  attachmentInfo: {
+  attachmentContent: {
     flex: 1,
-    marginLeft: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attachmentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 4,
+  },
+  attachmentDetails: {
+    flex: 1,
   },
   attachmentName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    marginBottom: 4,
   },
   attachmentSize: {
     fontSize: 12,
-    marginTop: 2,
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
   },
-  removeAttachmentButton: {
-    padding: 8,
-  },
-  sendButton: {
-    height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  attachmentRemove: {
+    width: 32,
+    height: 32,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+    borderWidth: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
   },
 }); 

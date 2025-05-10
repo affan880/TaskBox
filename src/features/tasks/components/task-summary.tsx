@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { View, Text } from 'react-native';
 import { useTheme } from '@/theme/theme-context';
-import { TaskData, TaskPriority } from '@/types/task';
+import { TaskData } from '@/types/task';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 type TaskSummaryProps = {
   tasks?: TaskData[];
-  style?: ViewStyle;
+  style?: any;
   compact?: boolean;
 };
 
@@ -32,7 +32,6 @@ export function TaskSummary({ tasks = [], style, compact = false }: TaskSummaryP
     ? pendingTasks.reduce((closest, task) => {
         if (!closest.dueDate) return task;
         if (!task.dueDate) return closest;
-        
         return new Date(task.dueDate) < new Date(closest.dueDate) ? task : closest;
       }, pendingTasks[0])
     : null;
@@ -40,245 +39,223 @@ export function TaskSummary({ tasks = [], style, compact = false }: TaskSummaryP
   // Format date for display
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No due date';
-    
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-  
-  const styles = StyleSheet.create({
-    container: {
-      backgroundColor: isDark ? colors.background.secondary : 'white',
-      borderRadius: 12,
-      padding: 16,
-      ...style
-    },
-    compactContainer: {
-      backgroundColor: isDark ? colors.background.secondary : '#F5F5F5',
-      borderRadius: 8,
-      padding: 12,
-      ...style
-    },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    spaceBetween: {
-      justifyContent: 'space-between',
-    },
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.text.primary,
-      marginBottom: 16
-    },
-    section: {
-      marginBottom: 20,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '500',
-      color: colors.text.secondary,
-      marginBottom: 8,
-    },
-    statContainer: {
-      flex: 1,
-      backgroundColor: isDark ? colors.background.tertiary : '#F5F5F5',
-      borderRadius: 8,
-      padding: 10,
-      alignItems: 'center',
-      margin: 4,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.text.tertiary,
-      marginBottom: 4,
-    },
-    statValue: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.text.primary,
-    },
-    completedValue: {
-      color: colors.status.success,
-    },
-    pendingValue: {
-      color: colors.status.warning,
-    },
-    progressContainer: {
-      height: 8,
-      backgroundColor: isDark ? colors.background.tertiary : '#EEEEEE',
-      borderRadius: 4,
-      overflow: 'hidden',
-      marginTop: 8,
-    },
-    progressBar: {
-      height: '100%',
-      backgroundColor: colors.brand.primary,
-    },
-    priorityItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    priorityDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      marginRight: 8,
-    },
-    priorityHigh: {
-      backgroundColor: colors.status.error,
-    },
-    priorityMedium: {
-      backgroundColor: colors.status.warning,
-    },
-    priorityLow: {
-      backgroundColor: colors.status.success,
-    },
-    priorityLabel: {
-      flex: 1,
-      color: colors.text.secondary,
-    },
-    priorityValue: {
-      fontWeight: '500',
-      color: colors.text.primary,
-    },
-    upcomingTask: {
-      backgroundColor: isDark ? `${colors.brand.primary}20` : '#F0EAFF',
-      padding: 12,
-      borderRadius: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    upcomingTaskInfo: {
-      marginLeft: 12,
-      flex: 1,
-    },
-    upcomingTaskTitle: {
-      fontSize: 16,
-      fontWeight: '500',
-      color: colors.text.primary,
-      marginBottom: 4,
-    },
-    upcomingTaskDate: {
-      fontSize: 12,
-      color: colors.text.tertiary,
-    },
-    badge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-      backgroundColor: colors.brand.primary,
-    },
-    badgeText: {
-      color: 'white',
-      fontWeight: '600',
-      fontSize: 12,
-    }
-  });
-  
-  if (compact) {
-    // Compact view for dashboard tiles
-    return (
-      <View style={styles.compactContainer}>
-        <View style={[styles.row, styles.spaceBetween, { marginBottom: 8 }]}>
-          <Text style={styles.headerTitle}>Task Status</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{completionRate}%</Text>
-          </View>
-        </View>
-        
-        <View style={styles.row}>
-          <View style={styles.statContainer}>
-            <Text style={styles.statLabel}>Total</Text>
-            <Text style={styles.statValue}>{totalTasks}</Text>
-          </View>
-          
-          <View style={styles.statContainer}>
-            <Text style={styles.statLabel}>Completed</Text>
-            <Text style={[styles.statValue, styles.completedValue]}>{completedTasks}</Text>
-          </View>
-          
-          <View style={styles.statContainer}>
-            <Text style={styles.statLabel}>Pending</Text>
-            <Text style={[styles.statValue, styles.pendingValue]}>{incompleteTasks}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
-  
-  // Full view with more details
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerTitle}>Task Summary</Text>
-      
-      {/* Progress section */}
-      <View style={styles.section}>
-        <View style={[styles.row, styles.spaceBetween, { marginBottom: 8 }]}>
-          <Text style={styles.sectionTitle}>Completion Rate</Text>
-          <Text style={[styles.priorityValue, { color: colors.brand.primary }]}>{completionRate}%</Text>
+    <View
+      style={[
+        {
+          backgroundColor: colors.surface.primary,
+          borderRadius: 16,
+          borderWidth: 3,
+          borderColor: colors.text.primary,
+          padding: 20,
+          transform: [{ rotate: '-0.5deg' }],
+          shadowColor: colors.text.primary,
+          shadowOffset: { width: 4, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 0,
+          elevation: 6,
+        },
+        style
+      ]}
+    >
+      {/* Progress Overview */}
+      <View style={{ marginBottom: 24 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: '700',
+            color: colors.text.primary,
+            marginBottom: 16,
+            transform: [{ rotate: '1deg' }],
+          }}
+        >
+          Task Progress
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.surface.secondary,
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: colors.text.primary,
+              flex: 1,
+              marginRight: 8,
+              transform: [{ rotate: '1deg' }],
+            }}
+          >
+            <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text.primary }}>
+              {completedTasks}
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.text.secondary }}>Completed</Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: colors.surface.secondary,
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: colors.text.primary,
+              flex: 1,
+              marginLeft: 8,
+              transform: [{ rotate: '-1deg' }],
+            }}
+          >
+            <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text.primary }}>
+              {incompleteTasks}
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.text.secondary }}>Pending</Text>
+          </View>
         </View>
-        
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { width: `${completionRate}%` }]} />
+        <View
+          style={{
+            backgroundColor: colors.surface.secondary,
+            padding: 16,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: colors.text.primary,
+            transform: [{ rotate: '0.5deg' }],
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text.primary }}>
+              Overall Progress
+            </Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.brand.primary }}>
+              {completionRate}%
+            </Text>
+          </View>
+          <View style={{ height: 8, backgroundColor: `${colors.brand.primary}30`, borderRadius: 4 }}>
+            <View
+              style={{
+                width: `${completionRate}%`,
+                height: '100%',
+                backgroundColor: colors.brand.primary,
+                borderRadius: 4,
+              }}
+            />
+          </View>
         </View>
       </View>
-      
-      {/* Task counts */}
-      <View style={[styles.row, styles.section]}>
-        <View style={styles.statContainer}>
-          <Text style={styles.statLabel}>Total</Text>
-          <Text style={styles.statValue}>{totalTasks}</Text>
-        </View>
-        
-        <View style={[styles.statContainer, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)' }]}>
-          <Text style={[styles.statLabel, { color: colors.status.success }]}>Completed</Text>
-          <Text style={[styles.statValue, styles.completedValue]}>{completedTasks}</Text>
-        </View>
-        
-        <View style={[styles.statContainer, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)' }]}>
-          <Text style={[styles.statLabel, { color: colors.status.warning }]}>Pending</Text>
-          <Text style={[styles.statValue, styles.pendingValue]}>{incompleteTasks}</Text>
+
+      {/* Priority Breakdown */}
+      <View style={{ marginBottom: 24 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: colors.text.primary,
+            marginBottom: 16,
+            transform: [{ rotate: '-0.5deg' }],
+          }}
+        >
+          Priority Breakdown
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.surface.secondary,
+            padding: 16,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: colors.text.primary,
+            transform: [{ rotate: '0.5deg' }],
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: colors.status.error,
+                marginRight: 8,
+                borderWidth: 2,
+                borderColor: colors.text.primary,
+              }}
+            />
+            <Text style={{ flex: 1, color: colors.text.primary }}>High Priority</Text>
+            <Text style={{ fontWeight: '600', color: colors.text.primary }}>{priorityCount.high}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: colors.status.warning,
+                marginRight: 8,
+                borderWidth: 2,
+                borderColor: colors.text.primary,
+              }}
+            />
+            <Text style={{ flex: 1, color: colors.text.primary }}>Medium Priority</Text>
+            <Text style={{ fontWeight: '600', color: colors.text.primary }}>{priorityCount.medium}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                backgroundColor: colors.status.success,
+                marginRight: 8,
+                borderWidth: 2,
+                borderColor: colors.text.primary,
+              }}
+            />
+            <Text style={{ flex: 1, color: colors.text.primary }}>Low Priority</Text>
+            <Text style={{ fontWeight: '600', color: colors.text.primary }}>{priorityCount.low}</Text>
+          </View>
         </View>
       </View>
-      
-      {/* Priority breakdown */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Priority Breakdown</Text>
-        
-        <View style={styles.priorityItem}>
-          <View style={[styles.priorityDot, styles.priorityHigh]} />
-          <Text style={styles.priorityLabel}>High Priority</Text>
-          <Text style={styles.priorityValue}>{priorityCount.high}</Text>
-        </View>
-        
-        <View style={styles.priorityItem}>
-          <View style={[styles.priorityDot, styles.priorityMedium]} />
-          <Text style={styles.priorityLabel}>Medium Priority</Text>
-          <Text style={styles.priorityValue}>{priorityCount.medium}</Text>
-        </View>
-        
-        <View style={styles.priorityItem}>
-          <View style={[styles.priorityDot, styles.priorityLow]} />
-          <Text style={styles.priorityLabel}>Low Priority</Text>
-          <Text style={styles.priorityValue}>{priorityCount.low}</Text>
-        </View>
-      </View>
-      
-      {/* Next due task */}
+
+      {/* Next Due Task */}
       {closestDueTask && (
         <View>
-          <Text style={styles.sectionTitle}>Upcoming Task</Text>
-          <View style={styles.upcomingTask}>
-            <Icon name="access-time" size={20} color={colors.status.warning} />
-            <View style={styles.upcomingTaskInfo}>
-              <Text style={styles.upcomingTaskTitle} numberOfLines={1}>
-                {closestDueTask.title}
-              </Text>
-              <Text style={styles.upcomingTaskDate}>
-                Due {formatDate(closestDueTask.dueDate)}
-              </Text>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: colors.text.primary,
+              marginBottom: 16,
+              transform: [{ rotate: '0.5deg' }],
+            }}
+          >
+            Next Due Task
+          </Text>
+          <View
+            style={{
+              backgroundColor: colors.surface.secondary,
+              padding: 16,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: colors.text.primary,
+              transform: [{ rotate: '-0.5deg' }],
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Icon name="access-time" size={24} color={colors.status.warning} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontSize: 16, fontWeight: '600', color: colors.text.primary, marginBottom: 4 }}
+                  numberOfLines={1}
+                >
+                  {closestDueTask.title}
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.status.warning }}>
+                  Due {formatDate(closestDueTask.dueDate)}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
