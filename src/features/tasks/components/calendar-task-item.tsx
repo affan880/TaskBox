@@ -1,10 +1,9 @@
 import * as React from 'react';
-import { View, TouchableOpacity, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import { useTheme } from '@/theme/theme-context';
-import type { TaskData } from '@/types/task';
-import { createStyles } from '../styles';
+import { TaskData } from '@/types/task';
 
 type Props = {
   task: TaskData;
@@ -14,93 +13,153 @@ type Props = {
   maxTags?: number;
 };
 
-export function CalendarTaskItem({ 
-  task, 
-  onPress, 
-  showTime = true,
-  showTags = true,
-  maxTags = 2
-}: Props) {
+export function CalendarTaskItem({ task, onPress, showTime = true, showTags = true, maxTags = 2 }: Props) {
   const { colors, isDark } = useTheme();
-  const styles = createStyles(colors, isDark);
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return colors.status.error;
+      case 'medium':
+        return colors.status.warning;
+      default:
+        return colors.status.success;
+    }
+  };
+
+  const priorityColor = getPriorityColor(task.priority);
 
   return (
     <TouchableOpacity
-      style={[styles.calendarTaskItem, { backgroundColor: colors.surface.primary }]}
       onPress={() => onPress(task.id)}
+      style={{
+        backgroundColor: colors.surface.primary,
+        borderRadius: 12,
+        borderWidth: 4,
+        borderColor: colors.text.primary,
+        padding: 16,
+        marginBottom: 16,
+        transform: [{ 
+          rotate: task.priority === 'high' 
+            ? '-2deg' 
+            : task.priority === 'medium'
+            ? '1deg'
+            : '2deg' 
+        }],
+        shadowColor: colors.text.primary,
+        shadowOffset: { width: 6, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 0,
+        elevation: 8,
+      }}
     >
-      <View 
-        style={[
-          styles.calendarTaskPriorityIndicator,
-          { 
-            backgroundColor: task.priority === 'high' ? colors.status.error :
-                           task.priority === 'medium' ? colors.status.warning :
-                           colors.status.success
-          }
-        ]} 
-      />
-      <View style={styles.calendarTaskContent}>
-        <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
-          {task.title}
-        </Text>
-        {task.description && (
-          <Text 
-            style={[styles.calendarTaskDescription, { color: colors.text.secondary }]}
-            numberOfLines={2}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            backgroundColor: priorityColor,
+            marginRight: 12,
+            borderWidth: 3,
+            borderColor: colors.text.primary,
+            transform: [{ rotate: '-2deg' }],
+          }}
+        />
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: colors.text.primary,
+              marginBottom: 4,
+              textDecorationLine: task.isCompleted ? 'line-through' : 'none',
+            }}
+            numberOfLines={1}
           >
-            {task.description}
+            {task.title}
           </Text>
-        )}
-        <View style={styles.calendarTaskMeta}>
-          {showTime && task.dueDate && (
-            <View style={styles.calendarTaskTime}>
-              <FeatherIcon name="clock" size={14} color={colors.text.tertiary} />
-              <Text style={[styles.calendarTaskTimeText, { color: colors.text.tertiary }]}>
-                {format(new Date(task.dueDate), 'h:mm a')}
-              </Text>
-            </View>
+          {task.description && (
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.text.secondary,
+                marginBottom: showTime || showTags ? 8 : 0,
+                fontWeight: '500',
+              }}
+              numberOfLines={2}
+            >
+              {task.description}
+            </Text>
           )}
-          {showTags && task.tags && task.tags.length > 0 && (
-            <View style={styles.calendarTaskTags}>
-              {task.tags.slice(0, maxTags).map(tag => (
-                <View 
-                  key={tag}
-                  style={[styles.calendarTaskTag, { backgroundColor: `${colors.brand.primary}20` }]}
-                >
-                  <Text style={[styles.calendarTaskTagText, { color: colors.brand.primary }]}>
-                    {tag}
-                  </Text>
-                </View>
-              ))}
-              {task.tags.length > maxTags && (
-                <View style={[styles.calendarTaskTag, { backgroundColor: `${colors.brand.primary}20` }]}>
-                  <Text style={[styles.calendarTaskTagText, { color: colors.brand.primary }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            {showTime && task.dueDate && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: `${priorityColor}20`,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 2,
+                  borderColor: priorityColor,
+                  transform: [{ rotate: '-1deg' }],
+                }}
+              >
+                <FeatherIcon name="clock" size={14} color={priorityColor} style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 14, color: priorityColor, fontWeight: '600' }}>
+                  {format(new Date(task.dueDate), 'h:mm a')}
+                </Text>
+              </View>
+            )}
+            {showTags && task.tags && task.tags.length > 0 && (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {task.tags.slice(0, maxTags).map((tag, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      backgroundColor: `${colors.brand.primary}20`,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      borderWidth: 2,
+                      borderColor: colors.brand.primary,
+                      transform: [{ rotate: index % 2 === 0 ? '1deg' : '-1deg' }],
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: colors.brand.primary,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+                {task.tags.length > maxTags && (
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: colors.text.secondary,
+                      fontWeight: '600',
+                    }}
+                  >
                     +{task.tags.length - maxTags}
                   </Text>
-                </View>
-              )}
-            </View>
-          )}
+                )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-      <View style={[
-        styles.calendarTaskStatus,
-        { 
-          backgroundColor: task.isCompleted ? 
-            `${colors.status.success}20` : 
-            `${colors.status.warning}20`
-        }
-      ]}>
-        <Text style={[
-          styles.calendarTaskStatusText,
-          { 
-            color: task.isCompleted ? 
-              colors.status.success : 
-              colors.status.warning
-          }
-        ]}>
-          {task.isCompleted ? 'Completed' : 'Pending'}
-        </Text>
+        <FeatherIcon
+          name="chevron-right"
+          size={24}
+          color={colors.text.secondary}
+          style={{ marginLeft: 8 }}
+        />
       </View>
     </TouchableOpacity>
   );

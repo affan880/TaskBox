@@ -5,266 +5,249 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
-  Animated,
+  Platform,
+  StatusBar,
+  Dimensions,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/slices/auth-slice';
-import { useNavigation } from '@react-navigation/native';
-import { AuthNavigationProp } from '@/navigation/types';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { AuthNavigationProp, AuthStackParamList } from '@/navigation/types';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
+
+type TermsScreenRouteProp = RouteProp<AuthStackParamList, 'Terms'>;
 
 export function TermsScreen() {
-  const [isAccepted, setIsAccepted] = React.useState(false);
   const { setHasAcceptedTerms } = useAuthStore();
   const navigation = useNavigation<AuthNavigationProp>();
+  const route = useRoute<TermsScreenRouteProp>();
 
-  // Animation values
-  const contentAnimation = React.useRef(new Animated.Value(0)).current;
-  const buttonAnimation = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.sequence([
-      Animated.timing(contentAnimation, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonAnimation, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  const handleAccept = () => {
-    setHasAcceptedTerms(true);
-    navigation.navigate('Login');
+  const handleAccept = async () => {
+    await setHasAcceptedTerms(true);
+    
+    if (route.params?.onAccept) {
+      await route.params.onAccept();
+    }
+    
+    navigation.goBack();
   };
 
   const openTerms = () => {
-    Linking.openURL('https://taskbox.space/Terms-of-Use.html');
+    Linking.openURL('http://plexar.xyz/terms-of-use/');
   };
 
   const openPrivacy = () => {
-    Linking.openURL('https://taskbox.space/Privacy-Policy.html');
+    Linking.openURL('http://plexar.xyz/privacy-policy/');
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View 
-          style={[
-            styles.content,
-            {
-              opacity: contentAnimation,
-              transform: [
-                {
-                  translateY: contentAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.header}>
-            <Icon name="shield-check" size={48} color="#4CAF50" />
-            <Text style={styles.title}>Welcome to Plexar!</Text>
-            <Text style={styles.subtitle}>
-              To continue, please review and agree to our terms
-            </Text>
-          </View>
+    <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
+      <LinearGradient
+        colors={['#121212', '#2A2A2A']}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0.1, y: 0.1 }}
+        end={{ x: 0.9, y: 0.9 }}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.mainContent}>
+          {/* Header */}
+          <Text style={styles.title}>Terms & Privacy</Text>
 
+          {/* Content */}
           <View style={styles.termsContainer}>
-            <Text style={styles.termsTitle}>Terms of Service</Text>
-            <Text style={styles.termsText}>
-              By using Plexar, you agree to our Terms of Service and Privacy Policy. 
-              These terms outline how we handle your data and what you can expect from our service.
-            </Text>
-
-            <View style={styles.linksContainer}>
+            {/* Terms Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Icon name="file-document-outline" size={24} color="#0066ff" />
+                <Text style={styles.sectionTitle}>Terms of Service</Text>
+              </View>
+              <Text style={styles.termsText}>
+                By using our application, you agree to these terms. Please read them carefully before proceeding.
+              </Text>
               <TouchableOpacity 
                 style={styles.linkButton}
                 onPress={openTerms}
               >
-                <Icon name="file-document-outline" size={20} color="#4CAF50" />
-                <Text style={styles.linkText}>View Terms of Service</Text>
-                <Icon name="chevron-right" size={20} color="#666" />
+                <Text style={styles.linkText}>View Full Terms</Text>
+                <Icon name="chevron-right" size={20} color="#0066ff" />
               </TouchableOpacity>
+            </View>
 
+            {/* Privacy Section */}
+            <View style={[styles.section, { borderBottomWidth: 0 }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="shield-outline" size={24} color="#0066ff" />
+                <Text style={styles.sectionTitle}>Privacy Policy</Text>
+              </View>
+              <Text style={styles.termsText}>
+                We take your privacy seriously. Learn how we collect and protect your data.
+              </Text>
               <TouchableOpacity 
                 style={styles.linkButton}
                 onPress={openPrivacy}
               >
-                <Icon name="shield-outline" size={20} color="#4CAF50" />
-                <Text style={styles.linkText}>View Privacy Policy</Text>
-                <Icon name="chevron-right" size={20} color="#666" />
+                <Text style={styles.linkText}>View Full Policy</Text>
+                <Icon name="chevron-right" size={20} color="#0066ff" />
               </TouchableOpacity>
             </View>
+          </View>
 
-            <TouchableOpacity 
-              style={styles.checkboxContainer}
-              onPress={() => setIsAccepted(!isAccepted)}
+          {/* Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={handleAccept}
             >
-              <View style={[styles.checkbox, isAccepted && styles.checkboxChecked]}>
-                {isAccepted && <Icon name="check" size={16} color="#fff" />}
-              </View>
-              <Text style={styles.checkboxText}>
-                I have read and agree to the Terms of Service and Privacy Policy
-              </Text>
+              <Text style={styles.acceptButtonText}>Accept & Continue</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.declineButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.declineButtonText}>Decline</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
-      </ScrollView>
-
-      <Animated.View 
-        style={[
-          styles.footer,
-          {
-            opacity: buttonAnimation,
-            transform: [
-              {
-                translateY: buttonAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [20, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={[styles.button, !isAccepted && styles.buttonDisabled]}
-          onPress={handleAccept}
-          disabled={!isAccepted}
-        >
-          <Text style={styles.buttonText}>Continue</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#121212',
   },
-  scrollView: {
+  safeArea: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
+  mainContent: {
     flex: 1,
-    padding: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
+    padding: 16,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginTop: 16,
-    marginBottom: 8,
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    backgroundColor: '#ff3333',
+    padding: 12,
+    marginBottom: 24,
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '-2deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   termsContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+    overflow: 'hidden',
   },
-  termsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 12,
+  section: {
+    padding: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: '#E5E5E5',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   termsText: {
-    fontSize: 15,
-    color: '#4a4a4a',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  linksContainer: {
-    marginBottom: 24,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#000000',
+    marginBottom: 12,
   },
   linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#0066ff',
+    borderRadius: 4,
   },
   linkText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1a1a1a',
-    marginLeft: 12,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#4CAF50',
-  },
-  checkboxText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#4a4a4a',
-    lineHeight: 20,
-  },
-  footer: {
-    padding: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#0066ff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  buttonContainer: {
+    marginTop: 24,
+  },
+  acceptButton: {
+    backgroundColor: '#0066ff',
+    paddingVertical: 14,
+    borderWidth: 4,
+    borderColor: '#000000',
+    marginBottom: 12,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  acceptButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  declineButton: {
+    backgroundColor: '#ff3333',
+    paddingVertical: 14,
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  declineButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 }); 

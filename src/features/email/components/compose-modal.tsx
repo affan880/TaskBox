@@ -20,16 +20,21 @@ import { useGmail } from '@/hooks/use-gmail';
 import { showToast } from '@/components/ui/toast';
 import * as DocumentPicker from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { EmailAttachment, EmailData } from '@/types/email';
 import { EmailModal, EmailButton, EmailInput } from './shared';
+import Modal from 'react-native-modal';
+
+type Attachment = {
+  filename: string;
+  mimeType: string;
+  data: string;
+};
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSend: (to: string, subject: string, body: string, attachments?: EmailAttachment[]) => void;
-  mode?: 'reply' | 'reply-all' | 'forward' | 'new';
-  email?: EmailData;
+  onSend: (to: string, subject: string, body: string) => Promise<boolean>;
 };
 
 // Helper functions moved outside component to prevent recreation
@@ -119,7 +124,7 @@ const AttachmentItem = React.memo(({
   </View>
 ));
 
-export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email }: Props) => {
+export function ComposeModal({ visible, onClose, onSend }: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { sendEmail } = useGmail();
@@ -128,7 +133,7 @@ export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email 
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
@@ -139,31 +144,14 @@ export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email 
 
   // Memoize initial form values
   const initialFormValues = useMemo(() => {
-    if (!email || !mode) return null;
+    if (!subject) return null;
 
-    switch (mode) {
-      case 'reply':
-        return {
-          to: email.from,
-          subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-          body: `\n\nOn ${new Date(email.date).toLocaleString()}, ${email.from} wrote:\n${stripHtml(email.body || '')}`
-        };
-      case 'reply-all':
-        return {
-          to: `${email.from}, ${email.to}`,
-          subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-          body: `\n\nOn ${new Date(email.date).toLocaleString()}, ${email.from} wrote:\n${stripHtml(email.body || '')}`
-        };
-      case 'forward':
-        return {
-          to: '',
-          subject: email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`,
-          body: `\n\n---------- Forwarded message ---------\nFrom: ${email.from}\nDate: ${new Date(email.date).toLocaleString()}\nSubject: ${email.subject}\n\n${stripHtml(email.body || '')}`
-        };
-      default:
-        return null;
-    }
-  }, [email, mode]);
+    return {
+      to,
+      subject,
+      body,
+    };
+  }, [to, subject, body]);
 
   // Initialize form when email is provided
   useEffect(() => {
@@ -238,30 +226,23 @@ export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email 
     setAttachments(prev => prev.filter(a => a.id !== attachmentId));
   }, []);
 
-  const handleSend = useCallback(async () => {
-    if (!to) {
-      showToast('Please enter a recipient');
-      return;
-    }
+  const handleSend = async () => {
+    if (!to || !subject || !body) return;
 
-    setIsLoading(true);
+    setIsSending(true);
     try {
-      await onSend(to, subject, body, attachments);
-      showToast('Email sent successfully');
-      
-      // Reset form
-      setTo('');
-      setSubject('');
-      setBody('');
-      setAttachments([]);
-      
-      onClose();
-    } catch (error) {
-      showToast('Failed to send email');
+      const success = await onSend(to, subject, body);
+      if (success) {
+        setTo('');
+        setSubject('');
+        setBody('');
+        setAttachments([]);
+        onClose();
+      }
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
     }
-  }, [to, subject, body, attachments, onSend, onClose]);
+  };
 
   // Memoize attachment list
   const attachmentList = useMemo(() => (
@@ -280,147 +261,152 @@ export const ComposeModal = React.memo(({ visible, onClose, onSend, mode, email 
   ), [attachments, handleRemoveAttachment, colors, currentUploadId, uploadProgress]);
 
   return (
-    <EmailModal
+    <Modal
       isVisible={visible}
-      onClose={onClose}
-      title={mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : mode === 'forward' ? 'Forward' : 'New Email'}
-      height="90%"
+      onBackdropPress={onClose}
+      onBackButtonPress={onClose}
+      useNativeDriver
+      style={styles.modal}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-        keyboardVerticalOffset={insets.bottom}
-      >
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerLeft}>
-            <EmailButton
-              onPress={onClose}
-              icon="arrow-back"
-              label="Back"
-              variant="ghost"
-              size="small"
-            />
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              {mode === 'reply' ? 'Reply' : mode === 'reply-all' ? 'Reply All' : mode === 'forward' ? 'Forward' : 'New Message'}
-            </Text>
-          </View>
-
-          <View style={styles.headerActions}>
-            <EmailButton
-              onPress={handleAddAttachment}
-              icon="attach-file"
-              label="Add Attachment"
-              variant="ghost"
-              size="small"
-              disabled={isUploading}
-            />
-            <EmailButton
-              onPress={handleSend}
-              icon="send"
-              label="Send"
-              variant="primary"
-              size="small"
-              disabled={isLoading || isUploading}
-            />
-          </View>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>New Email</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Icon name="close" size={24} color={colors.text} />
+          </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.content}>
-            <EmailInput
-              value={to}
-              onChangeText={setTo}
-              placeholder="To"
-              label="Recipients"
-              leftIcon="mail"
-            />
-            <EmailInput
-              value={subject}
-              onChangeText={setSubject}
-              placeholder="Subject"
-              label="Subject"
-              leftIcon="tag"
-            />
-            <EmailInput
-              value={body}
-              onChangeText={setBody}
-              placeholder="Write your message..."
-              label="Message"
-              multiline
-              numberOfLines={6}
-              leftIcon="edit-2"
-            />
-            
-            {attachments.length > 0 && (
-              <View style={styles.attachmentsContainer}>
-                <Text style={[styles.attachmentsTitle, { color: colors.text }]}>
-                  Attachments ({attachments.length})
-                </Text>
-                {attachments.map(attachment => (
-                  <AttachmentItem
-                    key={attachment.id}
-                    attachment={attachment}
-                    onRemove={handleRemoveAttachment}
-                    colors={colors}
-                    currentUploadId={currentUploadId}
-                    uploadProgress={uploadProgress}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </EmailModal>
+        <View style={styles.form}>
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="To"
+            placeholderTextColor={colors.textSecondary}
+            value={to}
+            onChangeText={setTo}
+          />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Subject"
+            placeholderTextColor={colors.textSecondary}
+            value={subject}
+            onChangeText={setSubject}
+          />
+          <TextInput
+            style={[styles.bodyInput, { color: colors.text }]}
+            placeholder="Write your message..."
+            placeholderTextColor={colors.textSecondary}
+            value={body}
+            onChangeText={setBody}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.sendButton, { backgroundColor: colors.primary }]}
+          onPress={handleSend}
+        >
+          <Icon name="send" size={20} color="#FFFFFF" />
+          <Text style={styles.sendButtonText}>Send</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
-});
+}
 
 const styles = StyleSheet.create({
+  modal: {
+    margin: 0,
+    justifyContent: 'flex-end',
+  },
   container: {
-    flex: 1,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    marginBottom: 20,
   },
-  headerLeft: {
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  closeButton: {
+    padding: 8,
+    transform: [{ rotate: '2deg' }],
+  },
+  form: {
+    gap: 16,
+  },
+  input: {
+    borderWidth: 3,
+    borderColor: '#000000',
+    borderRadius: 0,
+    padding: 12,
+    fontSize: 16,
+    fontWeight: '500',
+    transform: [{ rotate: '1deg' }],
+  },
+  bodyInput: {
+    borderWidth: 3,
+    borderColor: '#000000',
+    borderRadius: 0,
+    padding: 12,
+    fontSize: 16,
+    fontWeight: '500',
+    minHeight: 200,
+    transform: [{ rotate: '1deg' }],
+  },
+  sendButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 0,
+    marginTop: 20,
+    borderWidth: 3,
+    borderColor: '#000000',
+    transform: [{ rotate: '2deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 4,
   },
-  headerTitle: {
-    fontSize: 18,
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 16,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
+    marginLeft: 8,
   },
   attachmentsContainer: {
-    marginTop: 16,
-  },
-  attachmentsTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+    marginTop: 24,
   },
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
+    marginBottom: 12,
+    borderWidth: 4,
+    borderRadius: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   attachmentContent: {
     flex: 1,
@@ -428,27 +414,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   attachmentIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 0,
     justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
+    borderWidth: 4,
   },
   attachmentDetails: {
     flex: 1,
   },
   attachmentName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    marginBottom: 4,
   },
   attachmentSize: {
     fontSize: 12,
-    marginTop: 2,
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
   },
   attachmentRemove: {
-    padding: 8,
-    marginLeft: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+    borderWidth: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
   },
 }); 

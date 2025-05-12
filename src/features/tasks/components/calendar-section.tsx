@@ -52,7 +52,6 @@ export function CalendarSection({
     
     tasks.forEach(task => {
       if (task.dueDate) {
-        // Handle ISO date strings
         const dateStr = format(new Date(task.dueDate), 'yyyy-MM-dd');
         const existingMarks = marks[dateStr] || {
           dots: [],
@@ -88,33 +87,27 @@ export function CalendarSection({
 
   return (
     <ScrollView 
-      style={[
-        styles.calendarContainer,
-        { marginBottom: 0 } // Remove bottom margin since parent handles padding
-      ]}
+      style={styles.calendarContainer}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
     >
-      <View style={styles.calendarSection}>
+      <View style={[styles.calendarSection, { transform: [{ rotate: '-0.5deg' }] }]}>
         <RNCalendar
           current={format(selectedDate, 'yyyy-MM-dd')}
           onDayPress={(day: DateData) => {
-            // Create date at midnight in local timezone to avoid date shifting
             const newDate = new Date(day.year, day.month - 1, day.day, 12, 0, 0);
             setSelectedDate(newDate);
           }}
           onDayLongPress={(day: DateData) => {
-            // Create date at midnight in local timezone to avoid date shifting
             const newDate = new Date(day.year, day.month - 1, day.day, 12, 0, 0);
             setSelectedDate(newDate);
-            // Pass serialized date string instead of Date object
             onNavigate('TaskCreation', { date: format(newDate, 'yyyy-MM-dd') });
           }}
           markedDates={markedDates}
           markingType="multi-dot"
           theme={{
-            backgroundColor: colors.background.primary,
-            calendarBackground: colors.background.primary,
+            backgroundColor: 'transparent',
+            calendarBackground: 'transparent',
             textSectionTitleColor: colors.text.secondary,
             selectedDayBackgroundColor: colors.brand.primary,
             selectedDayTextColor: colors.text.inverse,
@@ -126,16 +119,18 @@ export function CalendarSection({
             arrowColor: colors.brand.primary,
             monthTextColor: colors.text.primary,
             indicatorColor: colors.brand.primary,
-            textDayFontWeight: '500',
-            textMonthFontWeight: '600',
-            textDayHeaderFontWeight: '500',
+            textDayFontWeight: '600',
+            textMonthFontWeight: '700',
+            textDayHeaderFontWeight: '600',
+            textDayFontSize: 16,
+            textMonthFontSize: 18,
+            textDayHeaderFontSize: 14,
           }}
           enableSwipeMonths
           hideExtraDays
           firstDay={1}
           showWeekNumbers
           onMonthChange={(date) => {
-            // Create date at midnight in local timezone to avoid date shifting
             const newDate = new Date(date.year, date.month - 1, date.day, 12, 0, 0);
             setVisibleDates({
               start: startOfMonth(newDate),
@@ -148,16 +143,40 @@ export function CalendarSection({
       <Animated.View 
         style={[
           styles.selectedDateSection,
-          { opacity: fadeAnim }
+          { 
+            opacity: fadeAnim,
+            transform: [{ rotate: '0.5deg' }],
+            backgroundColor: colors.surface.primary,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: colors.text.primary,
+            padding: 16,
+            marginTop: 16,
+            shadowColor: colors.text.primary,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 0.2,
+            shadowRadius: 0,
+            elevation: 4,
+          }
         ]}
       >
         <View style={styles.selectedDateHeader}>
-          <Text style={[styles.selectedDateTitle, { color: colors.text.primary }]}>
+          <Text style={[
+            styles.selectedDateTitle,
+            { 
+              color: colors.text.primary,
+              fontSize: 24,
+              fontWeight: '700',
+            }
+          ]}>
             {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMMM d, yyyy')}
             {selectedDateTasks.length > 0 && ` • ${selectedDateTasks.length} task${selectedDateTasks.length === 1 ? '' : 's'}`}
           </Text>
           <TouchableOpacity 
-            style={styles.addTaskButton}
+            style={[
+              styles.actionButton,
+              { transform: [{ rotate: '-1deg' }] }
+            ]}
             onPress={() => onNavigate('TaskCreation', { date: format(selectedDate, 'yyyy-MM-dd') })}
           >
             <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
@@ -165,22 +184,17 @@ export function CalendarSection({
         </View>
 
         {selectedDateTasks.length > 0 && (
-          <View style={styles.calendarSection}>
-            <Text style={[styles.calendarTaskTitle, { color: colors.text.primary }]}>
-              Tasks for {format(selectedDate, 'MMMM d, yyyy')}
-            </Text>
-            <View style={styles.taskListContainer}>
-              {selectedDateTasks.map(task => (
-                <CalendarTaskItem
-                  key={task.id}
-                  task={task}
-                  onPress={(taskId: string) => onNavigate('TaskDetail', { taskId })}
-                  showTime={true}
-                  showTags={true}
-                  maxTags={2}
-                />
-              ))}
-            </View>
+          <View style={styles.taskListContainer}>
+            {selectedDateTasks.map(task => (
+              <CalendarTaskItem
+                key={task.id}
+                task={task}
+                onPress={(taskId: string) => onNavigate('TaskDetail', { taskId })}
+                showTime={true}
+                showTags={true}
+                maxTags={2}
+              />
+            ))}
           </View>
         )}
       </Animated.View>

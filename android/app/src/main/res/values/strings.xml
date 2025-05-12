@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Plexar</string>
-    <string name="default_web_client_id">@string/default_web_client_id</string>
+    <string name="default_web_client_id">your_web_client_id_here</string>
 </resources>
