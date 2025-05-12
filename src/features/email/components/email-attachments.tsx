@@ -49,84 +49,88 @@ function EmailAttachment({
   attachment,
   onPress,
   onRemove,
-  downloadProgress = 0,
-  isUploading = false,
-  uploadProgress = 0,
+  downloadProgress,
+  isUploading,
+  uploadProgress,
   showRemoveButton = false,
   disabled = false,
-}: EmailAttachmentProps): React.ReactElement {
-  const { colors, isDark } = useTheme();
-  
-  const iconName = getFileIconName(attachment.mimeType);
-  const fileSizeDisplay = formatBytes(attachment.size);
-  const isDownloading = downloadProgress > 0 && downloadProgress < 100;
-  const isComplete = downloadProgress === 100;
-  const hasError = downloadProgress === -1;
+}: EmailAttachmentProps) {
+  const { colors } = useTheme();
 
-  let statusText: string;
-  if (isUploading) {
-    statusText = `Uploading ${Math.round(uploadProgress)}%`;
-  } else if (isDownloading) {
-    statusText = `Downloading ${Math.round(downloadProgress)}%`;
-  } else if (isComplete) {
-    statusText = 'Downloaded';
-  } else if (hasError) {
-    statusText = 'Download Failed';
-  } else {
-    statusText = fileSizeDisplay;
-  }
+  const handlePress = () => {
+    if (!disabled && onPress) {
+      onPress(attachment);
+    }
+  };
+
+  const handleRemove = () => {
+    if (!disabled && onRemove) {
+      onRemove(attachment.id);
+    }
+  };
 
   return (
-    <View style={[styles.attachmentCard, { 
-      backgroundColor: isDark ? colors.background.secondary : colors.background.primary,
-      borderColor: colors.border.light,
-    }]}>
-      <TouchableOpacity
-        style={[styles.attachmentIconContainer, {
-          backgroundColor: isDark ? 'rgba(138, 180, 248, 0.2)' : 'rgba(26, 115, 232, 0.1)',
-        }]}
-        onPress={() => onPress?.(attachment)}
-        disabled={disabled || isUploading || isDownloading}
-      >
-        {isUploading || isDownloading ? (
-          <ActivityIndicator 
-            size="small" 
-            color={colors.brand.primary} 
-          />
-        ) : (
-          <Icon 
-            name={isComplete ? 'check-circle' : hasError ? 'error' : iconName} 
-            size={24} 
-            color={isComplete ? colors.status.success : 
-                   hasError ? colors.status.error : 
-                   colors.brand.primary} 
-          />
-        )}
-      </TouchableOpacity>
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={disabled || isUploading}
+      style={[
+        styles.attachmentCard,
+        {
+          backgroundColor: '#ffffff',
+          borderColor: '#000000',
+          transform: [{ rotate: '1deg' }],
+        }
+      ]}
+    >
+      <View style={[
+        styles.attachmentIconContainer,
+        {
+          backgroundColor: '#ffde59',
+          borderColor: '#000000',
+          transform: [{ rotate: '-2deg' }],
+        }
+      ]}>
+        <Icon name="insert-drive-file" size={24} color="#000000" />
+      </View>
 
       <View style={styles.attachmentDetails}>
-        <Text style={[styles.attachmentName, { color: colors.text.primary }]} numberOfLines={1}>
-          {attachment.filename || 'Unnamed Attachment'}
+        <Text style={[styles.attachmentName, { color: '#000000' }]} numberOfLines={1}>
+          {attachment.name}
         </Text>
-        <Text style={[styles.attachmentInfo, { color: colors.text.secondary }]}>
-          {(getFileExtensionFromMime(attachment.mimeType) || 'Unknown Type').toUpperCase()} • {statusText}
+        <Text style={[styles.attachmentInfo, { color: '#666666' }]}>
+          {isUploading
+            ? `Uploading... ${uploadProgress}%`
+            : downloadProgress !== undefined
+            ? `Downloading... ${downloadProgress}%`
+            : `${(attachment.size / 1024 / 1024).toFixed(2)} MB`}
         </Text>
       </View>
 
-      {showRemoveButton && onRemove && !isUploading && !isDownloading && (
+      {showRemoveButton && (
         <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => onRemove(attachment.id)}
-          disabled={disabled}
+          onPress={handleRemove}
+          disabled={disabled || isUploading}
+          style={[
+            styles.removeButton,
+            {
+              backgroundColor: '#ff3333',
+              borderColor: '#000000',
+              transform: [{ rotate: '-1deg' }],
+            }
+          ]}
         >
-          <Icon 
-            name="close" 
-            size={16} 
-            color={colors.text.tertiary} 
-          />
+          <Icon name="close" size={20} color="#ffffff" />
         </TouchableOpacity>
       )}
-    </View>
+
+      {(isUploading || downloadProgress !== undefined) && (
+        <ActivityIndicator
+          size="small"
+          color="#ff3333"
+          style={{ marginLeft: 8 }}
+        />
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -152,34 +156,25 @@ export function EmailAttachments({
   showRemoveButton = false,
   disabled = false,
 }: EmailAttachmentsProps): React.ReactElement | null {
-  const { colors } = useTheme();
-
   // Don't render anything if there are no attachments
   if (attachments.length === 0) {
     return null;
   }
 
-  const styles = StyleSheet.create({
-    container: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    title: {
-      fontSize: 14,
-      fontWeight: '500',
-      marginBottom: 8,
-      color: colors.text.secondary,
-    },
-    list: {
-      marginTop: 4,
-    },
-  });
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Attachments ({attachments.length})
-      </Text>
+      <View style={[
+        styles.titleContainer,
+        {
+          backgroundColor: '#0066ff',
+          borderColor: '#000000',
+          transform: [{ rotate: '-1deg' }],
+        }
+      ]}>
+        <Text style={styles.title}>
+          Attachments ({attachments.length})
+        </Text>
+      </View>
       <View style={styles.list}>
         {attachments.map((attachment) => (
           <EmailAttachment
@@ -209,34 +204,53 @@ const GMAIL_COLORS = {
 
 // Rule: Styles grouped at the bottom
 const styles = StyleSheet.create({
-  attachmentsSection: {
+  container: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8, // Less padding at the bottom of the section
-    borderTopWidth: 1,
-    // borderTopColor set dynamically
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
   },
-  attachmentsHeading: {
+  titleContainer: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 4,
+    borderRadius: 0,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  title: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 16, // More space below heading
+    fontFamily: 'Inter-Bold',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+  },
+  list: {
+    gap: 12,
   },
   attachmentCard: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 12,
     alignItems: 'center',
     padding: 12,
-    overflow: 'hidden',
+    borderWidth: 4,
+    borderRadius: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   attachmentIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 4,
   },
   attachmentDetails: {
     flex: 1,
@@ -244,14 +258,25 @@ const styles = StyleSheet.create({
   },
   attachmentName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Inter-Bold',
     marginBottom: 2,
   },
   attachmentInfo: {
     fontSize: 12,
+    fontFamily: 'Inter-Regular',
   },
   removeButton: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: 8,
+    borderWidth: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
   },
 });

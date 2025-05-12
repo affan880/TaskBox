@@ -132,34 +132,46 @@ export function EmailReplyActions({
 const styles = StyleSheet.create({
   replySection: {
     marginHorizontal: 8,
-    marginBottom: 8, // Keep margin bottom
-    marginTop: 16, // Add margin top to separate from content
-    borderRadius: 28, // Pill-shaped container like Gmail
+    marginBottom: 12,
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 3,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 2 }, // Slightly more shadow
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, // Elevation for Android shadow
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 0,
+    elevation: 8,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 6, // Adjust vertical padding
-    paddingHorizontal: 6, // Add horizontal padding
+    paddingVertical: 8,
+    paddingHorizontal: 8,
   },
   replyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10, // Increase touchable area height
-    paddingHorizontal: 12,
-    borderRadius: 20, // Rounded buttons
-    flex: 1, // Distribute space evenly
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    flex: 1,
     justifyContent: 'center',
-    marginHorizontal: 4, // Space between buttons
+    marginHorizontal: 4,
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 0,
+    elevation: 4,
   },
   replyIcon: {
-     marginRight: 8, // Space between icon and text
+    marginRight: 8,
+    transform: [{ rotate: '-2deg' }],
   },
   replyText: {
     fontSize: 14,
-    fontWeight: '500', // Slightly bolder text
+    fontWeight: '700',
+    transform: [{ rotate: '1deg' }],
   },
 }); 

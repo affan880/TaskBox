@@ -9,6 +9,7 @@ import {
   Dimensions,
   Animated,
   Platform,
+  Alert,
 } from 'react-native';
 import { useAuthStore } from '@/store/slices/auth-slice';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,9 +127,17 @@ export function LoginScreen() {
 
   const handleSignIn = async () => {
     if (!hasAcceptedTerms) {
-      navigation.navigate('Terms');
+      // Navigate to Terms screen first
+      navigation.navigate('Terms', {
+        onAccept: async () => {
+          // This will be called after user accepts terms
+          await signInWithGoogle();
+        }
+      });
       return;
     }
+
+    // If terms already accepted, proceed with sign in
     await signInWithGoogle();
   };
 
@@ -199,7 +208,7 @@ export function LoginScreen() {
           </Animated.View>
           
           <Text style={styles.privacyText}>
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
         </Animated.View>
       </SafeAreaView>
@@ -210,156 +219,205 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#0066ff', // Using primary blue as base
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
   },
-  // Decorative elements
+  // Decorative elements with neo-brutalist theme
   circle: {
     position: 'absolute',
-    borderRadius: 500,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#ffffff',
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '5deg' }],
   },
   circle1: {
     width: width * 1.2,
-    height: width * 1.2,
-    top: -width * 0.5,
+    height: width * 0.4,
+    top: -width * 0.2,
     left: -width * 0.3,
+    backgroundColor: '#ff3333',
   },
   circle2: {
     width: width * 0.8,
-    height: width * 0.8,
-    bottom: -width * 0.4,
+    height: width * 0.3,
+    bottom: -width * 0.15,
     right: -width * 0.4,
+    backgroundColor: '#ffde59',
+    transform: [{ rotate: '-5deg' }],
   },
   circle3: {
     width: width * 0.5,
     height: width * 0.5,
     top: height * 0.3,
     left: -width * 0.25,
+    backgroundColor: '#ffffff',
+    transform: [{ rotate: '15deg' }],
   },
   circle4: {
     width: width * 0.3,
     height: width * 0.3,
     top: height * 0.15,
     right: width * 0.1,
+    backgroundColor: '#ff3333',
+    transform: [{ rotate: '-10deg' }],
   },
-  // Logo section
+  // Logo section with neo-brutalist theme
   logoContainer: {
     alignItems: 'center',
     marginTop: height * 0.12,
+    transform: [{ rotate: '-2deg' }],
   },
   logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 140,
+    height: 140,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 8, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    transform: [{ rotate: '3deg' }],
   },
   logo: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
+    transform: [{ rotate: '-3deg' }],
   },
   logoText: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 72,
+    fontFamily: 'Montserrat-Bold',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 12,
-    letterSpacing: 0.5,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    backgroundColor: '#ff3333',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
   },
   logoTagline: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 18,
     textAlign: 'center',
-    maxWidth: width * 0.7,
+    maxWidth: width * 0.8,
+    fontFamily: 'Inter-Regular',
+    letterSpacing: 0.5,
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    transform: [{ rotate: '1deg' }],
   },
-  // Error display
+  // Error display with neo-brutalist theme
   errorContainer: {
-    backgroundColor: 'rgba(220, 38, 38, 0.8)',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#ff3333',
+    padding: 20,
     marginVertical: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    transform: [{ rotate: '-1deg' }],
   },
   errorIcon: {
-    marginRight: 10,
+    marginRight: 12,
+    transform: [{ scale: 1.2 }],
   },
   errorText: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 16,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontFamily: 'Inter-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  // Button section
+  // Button section with neo-brutalist theme
   buttonContainer: {
     marginBottom: height * 0.1,
     alignItems: 'center',
+    transform: [{ rotate: '1deg' }],
   },
   googleButton: {
     width: width * 0.85,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    backgroundColor: '#ffffff',
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 8, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 3,
     marginBottom: 20,
+    transform: [{ rotate: '-1deg' }],
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 20 : 18,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
   },
   buttonDisabled: {
     opacity: 0.7,
+    transform: [{ scale: 0.98 }],
   },
   googleIconContainer: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     marginRight: 24,
     marginLeft: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#000000',
+    transform: [{ rotate: '5deg' }],
   },
   googleIcon: {
     width: 24,
     height: 24,
   },
   buttonText: {
-    color: 'rgba(0, 0, 0, 0.87)',
-    fontSize: 15,
-    fontWeight: '500',
-    letterSpacing: 0.25,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    color: '#000000',
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     textAlign: 'left',
     flex: 1,
   },
   privacyText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 14,
     textAlign: 'center',
     maxWidth: width * 0.8,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+    marginTop: 24,
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    transform: [{ rotate: '-1deg' }],
   },
 }); 

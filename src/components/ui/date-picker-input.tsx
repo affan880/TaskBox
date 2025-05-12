@@ -104,6 +104,7 @@ export function DatePickerInput({
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'} // 'spinner' for iOS, 'default' (modal/spinner) for Android
           onChange={handleDateChange}
+          
         //   minimumDate={minimumDate}
         //   maximumDate={maximumDate}
           // Optional: Apply theme-based text color for the picker itself if possible/needed

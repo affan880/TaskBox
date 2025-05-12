@@ -1,49 +1,39 @@
-import * as React from 'react';
+import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { LoginScreen } from '@/features/auth/login-screen';
 import { OnboardingScreen } from '@/features/auth/onboarding-screen';
+import { LoginScreen } from '@/features/auth/login-screen';
 import { TermsScreen } from '@/features/auth/terms-screen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuthStore } from '@/store/slices/auth-slice';
-import { useEffect, useState } from 'react';
 
 export type AuthStackParamList = {
-  Login: undefined;
   Onboarding: undefined;
-  Terms: undefined;
+  Login: undefined;
+  Terms: {
+    onAccept?: () => Promise<void>;
+  };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator() {
-  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
-  const { hasAcceptedTerms } = useAuthStore();
-
-  useEffect(() => {
-    AsyncStorage.getItem('alreadyLaunched').then(value => {
-      if (value === null) {
-        AsyncStorage.setItem('alreadyLaunched', 'true');
-        setIsFirstLaunch(true);
-      } else {
-        setIsFirstLaunch(false);
-      }
-    });
-  }, []);
-
-  if (isFirstLaunch === null) {
-    return null;
-  }
-
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        animation: 'slide_from_right',
       }}
-      initialRouteName={isFirstLaunch ? 'Onboarding' : hasAcceptedTerms ? 'Login' : 'Terms'}
     >
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Terms" component={TermsScreen} />
+      <Stack.Screen 
+        name="Terms" 
+        component={TermsScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
     </Stack.Navigator>
   );
-} 
+}
+
+export { Stack as AuthStack }; 

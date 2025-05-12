@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { View, TouchableOpacity, Text, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, TouchableOpacity, Text, ScrollView, ActivityIndicator, Platform, Animated, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import FeatherIcon from 'react-native-vector-icons/Feather';
@@ -37,6 +37,198 @@ type RootStackParamList = {
 
 type NavigationPropType = NavigationProp<RootStackParamList>;
 
+const HEADER_ROTATION = '-1deg';
+const BUTTON_ROTATION = '1deg';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 3,
+    transform: [{ rotate: '-1deg' }],
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  backButton: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 4,
+  },
+  addButton: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 3,
+    transform: [{ rotate: '2deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    transform: [{ rotate: '1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 0,
+    elevation: 4,
+  },
+  activeFilterButton: {
+    transform: [{ rotate: '1deg' }],
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.25,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  taskList: {
+    flex: 1,
+  },
+  emptyList: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 24,
+    transform: [{ rotate: '-1deg' }],
+  },
+  emptyListText: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 16,
+    transform: [{ rotate: '2deg' }],
+  },
+  taskItem: {
+    borderRadius: 12,
+    borderWidth: 3,
+    padding: 16,
+    marginBottom: 16,
+    transform: [{ rotate: '-1deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 3,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '2deg' }],
+  },
+  taskTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  taskDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  taskMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    transform: [{ rotate: '1deg' }],
+  },
+  taskMetaText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '2deg' }],
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 0,
+    elevation: 8,
+  },
+});
+
 export function TaskScreen() {
   const navigation = useNavigation<NavigationPropType>();
   const { colors, isDark } = useTheme();
@@ -52,7 +244,17 @@ export function TaskScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load tasks when component mounts
+  // Animation value for hover effect
+  const buttonScale = React.useRef(new Animated.Value(1)).current;
+
+  const animateButton = (toValue: number) => {
+    Animated.spring(buttonScale, {
+      toValue,
+      useNativeDriver: true,
+      friction: 3,
+    }).start();
+  };
+
   useEffect(() => {
     const initializeTasks = async () => {
       try {
@@ -95,13 +297,22 @@ export function TaskScreen() {
   if (error) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <View style={[styles.errorContainer, { transform: [{ rotate: BUTTON_ROTATION }] }]}>
           <Text style={[styles.errorText, { color: colors.status.error }]}>{error}</Text>
           <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: colors.brand.primary }]}
+            style={[styles.retryButton, {
+              backgroundColor: colors.surface.primary,
+              borderWidth: 3,
+              borderColor: colors.border.medium,
+              shadowColor: '#000000',
+              shadowOffset: { width: 4, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 0,
+              elevation: 4,
+            }]}
             onPress={() => loadTasks()}
           >
-            <Text style={[styles.retryButtonText, { color: colors.text.inverse }]}>Retry</Text>
+            <Text style={[styles.retryButtonText, { color: colors.text.primary }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -110,34 +321,78 @@ export function TaskScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, {
+        backgroundColor: colors.surface.primary,
+        borderWidth: 3,
+        borderColor: colors.border.medium,
+        transform: [{ rotate: HEADER_ROTATION }],
+        shadowColor: '#000000',
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 0,
+        elevation: 4,
+        marginBottom: 16,
+      }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleContainer}>
-            <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tasks</Text>
+            <Text style={[styles.headerTitle, { 
+              color: colors.text.primary,
+              fontSize: 28,
+              fontWeight: '700',
+            }]}>Tasks</Text>
           </View>
-          <TouchableOpacity 
-            style={[styles.addButton, { backgroundColor: colors.brand.primary }]} 
-            onPress={() => handleNavigate('TaskCreation')}
-          >
-            <FeatherIcon name="plus" size={20} color={colors.text.inverse} />
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+            <TouchableOpacity 
+              style={[styles.addButton, {
+                backgroundColor: colors.brand.primary,
+                borderWidth: 2,
+                borderColor: colors.border.medium,
+                transform: [{ rotate: BUTTON_ROTATION }],
+                shadowColor: '#000000',
+                shadowOffset: { width: 3, height: 3 },
+                shadowOpacity: 0.2,
+                shadowRadius: 0,
+                elevation: 3,
+                padding: 12,
+                borderRadius: 12,
+              }]}
+              onPress={() => handleNavigate('TaskCreation')}
+              onPressIn={() => animateButton(0.95)}
+              onPressOut={() => animateButton(1)}
+            >
+              <FeatherIcon name="plus" size={24} color={colors.text.inverse} />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
         
-        <View style={[styles.tabsContainer]}>
+        <View style={[styles.tabsContainer, {
+          backgroundColor: colors.surface.secondary,
+          borderRadius: 12,
+          padding: 4,
+          marginTop: 12,
+        }]}>
           {['Calendar', 'Overview', 'Analytics'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[
                 styles.tabButton,
-                activeTab === tab && [styles.activeTabButton, { borderBottomColor: colors.brand.primary }],
+                {
+                  borderRadius: 8,
+                  padding: 12,
+                  backgroundColor: activeTab === tab ? colors.brand.primary : 'transparent',
+                  transform: [{ rotate: activeTab === tab ? '1deg' : '0deg' }],
+                },
               ]}
               onPress={() => setActiveTab(tab as ActiveTab)}
             >
               <Text
                 style={[
                   styles.tabButtonText,
-                  { color: colors.text.secondary },
-                  activeTab === tab && { color: colors.brand.primary },
+                  {
+                    color: activeTab === tab ? colors.text.inverse : colors.text.secondary,
+                    fontWeight: '600',
+                    fontSize: 16,
+                  },
                 ]}
               >
                 {tab}
@@ -148,10 +403,12 @@ export function TaskScreen() {
       </View>
       
       <ScrollView 
-        style={styles.contentContainer}
+        style={[styles.contentContainer, {
+          paddingHorizontal: 16,
+        }]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: Platform.OS === 'android' ? 120 : 90 // Account for tab bar height + safe area
+          paddingBottom: Platform.OS === 'android' ? 120 : 90
         }}
       >
         {activeTab === 'Calendar' ? (

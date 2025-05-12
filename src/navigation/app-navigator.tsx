@@ -39,7 +39,6 @@ import { HelpSupportScreen } from '@/features/settings/help-support-screen';
 import { PrivacyPolicyScreen } from '@/features/settings/privacy-policy-screen';
 import { TermsOfServiceScreen } from '@/features/settings/terms-of-service-screen';
 import { DeleteAccountScreen } from '@/features/settings/delete-account-screen';
-
 // Define navigator types
 export type RootStackParamList = {
   MainTabs: { initialScreen?: 'Email' | 'Compose' | 'Home' | 'Profile' };
@@ -110,22 +109,38 @@ const TabItem = React.memo(({
       testID={testID}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={styles.tabItem}
+      style={[
+        styles.tabItem,
+        isFocused && styles.tabItemFocused
+      ]}
       activeOpacity={0.7}
     >
       {isFocused ? (
-        <View style={[styles.activeTabPill, { backgroundColor: colors.brand.primary }]}>
+        <View style={[
+          styles.activeTabPill,
+          { 
+            backgroundColor: colors.brand.primary,
+            transform: [{ rotate: '1deg' }]
+          }
+        ]}>
           <Icon 
             name={config.focusedIcon} 
             size={label ? 20 : 24}
             color="#FFFFFF"
+            style={styles.activeIcon}
           />
           {label && (
-            <Text style={styles.activeTabText}>{label}</Text>
+            <Text style={[
+              styles.activeTabText,
+              { transform: [{ rotate: '-0.5deg' }] }
+            ]}>{label}</Text>
           )}
         </View>
       ) : (
-        <View style={styles.inactiveIconContainer}> 
+        <View style={[
+          styles.inactiveIconContainer,
+          { transform: [{ rotate: '-1deg' }] }
+        ]}> 
           <Icon 
             name={config.unfocusedIcon} 
             size={24} 
@@ -222,11 +237,11 @@ export const MainTabNavigator = React.memo(() => {
   const pagerRef = React.useRef<PagerView>(null);
   const route = useRoute<RouteProp<RootStackParamList, 'MainTabs'>>();
   const initialScreen = route.params?.initialScreen;
+  const { colors } = useTheme();
 
   // Define the order and components for the pager
   const routes = [
     { key: 'inbox', name: 'Email', component: EmailScreen },
-    { key: 'Compose', name: 'Compose', component: ComposeScreen },
     { key: 'tasks', name: 'Home', component: TaskScreen },
     { key: 'profile', name: 'Profile', component: ProfileNavigator },
   ];
@@ -253,15 +268,18 @@ export const MainTabNavigator = React.memo(() => {
   }, []);
 
   return (
-    <View style={styles.pagerContainer}> 
+    <View style={[styles.pagerContainer, { backgroundColor: colors.background.primary }]}> 
       <PagerView
         ref={pagerRef}
         style={styles.pagerView}
         initialPage={0}
         onPageSelected={handlePageSelected}
+        scrollEnabled={true}
+        overdrag={true}
+        overScrollMode="always"
       >
         {routes.map((route) => (
-          <View key={route.key} style={styles.page}>
+          <View key={route.key} style={[styles.page, { backgroundColor: colors.background.primary }]}>
             <route.component />
           </View>
         ))}
@@ -331,7 +349,7 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             options={({ navigation }) => ({
               presentation: 'modal',
               animation: 'slide_from_bottom',
-              headerShown: true,
+              headerShown: false,
               headerLeft: () => (
                 <TouchableOpacity
                   onPress={() => {
@@ -510,35 +528,51 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
+    backgroundColor: '#ffffff',
+    paddingBottom: 80, // Add padding for the tab bar
   },
   tabBarContainer: {
     position: 'absolute', 
     alignSelf: 'center',
     flexDirection: 'row',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 12,
+    justifyContent: 'space-around',
+    height: 64,
+    borderRadius: 0,
     paddingVertical: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     width: '92%',
     zIndex: 1000,
+    backgroundColor: '#ffffff',
+    borderWidth: 4,
+    borderColor: '#000000',
+    transform: [{ rotate: '-0.5deg' }],
+    bottom: Platform.OS === 'ios' ? 30 : 24,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
-    minWidth: 64,
+    height: 44,
+    minWidth: 72,
+    marginHorizontal: 4,
+  },
+  tabItemFocused: {
+    transform: [{ scale: 1.05 }],
   },
   inactiveIconContainer: { 
     alignItems: 'center',    
     justifyContent: 'center',
     paddingHorizontal: 12,
     height: '100%',
-    opacity: 0.7,
+    opacity: 0.8,
+    borderWidth: 3,
+    borderColor: '#00000030',
+    borderRadius: 0,
+    backgroundColor: '#ffffff',
   },
   activeTabPill: {
     flexDirection: 'row',
@@ -546,15 +580,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,        
-    height: '100%',          
+    borderRadius: 0,        
+    height: '100%',
+    borderWidth: 4,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
+  },
+  activeIcon: {
+    transform: [{ rotate: '-0.5deg' }],
   },
   activeTabText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-    letterSpacing: 0.2,
+    fontWeight: '700',
+    marginLeft: 8,
+    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    textTransform: 'uppercase',
   },
   loadingContainer: {
     flex: 1,

@@ -8,7 +8,8 @@ import {
   RefreshControl, 
   StyleSheet,
   Animated,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { EmailListItem } from './email-list-item';
 import { useTheme } from 'src/theme/theme-context';
@@ -229,17 +230,13 @@ export function EmailList({
     );
   };
 
-  // Modified loading condition - emails.length is checked as a fallback
-  // Show loader when either: 
-  // 1. We're loading and haven't completed initial load
-  // 2. We're loading and have no emails yet
-  if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0)) {
-    if (DEBUG) console.log('EmailList: Displaying loading indicator');
+  // Modified loading condition
+  if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0 && selectedCategory !== 'All')) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background?.secondary || '#f7f8fa' }]}>
-        <ActivityIndicator size="large" color={colors.brand?.primary || '#6366f1'} />
-        <Text style={[styles.loadingText, { color: colors.text?.secondary || '#4b5563' }]}>
-          Loading your emails...
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background?.secondary }]}>
+        <ActivityIndicator size="large" color={colors.brand?.primary} />
+        <Text style={[styles.loadingText, { color: colors.text?.secondary }]}>
+          {isAnalyzing ? 'Analyzing your emails...' : 'Loading your emails...'}
         </Text>
       </View>
     );
@@ -247,76 +244,70 @@ export function EmailList({
 
   // Empty state for the email list  
   if (!isLoading && emails.length === 0) {
-    if (DEBUG) console.log('EmailList: Displaying empty state');
-    
-    let message = `No emails found in "${selectedCategory}"`;
-    let description = 'Pull down to refresh or try another category';
-    
-    if (searchQuery) {
-      message = `No results found for "${searchQuery}"`;
-      description = 'Try a different search term';
-    }
-    
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: colors.background?.secondary || '#f7f8fa' }]}>
-        <Icon name={searchQuery ? 'search-off' : 'drafts'} size={64} color={colors.text?.tertiary || '#9ca3af'} />
-        <Text style={[styles.emptyTitle, { color: colors.text?.primary || '#111827' }]}>
-          {message}
+      <View style={[styles.emptyContainer, { 
+        backgroundColor: colors.background?.secondary,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }]}>
+        <Icon 
+          name={searchQuery ? 'search-off' : 'drafts'} 
+          size={64} 
+          color={colors.text?.tertiary} 
+        />
+        <Text style={[styles.emptyTitle, { 
+          color: colors.text?.primary,
+          textAlign: 'center',
+          marginTop: 16,
+        }]}>
+          {searchQuery ? `No results found for "${searchQuery}"` : `No emails found in "${selectedCategory}"`}
         </Text>
-        <Text style={[styles.emptyMessage, { color: colors.text?.secondary || '#4b5563' }]}>
-          {description}
+        <Text style={[styles.emptyMessage, { 
+          color: colors.text?.secondary,
+          textAlign: 'center',
+          marginTop: 8,
+        }]}>
+          {searchQuery ? 'Try a different search term' : 'Pull down to refresh or try another category'}
         </Text>
         
-        {selectedCategory === 'All' && (
-          <TouchableOpacity 
+        {/* Add Smart Sort Button if enabled */}
+        {onSmartSort && !searchQuery && (
+          <TouchableOpacity
             style={[
-              styles.refreshButton, 
+              styles.smartSortButton,
               { 
-                backgroundColor: colors.brand?.primary || '#6366f1',
+                backgroundColor: colors.brand?.primary,
+                marginTop: 24,
                 paddingHorizontal: 24,
                 paddingVertical: 12,
-                borderRadius: 20,
-                marginTop: 16,
-                elevation: 2,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-              }
-            ]}
-            onPress={handleRefresh}
-          >
-            <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
-          </TouchableOpacity>
-        )}
-
-        {selectedCategory !== 'All' && !searchQuery && onSmartSort && (
-          <TouchableOpacity 
-            style={[
-              styles.smartSortButton, 
-              { 
-                backgroundColor: colors.brand?.primary || '#6366f1',
-                marginTop: 12,
-                paddingHorizontal: 24,
-                paddingVertical: 12,
-                borderRadius: 20,
-                elevation: 2,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
+                borderRadius: 0,
+                borderWidth: 3,
+                borderColor: '#000000',
+                transform: [{ rotate: '2deg' }],
+                shadowColor: '#000000',
+                shadowOffset: { width: 4, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 0,
+                elevation: 8,
               }
             ]}
             onPress={onSmartSort}
             disabled={isAnalyzing}
           >
             {isAnalyzing ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={[styles.smartSortButtonText, { color: '#FFFFFF' }]}>Analyzing...</Text>
+              </>
             ) : (
               <>
-                <Icon name="sort" size={18} color="#ffffff" style={styles.smartSortIcon} />
-                <Text style={styles.smartSortText}>Smart Sort</Text>
+                <Image 
+                  source={require('@/assets/images/feather.png')}
+                  style={[styles.buttonIcon, { width: 20, height: 20, tintColor: '#FFFFFF' }]}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.smartSortButtonText, { color: '#FFFFFF' }]}>Smart Sort</Text>
               </>
             )}
           </TouchableOpacity>
@@ -325,9 +316,6 @@ export function EmailList({
     );
   }
 
-  // Debug output for when we're rendering the actual list
-  if (DEBUG) console.log(`EmailList: Rendering FlatList with ${emails.length} emails`);
-  
   return (
     <View style={styles.container}>
       {isMultiSelectMode && (
@@ -342,154 +330,20 @@ export function EmailList({
       
       <FlatList
         ref={flatListRef}
-        contentContainerStyle={[
-          styles.listContent,
-          emails.length === 0 && { flex: 1 } // Add flex: 1 when empty to enable pull-to-refresh
-        ]}
+        contentContainerStyle={styles.listContent}
         data={emails}
-        renderItem={({ item }) => {
-          return (
-            <EmailListItem
-              email={item}
-              onPress={() => handleOpenEmail(item.id)}
-              onLongPress={() => handleLongPress(item.id)}
-              isSelected={isMultiSelectMode && selectedEmails.includes(item.id)}
-              onToggleRead={onToggleRead || (() => {})}
-            />
-          );
-        }}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.brand.primary]}
-            tintColor={colors.brand.primary}
-            progressViewOffset={Platform.OS === 'android' ? 20 : 0} // Add offset for Android
-            progressBackgroundColor={colors.background.secondary}
+        renderItem={({ item }) => (
+          <EmailListItem
+            email={item}
+            onPress={() => handleOpenEmail(item.id)}
+            onLongPress={() => handleLongPress(item.id)}
+            isSelected={isMultiSelectMode && selectedEmails.includes(item.id)}
+            onToggleRead={onToggleRead || (() => {})}
           />
-        }
-        ListEmptyComponent={() => {
-          // Check if it's an active search with no results after loading
-          const isSearchActiveAndEmpty = searchQuery.trim().length > 0 && !isLoading && emails.length === 0;
-
-          if (isSearchActiveAndEmpty) {
-            return (
-              <View style={[styles.emptyContainer, { flex: 1 }]}>
-                <Icon name="search_off" size={64} color={colors.text.tertiary} />
-                <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-                  No results found for "{searchQuery}"
-                </Text>
-                {selectedCategory === 'All' && (
-                  <TouchableOpacity 
-                    style={[
-                      styles.refreshButton, 
-                      { 
-                        backgroundColor: colors.brand?.primary || '#6366f1',
-                        paddingHorizontal: 24,
-                        paddingVertical: 12,
-                        borderRadius: 20,
-                        marginTop: 16,
-                        elevation: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                      }
-                    ]}
-                    onPress={handleRefresh}
-                  >
-                    <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                    <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          }
-          
-          if (selectedCategory !== "All" && !isLoading) {
-            return (
-              <View style={[styles.emptyContainer, { flex: 1 }]}>
-                <Icon name="filter_list" size={64} color={colors.text.tertiary} />
-                <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-                  No emails in this category
-                </Text>
-                {onSmartSort && (
-                  <TouchableOpacity 
-                    style={[
-                      styles.smartSortButton, 
-                      { 
-                        backgroundColor: colors.brand.primary,
-                        paddingHorizontal: 24,
-                        paddingVertical: 12,
-                        borderRadius: 20,
-                        marginTop: 16,
-                        elevation: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                      }
-                    ]}
-                    onPress={onSmartSort}
-                    disabled={isAnalyzing}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <ActivityIndicator size="small" color="#ffffff" style={styles.buttonIcon} />
-                        <Text style={styles.smartSortButtonText}>Analyzing...</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="sort" size={18} color="#ffffff" style={styles.buttonIcon} />
-                        <Text style={styles.smartSortButtonText}>Smart Sort</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          }
-          
-          return (
-            <View style={[styles.emptyContainer, { flex: 1 }]}>
-              <Icon name="inbox" size={64} color={colors.text.tertiary} />
-              <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-                {isLoading ? 'Loading emails...' : 'No emails found'}
-              </Text>
-              {selectedCategory === 'All' && !isLoading && (
-                <TouchableOpacity 
-                  style={[
-                    styles.refreshButton, 
-                    { 
-                      backgroundColor: colors.brand?.primary || '#6366f1',
-                      paddingHorizontal: 24,
-                      paddingVertical: 12,
-                      borderRadius: 20,
-                      marginTop: 16,
-                      elevation: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                    }
-                  ]}
-                  onPress={handleRefresh}
-                >
-                  <Icon name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Refresh</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        }}
-        ListFooterComponent={renderFooter()}
-        onEndReached={handleLoadMoreWrapper}
-        onEndReachedThreshold={0.3}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={10}
+        )}
+        keyExtractor={(item) => item.id}
+        scrollEnabled={false} // Disable scrolling as parent ScrollView handles it
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -501,36 +355,43 @@ EmailList.displayName = 'EmailList';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
   },
   listContent: {
-    flexGrow: 1,
-    paddingTop: 16, // Reduced from 130px to 16px to fix the spacing issue
-    paddingBottom: 20, // Add bottom padding for better scroll experience
+    paddingBottom: 16,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 20,
     alignItems: 'center',
-    padding: SPACING.md,
-    minHeight: 300, // Add minimum height to ensure pull-to-refresh works
+    justifyContent: 'center',
+    minHeight: 200,
   },
-  emptyText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.md,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyMessage: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.lg,
-  },
-  loadingText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    marginTop: SPACING.md,
   },
   loaderFooter: {
     flexDirection: 'row',
@@ -551,23 +412,16 @@ const styles = StyleSheet.create({
   smartSortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: BORDER_RADIUS.lg,
-    marginTop: SPACING.md,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    minWidth: 160,
   },
   smartSortButtonText: {
-    color: '#ffffff',
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   buttonIcon: {
-    marginRight: 8,
+    transform: [{ rotate: '-15deg' }],
   },
   actionBar: {
     flexDirection: 'row',
@@ -598,36 +452,5 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingMore: {
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 24,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyMessage: {
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 24,
-    maxWidth: 280,
-  },
-  smartSortIcon: {
-    marginRight: 8,
-  },
-  smartSortText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
   },
 }); 

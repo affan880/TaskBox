@@ -30,9 +30,23 @@ export function EmailSenderInfo({
   const isDark = gmailTheme === GMAIL_COLORS.dark; // Simple check
 
   return (
-    <View style={[styles.senderContainer, { borderBottomColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }]}>
+    <View style={[
+      styles.senderContainer,
+      {
+        backgroundColor: '#ffffff',
+        borderColor: '#000000',
+        transform: [{ rotate: '0.5deg' }],
+      }
+    ]}>
       {/* Avatar */}
-      <View style={[styles.avatarCircle, { backgroundColor: isDark ? '#5E81AC' : gmailTheme.primary }]}>
+      <View style={[
+        styles.avatarCircle,
+        {
+          backgroundColor: '#ff3333',
+          borderColor: '#000000',
+          transform: [{ rotate: '-1deg' }],
+        }
+      ]}>
         <Text style={styles.avatarText}>{senderInitial}</Text>
       </View>
 
@@ -40,57 +54,78 @@ export function EmailSenderInfo({
       <View style={styles.senderDetails}>
         {/* Collapsed Row */}
         <View style={styles.senderRow}>
-          <Text style={[styles.senderName, { color: gmailTheme.text.primary }]} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.senderName} numberOfLines={1} ellipsizeMode="tail">
             {senderName}
           </Text>
-          <Text style={[styles.dateText, { color: gmailTheme.text.secondary }]}>
-            {formattedDate} {/* TODO: Better date formatting (e.g., time ago) */}
+          <Text style={styles.dateText}>
+            {formattedDate}
           </Text>
         </View>
 
         {/* Recipient Row with Expand Toggle */}
         <View style={styles.recipientRow}>
-          <Text style={[styles.recipientText, { color: gmailTheme.text.secondary }]} numberOfLines={1}>
+          <Text style={styles.recipientText} numberOfLines={1}>
             to {toRecipient}
           </Text>
           <TouchableOpacity
             onPress={onToggleExpand}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={[
+              styles.expandButton,
+              {
+                backgroundColor: '#ffde59',
+                borderColor: '#000000',
+                transform: [{ rotate: '-1deg' }],
+              }
+            ]}
           >
             <Icon
               name={isExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
               size={18}
-              color={gmailTheme.text.secondary}
+              color="#000000"
             />
           </TouchableOpacity>
         </View>
 
         {/* Expanded Details */}
-        {/* Rule: Conditional Rendering */}
         {isExpanded && (
           <Animatable.View
             animation="fadeIn"
             duration={200}
-            style={[styles.expandedHeader, { borderTopColor: gmailTheme.border }]}
+            style={[
+              styles.expandedHeader,
+              {
+                backgroundColor: '#ffffff',
+                borderColor: '#000000',
+                transform: [{ rotate: '-0.5deg' }],
+              }
+            ]}
           >
             <View style={styles.headerDetailRow}>
-              <Text style={[styles.headerLabel, { color: gmailTheme.text.secondary }]}>From:</Text>
-              <Text style={[styles.headerValue, { color: gmailTheme.text.primary }]} selectable>{senderName} &lt;{senderEmail}&gt;</Text>
+              <Text style={styles.headerLabel}>From:</Text>
+              <Text style={styles.headerValue} selectable>
+                {senderName} &lt;{senderEmail}&gt;
+              </Text>
             </View>
             <View style={styles.headerDetailRow}>
-              <Text style={[styles.headerLabel, { color: gmailTheme.text.secondary }]}>To:</Text>
-              <Text style={[styles.headerValue, { color: gmailTheme.text.primary }]} selectable>{toRecipient}</Text>
+              <Text style={styles.headerLabel}>To:</Text>
+              <Text style={styles.headerValue} selectable>
+                {toRecipient}
+              </Text>
             </View>
-            {/* Rule: Conditional Rendering */}
             {ccRecipients && (
               <View style={styles.headerDetailRow}>
-                <Text style={[styles.headerLabel, { color: gmailTheme.text.secondary }]}>Cc:</Text>
-                <Text style={[styles.headerValue, { color: gmailTheme.text.primary }]} selectable>{ccRecipients}</Text>
+                <Text style={styles.headerLabel}>Cc:</Text>
+                <Text style={styles.headerValue} selectable>
+                  {ccRecipients}
+                </Text>
               </View>
             )}
             <View style={styles.headerDetailRow}>
-              <Text style={[styles.headerLabel, { color: gmailTheme.text.secondary }]}>Date:</Text>
-              <Text style={[styles.headerValue, { color: gmailTheme.text.primary }]} selectable>{formattedDate}</Text>
+              <Text style={styles.headerLabel}>Date:</Text>
+              <Text style={styles.headerValue} selectable>
+                {formattedDate}
+              </Text>
             </View>
           </Animatable.View>
         )}
@@ -113,21 +148,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    // borderBottomColor set dynamically
+    borderWidth: 4,
+    borderRadius: 0,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 8,
   },
   avatarCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 4,
   },
   avatarText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: 'white',
+    fontFamily: 'Inter-Bold',
+    color: '#ffffff',
   },
   senderDetails: {
     flex: 1,
@@ -137,45 +179,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   senderName: {
-    fontSize: 14,
-    fontWeight: '500',
-    flexShrink: 1, // Allow name to shrink if date is long
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    flexShrink: 1,
     marginRight: 8,
   },
   dateText: {
-    fontSize: 12, // Make date slightly smaller
-    marginLeft: 'auto', // Push date to the right
-    flexShrink: 0, // Prevent date from shrinking
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
+    marginLeft: 'auto',
+    flexShrink: 0,
   },
   recipientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2, // Adjust vertical spacing
+    marginTop: 4,
   },
   recipientText: {
     fontSize: 14,
-    marginRight: 4, // Space before dropdown icon
-    flexShrink: 1, // Allow recipient text to shrink
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
+    marginRight: 8,
+    flexShrink: 1,
+  },
+  expandButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
   },
   expandedHeader: {
     marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+    padding: 12,
+    borderWidth: 4,
+    borderRadius: 0,
   },
   headerDetailRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   headerLabel: {
     fontSize: 14,
-    width: 50, // Keep fixed width for alignment
-    marginRight: 8, // Space between label and value
+    fontFamily: 'Inter-Bold',
+    color: '#000000',
+    width: 50,
+    marginRight: 8,
   },
   headerValue: {
     fontSize: 14,
-    flex: 1, // Allow value to take remaining space
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
+    flex: 1,
   },
 });

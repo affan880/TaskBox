@@ -160,9 +160,8 @@ export function CategoryFilterBar({
     categoryBarContainer: {
       paddingHorizontal: 16,
       paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth, 
-      borderBottomColor: colors.border?.medium ?? '#e0e0e0', 
       backgroundColor: colors.background?.primary ?? '#ffffff',
+      transform: [{ rotate: '1deg' }],
     },
     categoryList: {
       paddingVertical: 4,
@@ -172,42 +171,52 @@ export function CategoryFilterBar({
       marginRight: 12,
     },
     categoryButton: {
-      paddingVertical: 8, 
+      paddingVertical: 8,
       paddingHorizontal: 18,
-      borderRadius: 24, 
+      borderRadius: 0,
       minWidth: 80,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: '#000000',
+      shadowColor: '#000000',
+      shadowOffset: { width: 2, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 0,
+      elevation: 4,
+      transform: [{ rotate: '-1deg' }],
     },
     categoryButtonInactive: {
       backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
     },
     categoryButtonActive: {
       backgroundColor: colors.brand?.primary ?? '#6366f1',
+      transform: [{ rotate: '1deg' }],
     },
     categoryText: {
       fontSize: 15,
-      fontWeight: '500' as FontWeight,
+      fontWeight: '600' as FontWeight,
     },
     categoryTextInactive: {
-      color: colors.text?.secondary ?? '#666666', 
+      color: colors.text?.primary ?? '#000000',
     },
     categoryTextActive: {
-      color: '#ffffff', 
+      color: '#ffffff',
     },
     categoryCount: {
       position: 'absolute',
-      top: -6,
-      right: -6,
+      top: -8,
+      right: -8,
       backgroundColor: colors.brand?.secondary ?? '#ff3b30',
-      borderRadius: 12,
+      borderRadius: 0,
       minWidth: 24,
       height: 24,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 6,
       borderWidth: 2,
-      borderColor: colors.background?.primary ?? '#ffffff',
+      borderColor: '#000000',
+      transform: [{ rotate: '2deg' }],
     },
     categoryCountText: {
       color: '#ffffff',
@@ -231,17 +240,25 @@ export function CategoryFilterBar({
     addCategoryButton: {
       paddingVertical: 8,
       paddingHorizontal: 18,
-      borderRadius: 24,
+      borderRadius: 0,
       minWidth: 80,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
       flexDirection: 'row',
+      borderWidth: 3,
+      borderColor: '#000000',
+      shadowColor: '#000000',
+      shadowOffset: { width: 2, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 0,
+      elevation: 4,
+      transform: [{ rotate: '2deg' }],
     },
     addCategoryText: {
       fontSize: 15,
-      fontWeight: '500' as FontWeight,
-      color: colors.text?.secondary ?? '#666666',
+      fontWeight: '600' as FontWeight,
+      color: colors.text?.primary ?? '#000000',
       marginLeft: 4,
     },
     modalContainer: {
@@ -250,27 +267,18 @@ export function CategoryFilterBar({
     },
     modalContent: {
       backgroundColor: colors.background?.primary ?? '#ffffff',
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: 0,
       padding: 20,
       paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-      ...Platform.select({
-        android: {
-          elevation: 5,
-          width: '92%',
-          alignSelf: 'center',
-        },
-        ios: {
-          shadowColor: colors.text?.primary ?? '#000',
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          maxHeight: '70%',
-        },
-      }),
+      borderWidth: 4,
+      borderColor: '#000000',
+      transform: [{ rotate: '-1deg' }],
+      shadowColor: '#000000',
+      shadowOffset: { width: 4, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 0,
+      elevation: 8,
     },
     modalTitle: {
       fontSize: 18,
@@ -279,13 +287,16 @@ export function CategoryFilterBar({
       color: colors.text?.primary ?? '#000000',
     },
     input: {
-      borderWidth: 1,
-      borderColor: colors.border?.medium ?? '#e0e0e0',
-      borderRadius: 8,
+      borderWidth: 3,
+      borderColor: '#000000',
+      borderRadius: 0,
       padding: 12,
       marginBottom: 16,
       color: colors.text?.primary ?? '#000000',
       backgroundColor: colors.surface?.primary ?? '#ffffff',
+      fontSize: 16,
+      fontWeight: '500',
+      transform: [{ rotate: '1deg' }],
     },
     modalButtons: {
       flexDirection: 'row',
@@ -293,22 +304,31 @@ export function CategoryFilterBar({
       gap: 12,
     },
     modalButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-      minWidth: 80,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 0,
+      minWidth: 100,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: '#000000',
+      shadowColor: '#000000',
+      shadowOffset: { width: 2, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 0,
+      elevation: 4,
     },
     cancelButton: {
       backgroundColor: colors.surface?.secondary ?? '#f0f0f0',
+      transform: [{ rotate: '-1deg' }],
     },
     addButton: {
       backgroundColor: colors.brand?.primary ?? '#6366f1',
+      transform: [{ rotate: '1deg' }],
     },
     buttonText: {
       fontSize: 16,
-      fontWeight: '500' as FontWeight,
+      fontWeight: '600' as FontWeight,
     },
     cancelButtonText: {
       color: colors.text?.primary ?? '#000000',
@@ -380,7 +400,7 @@ export function CategoryFilterBar({
             accessibilityRole="button"
             accessibilityLabel="Add new category"
           >
-            <Icon name="plus" size={20} color={colors.text?.secondary ?? '#666666'} />
+            <Icon name="plus" size={20} color={colors.text?.primary ?? '#000000'} />
             <Text style={dynamicStyles.addCategoryText}>Add</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -411,7 +431,7 @@ export function CategoryFilterBar({
               value={newCategory}
               onChangeText={setNewCategory}
               placeholder="Enter category name"
-              placeholderTextColor={colors.text?.secondary ?? '#666666'}
+              placeholderTextColor={colors.text?.primary ?? '#000000'}
               autoFocus
               selectTextOnFocus
               showSoftInputOnFocus
