@@ -1,6 +1,6 @@
 {
   "name": "Plexar",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -37,6 +37,7 @@
     "classnames": "^2.5.1",
     "date-fns": "^4.1.0",
     "i": "^0.3.7",
+    "moti": "^0.30.0",
     "npm": "^10.9.2",
     "react": "19.0.0",
     "react-error-boundary": "^5.0.0",

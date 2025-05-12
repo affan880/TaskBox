@@ -8,7 +8,8 @@ import {
   RefreshControl, 
   StyleSheet,
   Animated,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { EmailListItem } from './email-list-item';
 import { useTheme } from 'src/theme/theme-context';
@@ -230,12 +231,12 @@ export function EmailList({
   };
 
   // Modified loading condition
-  if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0)) {
+  if ((isLoading && !initialLoadComplete) || (isLoading && emails.length === 0 && selectedCategory !== 'All')) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background?.secondary }]}>
         <ActivityIndicator size="large" color={colors.brand?.primary} />
         <Text style={[styles.loadingText, { color: colors.text?.secondary }]}>
-          Loading your emails...
+          {isAnalyzing ? 'Analyzing your emails...' : 'Loading your emails...'}
         </Text>
       </View>
     );
@@ -244,18 +245,73 @@ export function EmailList({
   // Empty state for the email list  
   if (!isLoading && emails.length === 0) {
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: colors.background?.secondary }]}>
+      <View style={[styles.emptyContainer, { 
+        backgroundColor: colors.background?.secondary,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }]}>
         <Icon 
           name={searchQuery ? 'search-off' : 'drafts'} 
           size={64} 
           color={colors.text?.tertiary} 
         />
-        <Text style={[styles.emptyTitle, { color: colors.text?.primary }]}>
+        <Text style={[styles.emptyTitle, { 
+          color: colors.text?.primary,
+          textAlign: 'center',
+          marginTop: 16,
+        }]}>
           {searchQuery ? `No results found for "${searchQuery}"` : `No emails found in "${selectedCategory}"`}
         </Text>
-        <Text style={[styles.emptyMessage, { color: colors.text?.secondary }]}>
+        <Text style={[styles.emptyMessage, { 
+          color: colors.text?.secondary,
+          textAlign: 'center',
+          marginTop: 8,
+        }]}>
           {searchQuery ? 'Try a different search term' : 'Pull down to refresh or try another category'}
         </Text>
+        
+        {/* Add Smart Sort Button if enabled */}
+        {onSmartSort && !searchQuery && (
+          <TouchableOpacity
+            style={[
+              styles.smartSortButton,
+              { 
+                backgroundColor: colors.brand?.primary,
+                marginTop: 24,
+                paddingHorizontal: 24,
+                paddingVertical: 12,
+                borderRadius: 0,
+                borderWidth: 3,
+                borderColor: '#000000',
+                transform: [{ rotate: '2deg' }],
+                shadowColor: '#000000',
+                shadowOffset: { width: 4, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 0,
+                elevation: 8,
+              }
+            ]}
+            onPress={onSmartSort}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <>
+                <ActivityIndicator size="small" color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={[styles.smartSortButtonText, { color: '#FFFFFF' }]}>Analyzing...</Text>
+              </>
+            ) : (
+              <>
+                <Image 
+                  source={require('@/assets/images/feather.png')}
+                  style={[styles.buttonIcon, { width: 20, height: 20, tintColor: '#FFFFFF' }]}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.smartSortButtonText, { color: '#FFFFFF' }]}>Smart Sort</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -356,23 +412,16 @@ const styles = StyleSheet.create({
   smartSortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: BORDER_RADIUS.lg,
-    marginTop: SPACING.md,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    justifyContent: 'center',
+    minWidth: 160,
   },
   smartSortButtonText: {
-    color: '#ffffff',
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   buttonIcon: {
-    marginRight: 8,
+    transform: [{ rotate: '-15deg' }],
   },
   actionBar: {
     flexDirection: 'row',

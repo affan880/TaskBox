@@ -60,7 +60,7 @@ export function EmailHeader({
             style={[styles.composeButton, { backgroundColor: colors.brand.primary }]}
             onPress={onCompose}
           >
-            <Icon name="plus" size={24} color="#FFFFFF" />
+            <Icon name="pencil" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconButton, { backgroundColor: colors.brand.primary }]}
@@ -70,7 +70,11 @@ export function EmailHeader({
             {isSmartSorting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Icon name="sort" size={20} color="#FFFFFF" />
+              <Image 
+                source={require('@/assets/images/feather.png')}
+                style={[styles.featherIcon, { tintColor: '#FFFFFF' }]}
+                resizeMode="contain"
+              />
             )}
           </TouchableOpacity>
         </View>
@@ -141,17 +145,25 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 3,
+    borderColor: '#000000',
+    transform: [{ rotate: '-2deg' }],
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 4,
   },
   featherIcon: {
     width: 24,
     height: 24,
-    transform: [{ rotate: '-45deg' }],
+    transform: [{ rotate: '-15deg' }],
   },
 });
 

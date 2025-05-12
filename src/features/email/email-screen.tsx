@@ -32,7 +32,7 @@ import {
   ComposeButton,
   LabelModal,
   SnoozeModal,
-  CategoryFilterBar,
+  CategoryFilterBar, 
   ChatModal,
   FloatingChatButton,
 } from './components';
@@ -166,16 +166,6 @@ export function EmailScreen() {
     }
   }, [setEmailCategories]);
 
-  // Determine the effective loading state for the EmailList
-  const effectiveIsLoading = useMemo(() => {
-    // If a search has been submitted and is actively running, prioritize isSearching
-    if (submittedSearchQuery.trim().length > 0 && isSearching) {
-      return true;
-    }
-    // Otherwise, use the general isLoading state (for initial load, refresh, load more)
-    return isLoading;
-  }, [submittedSearchQuery, isSearching, isLoading]);
-
   // Add auto-categorization with the enhanced hook
   const {
     categorizedEmails,
@@ -191,11 +181,39 @@ export function EmailScreen() {
     minimumTimeBetweenAnalysis: 300000, // 5 minutes
   });
 
+  // Update the effective loading state logic
+  const effectiveIsLoading = useMemo(() => {
+    // If refreshing, don't show loading state
+    if (isMainRefreshing || isRefreshing) {
+      return false;
+    }
+    // If a search has been submitted and is actively running, show loading
+    if (submittedSearchQuery.trim().length > 0 && isSearching) {
+      return true;
+    }
+    // Don't show loading state for initial load of 'All' category
+    if (selectedCategory === 'All' && (isSmartSorting || isAnalyzing)) {
+      return false;
+    }
+    // Show loading only for initial load
+    return isLoading && !initialLoadComplete;
+  }, [
+    isMainRefreshing,
+    isRefreshing,
+    submittedSearchQuery,
+    isSearching,
+    isLoading,
+    selectedCategory,
+    isSmartSorting,
+    isAnalyzing,
+    initialLoadComplete
+  ]);
+
   // Get screen title using the utility
   const currentScreenName = route.name;
   const screenTitle = useMemo(() => getCurrentScreenTitle(currentScreenName), [currentScreenName]);
 
-  // Replace direct API calls with cached categorization
+  // Handle smart sort with loading state
   const handleSmartSort = React.useCallback(async () => {
     try {
       setIsSmartSorting(true);
@@ -466,7 +484,8 @@ export function EmailScreen() {
             />
           }
           onScroll={handleScroll}
-          scrollEventThrottle={16} // For smooth scroll event handling
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header Section */}
           <View style={styles.headerContainer}>
@@ -477,9 +496,10 @@ export function EmailScreen() {
               onSearchChange={handleSearchChange}
               onSearchSubmit={handleSearchSubmit}
               onClearSearch={handleClearSearch}
-              onCompose={() => setIsComposeModalVisible(true)}
+              onCompose={() => navigation.navigate('Compose')}
               onSmartSort={handleSmartSort}
               isSmartSorting={isSmartSorting}
+              showSmartSort={selectedCategory !== 'All'}
             />
             <CategoryFilterBar
               categories={emailCategories}
@@ -497,7 +517,7 @@ export function EmailScreen() {
             <EmailList
               emails={displayEmails}
               isLoading={effectiveIsLoading}
-              refreshing={isRefreshing}
+              refreshing={isRefreshing || isMainRefreshing}
               handleRefresh={handleRefresh}
               handleOpenEmail={handleOpenEmail}
               handleLongPress={handleLongPress}
@@ -508,7 +528,7 @@ export function EmailScreen() {
               handleLoadMore={handleLoadMore}
               selectedCategory={selectedCategory}
               onSmartSort={handleSmartSort}
-              isAnalyzing={isAnalyzing}
+              isAnalyzing={isAnalyzing && selectedCategory !== 'All'}
               searchQuery={searchQuery}
               onMarkAsRead={handleMarkAsRead}
               onMarkAsUnread={handleMarkAsUnread}
@@ -519,8 +539,8 @@ export function EmailScreen() {
             />
           </View>
 
-          {/* Loading More Indicator */}
-          {isLoadingMore && (
+          {/* Only show loading more indicator when not in initial loading state */}
+          {isLoadingMore && !effectiveIsLoading && (
             <View style={styles.loadingMoreContainer}>
               <ActivityIndicator size="small" color={colors.brand?.primary} />
               <Text style={[styles.loadingMoreText, { color: colors.text?.secondary }]}>

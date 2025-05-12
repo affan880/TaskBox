@@ -24,6 +24,7 @@ export type AuthState = {
   hasCheckedAuth: boolean;
   initialized: boolean;
   hasAcceptedTerms: boolean;
+  isAuthenticated: boolean;
   setUser: (user: FirebaseAuthTypes.User | null) => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -136,6 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasCheckedAuth: false,
   initialized: false,
   hasAcceptedTerms: false,
+  isAuthenticated: false,
 
   setUser: (user: FirebaseAuthTypes.User | null) => {
     if (JSON.stringify(get().user) !== JSON.stringify(user)) {

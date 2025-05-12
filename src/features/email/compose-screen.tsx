@@ -909,7 +909,7 @@ export function ComposeScreen() {
                   position: 'absolute',
                   left: 0,
                   right: 0,
-                  bottom: 0,
+                  bottom: Platform.OS === 'ios' ? 60 : 0,
                   zIndex: 1000,
                   elevation: 10,
                   borderTopColor: isDark ? colors.border.dark : colors.border.light,

@@ -39,7 +39,6 @@ import { HelpSupportScreen } from '@/features/settings/help-support-screen';
 import { PrivacyPolicyScreen } from '@/features/settings/privacy-policy-screen';
 import { TermsOfServiceScreen } from '@/features/settings/terms-of-service-screen';
 import { DeleteAccountScreen } from '@/features/settings/delete-account-screen';
-
 // Define navigator types
 export type RootStackParamList = {
   MainTabs: { initialScreen?: 'Email' | 'Compose' | 'Home' | 'Profile' };
@@ -350,7 +349,7 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             options={({ navigation }) => ({
               presentation: 'modal',
               animation: 'slide_from_bottom',
-              headerShown: true,
+              headerShown: false,
               headerLeft: () => (
                 <TouchableOpacity
                   onPress={() => {

@@ -210,15 +210,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backButton: {
-    padding: 12,
+    padding: 2,
     borderRadius: 8,
     borderWidth: 2,
-    transform: [{ rotate: '1deg' }],
+    transform: [{ rotate: '2deg' }],
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 0,
-    elevation: 4,
+    // elevation: 4,
   },
   headerActions: {
     flexDirection: 'row',
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerIconButton: {
-    padding: 12,
+    padding: 2,
     borderRadius: 8,
     borderWidth: 2,
     transform: [{ rotate: '-1deg' }],

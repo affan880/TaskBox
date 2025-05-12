@@ -9,6 +9,7 @@ import {
   Dimensions,
   Animated,
   Platform,
+  Alert,
 } from 'react-native';
 import { useAuthStore } from '@/store/slices/auth-slice';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,9 +127,17 @@ export function LoginScreen() {
 
   const handleSignIn = async () => {
     if (!hasAcceptedTerms) {
-      navigation.navigate('Terms');
+      // Navigate to Terms screen first
+      navigation.navigate('Terms', {
+        onAccept: async () => {
+          // This will be called after user accepts terms
+          await signInWithGoogle();
+        }
+      });
       return;
     }
+
+    // If terms already accepted, proceed with sign in
     await signInWithGoogle();
   };
 
@@ -199,7 +208,7 @@ export function LoginScreen() {
           </Animated.View>
           
           <Text style={styles.privacyText}>
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
         </Animated.View>
       </SafeAreaView>
