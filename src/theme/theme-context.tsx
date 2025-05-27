@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { COLORS, DARK_COLORS, ColorTheme } from './colors';
+import { COLORS, DARK_COLORS, ColorTheme, createTheme } from './colors';
+import { THEME } from './theme';
 import { getItem, setItem } from 'src/lib/storage/storage';
 import { useColorScheme } from 'react-native';
 
@@ -11,6 +12,14 @@ interface ThemeContextType {
   isDark: boolean;
   setTheme: (theme: ThemeType) => void;
   toggleTheme: () => void;
+  // Enhanced theme properties
+  spacing: typeof THEME.spacing;
+  typography: typeof THEME.typography;
+  shadows: typeof THEME.shadows;
+  borderRadius: typeof THEME.borderRadius;
+  animation: typeof THEME.animation;
+  gradients: typeof THEME.gradients;
+  glass: typeof THEME.glass;
 }
 
 export const ThemeContext = React.createContext<ThemeContextType>({
@@ -19,6 +28,13 @@ export const ThemeContext = React.createContext<ThemeContextType>({
   isDark: false,
   setTheme: () => {},
   toggleTheme: () => {},
+  spacing: THEME.spacing,
+  typography: THEME.typography,
+  shadows: THEME.shadows,
+  borderRadius: THEME.borderRadius,
+  animation: THEME.animation,
+  gradients: THEME.gradients,
+  glass: THEME.glass,
 });
 
 interface ThemeProviderProps {
@@ -50,9 +66,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     return theme === 'dark';
   }, [theme, systemColorScheme]);
   
-  // Get the appropriate color theme
+  // Get the appropriate color theme using the enhanced createTheme function
   const colors = React.useMemo(() => {
-    return isDark ? DARK_COLORS : COLORS;
+    return createTheme(isDark);
   }, [isDark]);
   
   // Set the theme
@@ -81,6 +97,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     isDark,
     setTheme,
     toggleTheme,
+    // Enhanced theme properties
+    spacing: THEME.spacing,
+    typography: THEME.typography,
+    shadows: THEME.shadows,
+    borderRadius: THEME.borderRadius,
+    animation: THEME.animation,
+    gradients: THEME.gradients,
+    glass: THEME.glass,
   }), [theme, colors, isDark, setTheme, toggleTheme]);
   
   return (
@@ -97,4 +121,30 @@ export function useTheme() {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
+}
+
+// Additional utility hooks for specific theme properties
+export function useColors() {
+  const { colors } = useTheme();
+  return colors;
+}
+
+export function useSpacing() {
+  const { spacing } = useTheme();
+  return spacing;
+}
+
+export function useTypography() {
+  const { typography } = useTheme();
+  return typography;
+}
+
+export function useShadows() {
+  const { shadows } = useTheme();
+  return shadows;
+}
+
+export function useGradients() {
+  const { gradients } = useTheme();
+  return gradients;
 } 

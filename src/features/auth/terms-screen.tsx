@@ -44,11 +44,11 @@ export function TermsScreen() {
   };
 
   const openTerms = () => {
-    Linking.openURL('https://taskbox.space/Terms-of-Use.html');
+    Linking.openURL('http://plexar.xyz/terms-of-use/');
   };
 
   const openPrivacy = () => {
-    Linking.openURL('https://taskbox.space/Privacy-Policy.html');
+    Linking.openURL('http://plexar.xyz/privacy-policy/');
   };
 
   return (

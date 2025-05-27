@@ -144,6 +144,48 @@ export function CategoryFilterBar({
     }
   };
 
+  const handleDeleteCategory = useCallback(async (categoryToDelete: string) => {
+    // Prevent deletion of "All" category
+    if (categoryToDelete === ALL_CATEGORY) {
+      Alert.alert('Cannot Delete', 'The "All" category cannot be deleted.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Category',
+      `Are you sure you want to delete the "${categoryToDelete}" category? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedCategories = allCategories.filter(cat => cat !== categoryToDelete);
+              await storageConfig.setItem(STORAGE_KEY, updatedCategories);
+              setLocalCategories(updatedCategories);
+              
+              // If the deleted category was selected, switch to "All"
+              if (selectedCategory === categoryToDelete) {
+                onSelectCategory(ALL_CATEGORY);
+              }
+              
+              if (onCategoriesChange) {
+                onCategoriesChange(updatedCategories);
+              }
+            } catch (error) {
+              console.error('Error deleting category:', error);
+              Alert.alert('Error', 'Failed to delete category');
+            }
+          },
+        },
+      ]
+    );
+  }, [allCategories, selectedCategory, onSelectCategory, onCategoriesChange]);
+
   const getCategoryCount = useCallback((category: string) => {
     if (!categoryCounts) return 0;
     
@@ -338,14 +380,16 @@ export function CategoryFilterBar({
               <View key={category} style={dynamicStyles.categoryWrapper}>
                 <Pressable
                   onPress={() => onSelectCategory(category)}
+                  onLongPress={isDeletable ? () => handleDeleteCategory(category) : undefined}
                   style={[
                     dynamicStyles.categoryButton,
                     isActive ? dynamicStyles.categoryButtonActive : dynamicStyles.categoryButtonInactive,
                     isFirstLoad && dynamicStyles.skeletonPulse
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Filter by ${category} category${count ? `, ${count} emails` : ''}`}
+                  accessibilityLabel={`Filter by ${category} category${count ? `, ${count} emails` : ''}${isDeletable ? '. Long press to delete' : ''}`}
                   accessibilityState={{ selected: isActive }}
+                  accessibilityHint={isDeletable ? 'Long press to delete this category' : undefined}
                 >
                   <Text
                     style={[

@@ -16,6 +16,11 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { AuthNavigationProp } from '@/navigation/types';
+import { THEME } from '@/theme/theme';
+import { DARK_COLORS, createTheme } from '@/theme/colors';
+
+// Use dark theme as default
+const theme = createTheme(true);
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,15 +39,15 @@ export function LoginScreen() {
 
   React.useEffect(() => {
     // Animate elements in sequence
-    Animated.stagger(300, [
+    Animated.stagger(THEME.animation.duration.slow, [
       Animated.timing(logoAnimation, {
         toValue: 1,
-        duration: 800,
+        duration: THEME.animation.duration.slowest,
         useNativeDriver: true,
       }),
       Animated.timing(buttonAnimation, {
         toValue: 1,
-        duration: 800,
+        duration: THEME.animation.duration.slowest,
         useNativeDriver: true,
       }),
     ]).start();
@@ -51,7 +56,7 @@ export function LoginScreen() {
     if (error) {
       Animated.timing(errorAnimation, {
         toValue: 1,
-        duration: 300,
+        duration: THEME.animation.duration.slow,
         useNativeDriver: true,
       }).start();
     } else {
@@ -66,7 +71,7 @@ export function LoginScreen() {
       {
         translateY: logoAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [-50, 0],
+          outputRange: [-THEME.spacing.xxxxl, 0],
         }),
       },
     ],
@@ -78,7 +83,7 @@ export function LoginScreen() {
       {
         translateY: buttonAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [40, 0],
+          outputRange: [THEME.spacing.xxxl, 0],
         }),
       },
     ],
@@ -90,7 +95,7 @@ export function LoginScreen() {
       {
         translateY: errorAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0],
+          outputRange: [THEME.spacing.lg, 0],
         }),
       },
     ],
@@ -105,12 +110,12 @@ export function LoginScreen() {
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 0.8,
-            duration: 800,
+            duration: THEME.animation.duration.slowest,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 800,
+            duration: THEME.animation.duration.slowest,
             useNativeDriver: true,
           }),
         ])
@@ -118,7 +123,7 @@ export function LoginScreen() {
     } else {
       Animated.timing(pulseAnim, {
         toValue: 1,
-        duration: 300,
+        duration: THEME.animation.duration.slow,
         useNativeDriver: true,
       }).start();
     }
@@ -138,10 +143,10 @@ export function LoginScreen() {
       
       {/* Background gradient */}
       <LinearGradient
-        colors={['#121212', '#2A2A2A']}
+        colors={[theme.background.primary, theme.background.secondary]}
         style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.1, y: 0.1 }}
-        end={{ x: 0.9, y: 0.9 }}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       />
       
       {/* Decorative elements */}
@@ -167,7 +172,7 @@ export function LoginScreen() {
         {/* Error Message */}
         {error && (
           <Animated.View style={[styles.errorContainer, errorStyle]}>
-            <Icon name="alert-circle" size={20} color="#fff" style={styles.errorIcon} />
+            <Icon name="alert-circle" size={THEME.layout.iconSize.md} color={theme.text.inverse} style={styles.errorIcon} />
             <Text style={styles.errorText}>{error}</Text>
           </Animated.View>
         )}
@@ -179,7 +184,7 @@ export function LoginScreen() {
               style={[styles.googleButton, isLoading && styles.buttonDisabled]}
               onPress={handleSignIn}
               disabled={isLoading}
-              activeOpacity={0.9}
+              activeOpacity={THEME.opacity.high}
             >
               <View style={styles.buttonContent}>
                 {/* Google logo */}
@@ -210,20 +215,20 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: theme.background.primary,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: THEME.spacing.xxl,
     justifyContent: 'space-between',
   },
   // Decorative elements
   circle: {
     position: 'absolute',
-    borderRadius: 500,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: THEME.borderRadius.round,
+    backgroundColor: theme.surface.glass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: theme.border.glass,
   },
   circle1: {
     width: width * 1.2,
@@ -255,58 +260,56 @@ const styles = StyleSheet.create({
     marginTop: height * 0.12,
   },
   logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: THEME.layout.avatarSize.xxl + THEME.spacing.xxxl,
+    height: THEME.layout.avatarSize.xxl + THEME.spacing.xxxl,
+    borderRadius: THEME.borderRadius.round,
+    backgroundColor: theme.surface.glass,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
+    marginBottom: THEME.spacing.xxl,
+    ...THEME.shadows.floating,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: theme.border.glass,
   },
   logo: {
-    width: 70,
-    height: 70,
+    width: THEME.layout.iconSize.xxl + THEME.spacing.xxl,
+    height: THEME.layout.iconSize.xxl + THEME.spacing.xxl,
   },
   logoText: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: THEME.typography.variant.h1.fontSize,
+    fontWeight: THEME.typography.variant.h1.fontWeight,
+    color: theme.text.primary,
     textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    marginBottom: THEME.spacing.md,
+    letterSpacing: THEME.typography.variant.h1.letterSpacing,
   },
   logoTagline: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 16,
+    color: theme.text.secondary,
+    fontSize: THEME.typography.variant.body1.fontSize,
     textAlign: 'center',
     maxWidth: width * 0.7,
+    lineHeight: THEME.typography.lineHeight.relaxed * THEME.typography.variant.body1.fontSize,
   },
   // Error display
   errorContainer: {
-    backgroundColor: 'rgba(220, 38, 38, 0.8)',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 24,
+    backgroundColor: theme.status.errorLight,
+    borderRadius: THEME.borderRadius.lg,
+    padding: THEME.spacing.lg,
+    marginVertical: THEME.spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
     borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
+    borderLeftColor: theme.status.error,
+    ...THEME.shadows.sm,
   },
   errorIcon: {
-    marginRight: 10,
+    marginRight: THEME.spacing.sm,
   },
   errorText: {
-    color: '#fff',
-    fontSize: 14,
+    color: theme.text.primary,
+    fontSize: THEME.typography.variant.body2.fontSize,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: THEME.typography.lineHeight.relaxed * THEME.typography.variant.body2.fontSize,
   },
   // Button section
   buttonContainer: {
@@ -315,51 +318,49 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     width: width * 0.85,
-    borderRadius: 4,
+    borderRadius: THEME.borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    ...THEME.shadows.lg,
+    marginBottom: THEME.spacing.lg,
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? THEME.spacing.lg : THEME.spacing.md,
+    paddingHorizontal: THEME.spacing.lg,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: THEME.opacity.disabled,
   },
   googleIconContainer: {
-    width: 24,
-    height: 24,
-    marginRight: 24,
-    marginLeft: 8,
+    width: THEME.layout.iconSize.lg,
+    height: THEME.layout.iconSize.lg,
+    marginRight: THEME.spacing.xxl,
+    marginLeft: THEME.spacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
   googleIcon: {
-    width: 24,
-    height: 24,
+    width: THEME.layout.iconSize.lg,
+    height: THEME.layout.iconSize.lg,
   },
   buttonText: {
     color: 'rgba(0, 0, 0, 0.87)',
-    fontSize: 15,
-    fontWeight: '500',
-    letterSpacing: 0.25,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    fontSize: THEME.typography.variant.button.fontSize,
+    fontWeight: THEME.typography.variant.button.fontWeight,
+    letterSpacing: THEME.typography.variant.button.letterSpacing,
+    fontFamily: Platform.OS === 'ios' ? THEME.typography.fontFamily.base : 'Roboto',
     textAlign: 'left',
     flex: 1,
   },
   privacyText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 13,
+    color: theme.text.tertiary,
+    fontSize: THEME.typography.variant.caption.fontSize,
     textAlign: 'center',
     maxWidth: width * 0.8,
-    lineHeight: 18,
+    lineHeight: THEME.typography.lineHeight.normal * THEME.typography.variant.caption.fontSize,
   },
 }); 

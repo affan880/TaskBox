@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OnboardingIcon } from '../../components/icons/OnboardingIcons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import * as Animatable from 'react-native-animatable';
 
 type OnboardingNavigationProp = StackNavigationProp<AuthStackParamList, 'Onboarding'>;
 
@@ -29,7 +30,8 @@ const slides = [
     title: 'Welcome to Plexar',
     description: 'Organize your tasks, emails, and schedule all in one beautiful place',
     image: require('../../../assets/images/blob1.png'),
-    gradientColors: ['#1A1A1A', '#2D2D2D'],
+    gradientColors: ['#667eea', '#764ba2', '#f093fb'],
+    darkGradientColors: ['#1a1a2e', '#16213e', '#0f3460'],
     icon: 'inbox-multiple',
   },
   {
@@ -37,7 +39,8 @@ const slides = [
     title: 'Stay Organized',
     description: 'Create to-do lists, set reminders, and never miss a deadline again',
     image: require('../../../assets/images/blob2.png'),
-    gradientColors: ['#2D2D2D', '#1A1A1A'],
+    gradientColors: ['#764ba2', '#f093fb', '#667eea'],
+    darkGradientColors: ['#16213e', '#0f3460', '#1a1a2e'],
     icon: 'check-circle-outline',
   },
   {
@@ -45,7 +48,8 @@ const slides = [
     title: 'Manage Your Emails',
     description: 'Connect your Gmail account to manage emails without leaving the app',
     image: require('../../../assets/images/blob1.png'),
-    gradientColors: ['#1A1A1A', '#2D2D2D'],
+    gradientColors: ['#f093fb', '#667eea', '#764ba2'],
+    darkGradientColors: ['#0f3460', '#1a1a2e', '#16213e'],
     icon: 'email-outline',
   },
 ];
@@ -56,11 +60,48 @@ export function OnboardingScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<any>(null);
 
+  // Animation refs for premium entrance animations
+  const headerRef = useRef<Animatable.View & View>(null);
+  const contentRef = useRef<Animatable.View & View>(null);
+  const footerRef = useRef<Animatable.View & View>(null);
+
   // Animation values
   const imageAnimation = useRef(new Animated.Value(0)).current;
   const titleAnimation = useRef(new Animated.Value(0)).current;
   const descAnimation = useRef(new Animated.Value(0)).current;
   const buttonAnimation = useRef(new Animated.Value(0)).current;
+
+  // Premium entrance animations on mount
+  React.useEffect(() => {
+    const animateSequence = async () => {
+      if (headerRef.current) {
+        headerRef.current.animate({
+          0: { opacity: 0, translateY: -30 },
+          1: { opacity: 1, translateY: 0 }
+        }, 1000);
+      }
+      
+      setTimeout(() => {
+        if (contentRef.current) {
+          contentRef.current.animate({
+            0: { opacity: 0, transform: [{ scale: 0.9 }] },
+            1: { opacity: 1, transform: [{ scale: 1 }] }
+          }, 800);
+        }
+      }, 300);
+      
+      setTimeout(() => {
+        if (footerRef.current) {
+          footerRef.current.animate({
+            0: { opacity: 0, translateY: 30 },
+            1: { opacity: 1, translateY: 0 }
+          }, 800);
+        }
+      }, 600);
+    };
+    
+    animateSequence();
+  }, []);
 
   const onViewChangeRef = useRef(({ viewableItems }: any) => {
     if (viewableItems[0]) {
@@ -72,30 +113,30 @@ export function OnboardingScreen() {
       descAnimation.setValue(0);
       buttonAnimation.setValue(0);
       
-      // Start animations in sequence with improved timing
-      Animated.stagger(100, [
+      // Start premium animations in sequence with improved timing
+      Animated.stagger(150, [
         Animated.spring(imageAnimation, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
           useNativeDriver: true,
         }),
         Animated.spring(titleAnimation, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
           useNativeDriver: true,
         }),
         Animated.spring(descAnimation, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
           useNativeDriver: true,
         }),
         Animated.spring(buttonAnimation, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
           useNativeDriver: true,
         }),
       ]).start();
@@ -105,13 +146,13 @@ export function OnboardingScreen() {
   // Get interpolated background colors based on scroll position
   const backgroundColor1 = scrollX.interpolate({
     inputRange: slides.map((_, i) => i * width),
-    outputRange: slides.map(slide => slide.gradientColors[0]),
+    outputRange: slides.map(slide => slide.darkGradientColors[0]),
     extrapolate: 'clamp',
   });
   
   const backgroundColor2 = scrollX.interpolate({
     inputRange: slides.map((_, i) => i * width),
-    outputRange: slides.map(slide => slide.gradientColors[1]),
+    outputRange: slides.map(slide => slide.darkGradientColors[1]),
     extrapolate: 'clamp',
   });
 
@@ -126,20 +167,26 @@ export function OnboardingScreen() {
     }
   };
 
-  // Enhanced animation styles
+  // Enhanced animation styles with premium effects
   const imageStyle = {
     opacity: imageAnimation,
     transform: [
       {
         scale: imageAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.8, 1],
+          outputRange: [0.7, 1],
         }),
       },
       {
         translateY: imageAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0],
+          outputRange: [40, 0],
+        }),
+      },
+      {
+        rotate: imageAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['5deg', '0deg'],
         }),
       },
     ],
@@ -151,7 +198,13 @@ export function OnboardingScreen() {
       {
         translateY: titleAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [30, 0],
+          outputRange: [40, 0],
+        }),
+      },
+      {
+        scale: titleAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.9, 1],
         }),
       },
     ],
@@ -175,7 +228,13 @@ export function OnboardingScreen() {
       {
         translateY: buttonAnimation.interpolate({
           inputRange: [0, 1],
-          outputRange: [30, 0],
+          outputRange: [40, 0],
+        }),
+      },
+      {
+        scale: buttonAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.9, 1],
         }),
       },
     ],
@@ -185,7 +244,7 @@ export function OnboardingScreen() {
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       
-      {/* Animated background gradient */}
+      {/* Premium animated background gradient */}
       <View style={StyleSheet.absoluteFillObject}>
         {slides.map((slide, index) => {
           const inputRange = [
@@ -209,7 +268,7 @@ export function OnboardingScreen() {
               ]}
             >
               <LinearGradient
-                colors={slide.gradientColors}
+                colors={slide.darkGradientColors}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -220,8 +279,9 @@ export function OnboardingScreen() {
       </View>
       
       <SafeAreaView style={styles.content}>
-        <View style={styles.header}>
-          {/* Progress indicators */}
+        {/* Premium Header */}
+        <Animatable.View ref={headerRef} style={styles.header}>
+          {/* Enhanced Progress indicators */}
           <View style={styles.progressContainer}>
             {slides.map((_, index) => (
               <Animated.View
@@ -232,86 +292,114 @@ export function OnboardingScreen() {
                     backgroundColor: 
                       index === currentIndex
                         ? '#FFFFFF'
-                        : 'rgba(255, 255, 255, 0.2)',
-                    width: index === currentIndex ? 24 : 8,
+                        : 'rgba(255, 255, 255, 0.3)',
+                    width: index === currentIndex ? 32 : 8,
+                    transform: [
+                      {
+                        scale: index === currentIndex ? 1.2 : 1,
+                      }
+                    ],
                   },
                 ]}
               />
             ))}
           </View>
           
-          {/* Skip button */}
+          {/* Premium Skip button with glassmorphism */}
           <TouchableOpacity
             style={styles.skipButton}
             onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Animated.FlatList
-          ref={flatListRef}
-          data={slides}
-          keyExtractor={(item) => item.id}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewChangeRef.current}
-          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: false }
-          )}
-          renderItem={({ item }) => (
-            <View style={styles.slide}>
-              {/* Animated icon and image */}
-              <Animated.View style={[styles.imageContainer, imageStyle]}>
-                <Image
-                  source={item.image}
-                  style={[styles.slideImage, { tintColor: 'rgba(255, 255, 255, 0.05)' }]}
-                  resizeMode="contain"
-                />
-                <View style={styles.iconCircle}>
-                  <OnboardingIcon name={item.icon} size={50} color="#fff" />
-                </View>
-              </Animated.View>
-              
-              {/* Text content */}
-              <Animated.Text style={[styles.title, titleStyle]}>
-                {item.title}
-              </Animated.Text>
-              
-              <Animated.Text style={[styles.description, descriptionStyle]}>
-                {item.description}
-              </Animated.Text>
-            </View>
-          )}
-        />
-        
-        <Animated.View style={[styles.buttonContainer, buttonStyle]}>
-          <TouchableOpacity
-            style={styles.nextButton}
             activeOpacity={0.8}
-            onPress={handleNext}
           >
-            <Text style={styles.nextButtonText}>
-              {currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
-            </Text>
-            {Platform.OS === 'ios' ? (
-              <Text style={[styles.nextButtonText, styles.nextButtonIcon]}>
-                {currentIndex === slides.length - 1 ? '→' : '→'}
-              </Text>
-            ) : (
-              <Icon 
-                name={currentIndex === slides.length - 1 ? 'login' : 'arrow-right'} 
-                size={20} 
-                color="#1A1A1A" 
-                style={styles.nextButtonIcon} 
-              />
-            )}
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
+              style={styles.skipButtonGradient}
+            >
+              <Text style={styles.skipText}>Skip</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </Animated.View>
+        </Animatable.View>
+        
+        {/* Premium Content */}
+        <Animatable.View ref={contentRef} style={styles.contentContainer}>
+          <Animated.FlatList
+            ref={flatListRef}
+            data={slides}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onViewableItemsChanged={onViewChangeRef.current}
+            viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+              { useNativeDriver: false }
+            )}
+            renderItem={({ item }) => (
+              <View style={styles.slide}>
+                {/* Premium animated icon and image */}
+                <Animated.View style={[styles.imageContainer, imageStyle]}>
+                  <Image
+                    source={item.image}
+                    style={[styles.slideImage, { tintColor: 'rgba(255, 255, 255, 0.08)' }]}
+                    resizeMode="contain"
+                  />
+                  <LinearGradient
+                    colors={['rgba(255, 255, 255, 0.15)', 'rgba(255, 255, 255, 0.05)']}
+                    style={styles.iconCircle}
+                  >
+                    <OnboardingIcon name={item.icon} size={56} color="#fff" />
+                    <View style={styles.iconGlow} />
+                  </LinearGradient>
+                </Animated.View>
+                
+                {/* Premium Text content */}
+                <Animated.Text style={[styles.title, titleStyle]}>
+                  {item.title}
+                </Animated.Text>
+                
+                <Animated.Text style={[styles.description, descriptionStyle]}>
+                  {item.description}
+                </Animated.Text>
+              </View>
+            )}
+          />
+        </Animatable.View>
+        
+        {/* Premium Footer */}
+        <Animatable.View ref={footerRef} style={styles.buttonContainer}>
+          <Animated.View style={buttonStyle}>
+            <TouchableOpacity
+              style={styles.nextButton}
+              activeOpacity={0.9}
+              onPress={handleNext}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8F9FA']}
+                style={styles.nextButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.nextButtonText}>
+                  {currentIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
+                </Text>
+                {Platform.OS === 'ios' ? (
+                  <Text style={[styles.nextButtonText, styles.nextButtonIcon]}>
+                    {currentIndex === slides.length - 1 ? '✨' : '→'}
+                  </Text>
+                ) : (
+                  <Icon 
+                    name={currentIndex === slides.length - 1 ? 'rocket-launch' : 'arrow-right'} 
+                    size={22} 
+                    color="#1A1A1A" 
+                    style={styles.nextButtonIcon} 
+                  />
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animatable.View>
       </SafeAreaView>
     </View>
   );
@@ -330,106 +418,176 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   progressDot: {
     height: 8,
-    width: 8,
     borderRadius: 4,
-    marginRight: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFFFFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   skipButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  skipButtonGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   skipText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  contentContainer: {
+    flex: 1,
   },
   slide: {
     width,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
   },
   imageContainer: {
-    width: width * 0.8,
-    height: width * 0.8,
+    width: width * 0.75,
+    height: width * 0.75,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
   },
   slideImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.5,
+    opacity: 0.6,
   },
   iconCircle: {
     position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 16,
+      },
+    }),
+  },
+  iconGlow: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    zIndex: -1,
   },
   title: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: 0.5,
+    marginBottom: 20,
+    letterSpacing: -0.8,
+    lineHeight: 42,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 8,
+      },
+    }),
   },
   description: {
     fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.85)',
     textAlign: 'center',
     lineHeight: 28,
-    marginBottom: 40,
-    letterSpacing: 0.3,
+    marginBottom: 48,
+    letterSpacing: 0.2,
+    fontWeight: '500',
+    paddingHorizontal: 8,
   },
   buttonContainer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 48,
+    paddingHorizontal: 24,
   },
   nextButton: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    width: width * 0.85,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  nextButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    paddingHorizontal: 36,
-    borderRadius: 30,
-    width: width * 0.85,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+    borderRadius: 32,
   },
   nextButtonText: {
     color: '#1A1A1A',
     fontSize: 18,
-    fontWeight: 'bold',
-    marginRight: 8,
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   nextButtonIcon: {
-    marginLeft: 4,
+    marginLeft: 8,
+    fontSize: 20,
   },
 }); 

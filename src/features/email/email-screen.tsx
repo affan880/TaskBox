@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
-  Animated,
   Alert,
   Text,
   TouchableOpacity,
@@ -18,11 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getCurrentScreenTitle } from 'src/lib/utils/utils';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
 import { 
   EmailHeader,
   EmailList,
-  ComposeButton,
   LabelModal,
   SnoozeModal,
   CategoryFilterBar,

@@ -1,6 +1,6 @@
 {
   "name": "Plexar",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "build:android": "cd android && ./gradlew clean && ./gradlew bundleRelease",
+    "build:apk": "cd android && ./gradlew clean && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@formidable-webview/webshell": "^2.6.0",

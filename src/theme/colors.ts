@@ -1,8 +1,9 @@
 /**
- * Plexar - Modern Color System with Dark Mode Support
+ * Plexar - Premium Color System with Dark Mode Support
  * 
- * A vibrant, accessible color palette with good contrast ratios,
- * consistent semantic meaning, and dark/light mode support.
+ * A sophisticated, accessible color palette with excellent contrast ratios,
+ * consistent semantic meaning, and premium dark/light mode support.
+ * Designed for modern productivity apps with glassmorphism and premium effects.
  */
 
 import { Platform } from 'react-native';
@@ -12,18 +13,24 @@ export type ColorTheme = {
     primary: string;
     secondary: string;
     tertiary: string;
+    accent: string;
+    tinted: string;
+    card: string;
   };
   surface: {
     primary: string;
     secondary: string;
-    card: string;
-    highlight: string;
+    tertiary: string;
+    elevated: string;
+    interactive: string;
+    glass: string;
   };
   brand: {
     primary: string;
     secondary: string;
     dark: string;
     light: string;
+    gradient: string[];
   };
   text: {
     primary: string;
@@ -31,377 +38,403 @@ export type ColorTheme = {
     tertiary: string;
     quaternary: string;
     inverse: string;
+    accent: string;
+    link: string;
   };
   status: {
     success: string;
     error: string;
     warning: string;
     info: string;
+    successLight: string;
+    errorLight: string;
+    warningLight: string;
+    infoLight: string;
   };
   border: {
     light: string;
     medium: string;
     dark: string;
+    accent: string;
+    glass: string;
+  };
+  shadow: {
+    light: string;
+    medium: string;
+    dark: string;
+    colored: string;
+  };
+  gradients: {
+    primary: string[];
+    secondary: string[];
+    accent: string[];
+    success: string[];
+    error: string[];
+    warning: string[];
+    info: string[];
+    glass: string[];
+    premium: string[];
   };
 };
 
-// App-wide global color palette 
-export const COLORS: ColorTheme = {
-  background: {
-    primary: '#ffffff',
-    secondary: '#ffffff',
-    tertiary: '#ffffff',
-  },
-  surface: {
-    primary: '#ffffff',
-    secondary: '#f7f9fc',
-    card: '#e2eafc',
-    highlight: '#edf0ff',
-  },
-  brand: {
-    primary: '#5c6ac4',
-    secondary: '#7785dc',
-    dark: '#4a57a9',
-    light: '#e2eafc',
-  },
-  text: {
-    primary: '#1a202c',
-    secondary: '#4a5568',
-    tertiary: '#718096',
-    quaternary: '#a0aec0',
-    inverse: '#ffffff',
-  },
-  status: {
-    success: '#48bb78',
-    error: '#f56565',
-    warning: '#ed8936',
-    info: '#4299e1',
-  },
-  border: {
-    light: '#e2e8f0',
-    medium: '#cbd5e0',
-    dark: '#a0aec0',
-  },
-};
-
-// Dark mode colors
-export const DARK_COLORS: ColorTheme = {
-  background: {
-    primary: '#121212',
-    secondary: '#1E1E1E',
-    tertiary: '#2D2D2D',
-  },
-  surface: {
-    primary: '#1E1E1E',
-    secondary: '#2D2D2D',
-    card: '#2D2D2D',
-    highlight: '#3D3D3D',
-  },
-  brand: {
-    primary: '#788bff',
-    secondary: '#7189ff',
-    dark: '#5c6ac4',
-    light: '#96a3ff',
-  },
-  text: {
-    primary: '#FFFFFF',
-    secondary: '#B0B0B0',
-    tertiary: '#808080',
-    quaternary: '#606060',
-    inverse: '#000000',
-  },
-  status: {
-    success: '#4CAF50',
-    error: '#F44336',
-    warning: '#FF9800',
-    info: '#2196F3',
-  },
-  border: {
-    light: '#2D2D2D',
-    medium: '#3D3D3D',
-    dark: '#4D4D4D',
-  },
-};
-
-// Base palette - named by color, not by usage
+// Premium color palette - carefully selected for modern apps
 const palette = {
-  // Primary - Alabaster
-  alabaster: {
-    DEFAULT: '#f1f1e4',
-    100: '#3e3e20',
-    200: '#7c7c40',
-    300: '#b1b168',
-    400: '#d1d1a6',
-    500: '#f1f1e4',
-    600: '#f4f4e9',
-    700: '#f7f7ef',
-    800: '#f9f9f4',
-    900: '#fcfcfa'
+  // Premium Blues - Primary brand colors
+  azure: {
+    50: '#f0f9ff',
+    100: '#e0f2fe',
+    200: '#bae6fd',
+    300: '#7dd3fc',
+    400: '#38bdf8',
+    500: '#0ea5e9',
+    600: '#0284c7',
+    700: '#0369a1',
+    800: '#075985',
+    900: '#0c4a6e',
+    950: '#082f49'
   },
   
-  // Secondary - Primary Blue (previously Raspberry)
-  primaryBlue: {
-    DEFAULT: '#788bff',
-    100: '#080d33',
-    200: '#101a66',
-    300: '#172799',
-    400: '#1f34cc',
-    500: '#4c62ff',
-    600: '#788bff',
-    700: '#96a3ff',
-    800: '#b4bcff',
-    900: '#d7daff'
+  // Premium Purples - Secondary brand colors
+  violet: {
+    50: '#faf5ff',
+    100: '#f3e8ff',
+    200: '#e9d5ff',
+    300: '#d8b4fe',
+    400: '#c084fc',
+    500: '#a855f7',
+    600: '#9333ea',
+    700: '#7c3aed',
+    800: '#6b21a8',
+    900: '#581c87',
+    950: '#3b0764'
   },
   
-  // Accent - Cornflower Blue
-  cornflowerBlue: {
-    DEFAULT: '#7189ff',
-    100: '#000c49',
-    200: '#001893',
-    300: '#0025dc',
-    400: '#274bff',
-    500: '#7189ff',
-    600: '#8da0ff',
-    700: '#a9b8ff',
-    800: '#c6cfff',
-    900: '#e2e7ff'
+  // Premium Indigos - Accent colors
+  indigo: {
+    50: '#eef2ff',
+    100: '#e0e7ff',
+    200: '#c7d2fe',
+    300: '#a5b4fc',
+    400: '#818cf8',
+    500: '#6366f1',
+    600: '#4f46e5',
+    700: '#4338ca',
+    800: '#3730a3',
+    900: '#312e81',
+    950: '#1e1b4b'
   },
   
-  // Secondary Accent - Raspberry
-  raspberry: {
-    DEFAULT: '#d81e5b',
-    100: '#2b0612',
-    200: '#560c25',
-    300: '#811237',
-    400: '#ac1849',
-    500: '#d81e5b',
-    600: '#e6447a',
-    700: '#ec739b',
-    800: '#f2a2bd',
-    900: '#f9d0de'
+  // Premium Grays - Neutral colors
+  slate: {
+    50: '#f8fafc',
+    100: '#f1f5f9',
+    200: '#e2e8f0',
+    300: '#cbd5e1',
+    400: '#94a3b8',
+    500: '#64748b',
+    600: '#475569',
+    700: '#334155',
+    800: '#1e293b',
+    900: '#0f172a',
+    950: '#020617'
   },
   
-  // Neutrals - Dim Gray
-  dimGray: {
-    DEFAULT: '#666b6a',
-    100: '#141515',
-    200: '#292b2a',
-    300: '#3d403f',
-    400: '#525555',
-    500: '#666b6a',
-    600: '#848988',
-    700: '#a3a7a6',
-    800: '#c2c4c4',
-    900: '#e0e2e1'
+  // Premium Dark Colors
+  dark: {
+    50: '#f9fafb',
+    100: '#f3f4f6',
+    200: '#e5e7eb',
+    300: '#d1d5db',
+    400: '#9ca3af',
+    500: '#6b7280',
+    600: '#4b5563',
+    700: '#374151',
+    800: '#1f2937',
+    900: '#111827',
+    950: '#030712'
   },
   
-  // Dark - Night
-  night: {
-    DEFAULT: '#090c08',
-    100: '#020202',
-    200: '#040503',
-    300: '#060705',
-    400: '#070a07',
-    500: '#090c08',
-    600: '#35472f',
-    700: '#618256',
-    800: '#93b189',
-    900: '#c9d8c4'
+  // Status Colors - Modern and accessible
+  emerald: {
+    50: '#ecfdf5',
+    100: '#d1fae5',
+    200: '#a7f3d0',
+    300: '#6ee7b7',
+    400: '#34d399',
+    500: '#10b981',
+    600: '#059669',
+    700: '#047857',
+    800: '#065f46',
+    900: '#064e3b',
+    950: '#022c22'
   },
   
-  // Success - Green
-  green: {
-    50: '#E8F5E9',
-    100: '#C8E6C9',
-    200: '#A5D6A7',
-    300: '#81C784',
-    400: '#66BB6A',
-    500: '#4CAF50',
-    600: '#43A047',
-    700: '#388E3C',
-    800: '#2E7D32',
-    900: '#1B5E20',
+  rose: {
+    50: '#fff1f2',
+    100: '#ffe4e6',
+    200: '#fecdd3',
+    300: '#fda4af',
+    400: '#fb7185',
+    500: '#f43f5e',
+    600: '#e11d48',
+    700: '#be123c',
+    800: '#9f1239',
+    900: '#881337',
+    950: '#4c0519'
   },
   
-  // Error - Red
-  red: {
-    50: '#FFEBEE',
-    100: '#FFCDD2',
-    200: '#EF9A9A',
-    300: '#E57373',
-    400: '#EF5350',
-    500: '#F44336',
-    600: '#E53935',
-    700: '#D32F2F',
-    800: '#C62828',
-    900: '#B71C1C',
-  },
-  
-  // Warning - Orange
-  orange: {
-    50: '#FFF3E0',
-    100: '#FFE0B2',
-    200: '#FFCC80',
-    300: '#FFB74D',
-    400: '#FFA726',
-    500: '#FF9800',
-    600: '#FB8C00',
-    700: '#F57C00',
-    800: '#EF6C00',
-    900: '#E65100',
+  amber: {
+    50: '#fffbeb',
+    100: '#fef3c7',
+    200: '#fde68a',
+    300: '#fcd34d',
+    400: '#fbbf24',
+    500: '#f59e0b',
+    600: '#d97706',
+    700: '#b45309',
+    800: '#92400e',
+    900: '#78350f',
+    950: '#451a03'
   },
   
   // Pure colors
   white: '#FFFFFF',
   black: '#000000',
-  transparent: 'transparent',
+  transparent: 'rgba(0, 0, 0, 0)',
 };
 
-// Create theme with light and dark mode
-export const createTheme = (isDark = false) => ({
-  // App backgrounds
+// Premium Light Theme
+export const COLORS: ColorTheme = {
   background: {
-    primary: isDark ? palette.night[300] : palette.alabaster[500],
-    secondary: isDark ? palette.night[400] : palette.alabaster[700],
-    tertiary: isDark ? palette.night[200] : palette.alabaster[400],
-    accent: isDark ? palette.cornflowerBlue[100] : palette.cornflowerBlue[900],
-    tinted: isDark ? palette.primaryBlue[100] : palette.primaryBlue[900],
-    card: isDark ? palette.night[300] : palette.white,
+    primary: palette.white,
+    secondary: palette.slate[50],
+    tertiary: palette.slate[100],
+    accent: palette.indigo[50],
+    tinted: palette.violet[50],
+    card: palette.white,
   },
-  
-  // Surface elements (cards, modals, etc.)
   surface: {
-    primary: isDark ? palette.night[300] : palette.white,
-    secondary: isDark ? palette.night[400] : palette.alabaster[700],
-    tertiary: isDark ? palette.dimGray[300] : palette.alabaster[400],
-    elevated: isDark ? palette.dimGray[200] : palette.white,
-    interactive: isDark ? palette.primaryBlue[200] : palette.primaryBlue[800],
+    primary: palette.white,
+    secondary: palette.slate[50],
+    tertiary: palette.slate[100],
+    elevated: palette.white,
+    interactive: palette.indigo[50],
+    glass: 'rgba(255, 255, 255, 0.8)',
   },
-  
-  // Text colors
-  text: {
-    primary: isDark ? palette.alabaster[500] : palette.night[500],
-    secondary: isDark ? palette.alabaster[300] : palette.dimGray[600],
-    tertiary: isDark ? palette.alabaster[400] : palette.dimGray[500],
-    disabled: isDark ? palette.dimGray[600] : palette.dimGray[400],
-    inverse: isDark ? palette.night[500] : palette.alabaster[500],
-    link: isDark ? palette.primaryBlue[400] : palette.primaryBlue[500],
-    accent: isDark ? palette.primaryBlue[400] : palette.primaryBlue[600],
-  },
-  
-  // UI Element colors
-  border: {
-    light: isDark ? palette.dimGray[300] : palette.alabaster[400],
-    default: isDark ? palette.dimGray[200] : palette.alabaster[300],
-    dark: isDark ? palette.dimGray[100] : palette.alabaster[200],
-    accent: isDark ? palette.primaryBlue[300] : palette.primaryBlue[600],
-  },
-  
-  // Brand colors
   brand: {
-    primary: palette.primaryBlue[600],
-    secondary: palette.cornflowerBlue[500],
-    light: palette.primaryBlue[500],
-    dark: palette.primaryBlue[700],
+    primary: palette.indigo[600],
+    secondary: palette.violet[600],
+    dark: palette.indigo[700],
+    light: palette.indigo[100],
+    gradient: [palette.indigo[500], palette.violet[600]],
   },
-  
-  // Action and interaction colors
-  action: {
-    primary: palette.primaryBlue[600],
-    secondary: palette.cornflowerBlue[500],
-    hover: isDark ? palette.primaryBlue[500] : palette.primaryBlue[700],
-    pressed: isDark ? palette.primaryBlue[400] : palette.primaryBlue[800],
-    disabled: isDark ? palette.dimGray[600] : palette.dimGray[300],
+  text: {
+    primary: palette.slate[900],
+    secondary: palette.slate[600],
+    tertiary: palette.slate[500],
+    quaternary: palette.slate[400],
+    inverse: palette.white,
+    accent: palette.indigo[600],
+    link: palette.azure[600],
   },
-  
-  // Status indicators
   status: {
-    success: palette.green[600],
-    error: palette.red[600],
-    warning: palette.orange[500],
-    info: palette.primaryBlue[600],
-    successLight: isDark ? palette.green[900] : palette.green[100],
-    errorLight: isDark ? palette.red[900] : palette.red[100],
-    warningLight: isDark ? palette.orange[900] : palette.orange[100],
-    infoLight: isDark ? palette.primaryBlue[200] : palette.primaryBlue[800],
-    unread: palette.primaryBlue[600],
-    read: isDark ? palette.dimGray[400] : palette.dimGray[500],
+    success: palette.emerald[600],
+    error: palette.rose[600],
+    warning: palette.amber[500],
+    info: palette.azure[600],
+    successLight: palette.emerald[50],
+    errorLight: palette.rose[50],
+    warningLight: palette.amber[50],
+    infoLight: palette.azure[50],
   },
-  
-  // Component-specific overrides
-  component: {
-    card: {
-      background: isDark ? palette.night[300] : palette.white,
-      border: isDark ? palette.night[200] : palette.alabaster[400],
-      shadow: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.05)',
-    },
-    header: {
-      background: isDark ? palette.night[400] : palette.alabaster[500],
-      text: isDark ? palette.alabaster[500] : palette.night[500],
-      border: isDark ? palette.night[300] : palette.alabaster[400],
-    },
-    button: {
-      primary: palette.primaryBlue[600],
-      secondary: isDark ? palette.dimGray[300] : palette.alabaster[400],
-      success: palette.green[600],
-      danger: palette.red[600],
-      text: isDark ? palette.night[500] : palette.white,
-      textSecondary: isDark ? palette.alabaster[400] : palette.dimGray[600],
-    },
-    input: {
-      background: isDark ? palette.night[300] : palette.white,
-      border: isDark ? palette.dimGray[300] : palette.alabaster[400],
-      focusBorder: isDark ? palette.primaryBlue[400] : palette.primaryBlue[600],
-      text: isDark ? palette.alabaster[500] : palette.night[500],
-      placeholder: isDark ? palette.dimGray[500] : palette.dimGray[400],
-    },
-    toast: {
-      background: isDark ? palette.night[300] : palette.dimGray[600],
-      text: isDark ? palette.alabaster[500] : palette.white,
-    },
+  border: {
+    light: palette.slate[200],
+    medium: palette.slate[300],
+    dark: palette.slate[400],
+    accent: palette.indigo[300],
+    glass: 'rgba(255, 255, 255, 0.2)',
   },
-  
-  // Email-specific colors
-  email: {
-    avatar: {
-      primary: palette.primaryBlue[600],
-      secondary: palette.cornflowerBlue[500],
-      unread: palette.primaryBlue[600],
-      read: isDark ? palette.dimGray[600] : palette.dimGray[400],
-    },
-    label: {
-      primary: isDark ? palette.primaryBlue[400] : palette.primaryBlue[600],
-      secondary: isDark ? palette.cornflowerBlue[200] : palette.cornflowerBlue[800],
-      important: isDark ? palette.orange[200] : palette.orange[800],
-      personal: isDark ? palette.green[200] : palette.green[800],
-      work: isDark ? palette.cornflowerBlue[200] : palette.cornflowerBlue[800],
-    },
+  shadow: {
+    light: 'rgba(0, 0, 0, 0.05)',
+    medium: 'rgba(0, 0, 0, 0.1)',
+    dark: 'rgba(0, 0, 0, 0.15)',
+    colored: 'rgba(99, 102, 241, 0.15)',
   },
-  
-  // Gradients
   gradients: {
-    primary: [palette.primaryBlue[500], palette.primaryBlue[700]],
-    secondary: [palette.cornflowerBlue[400], palette.cornflowerBlue[600]],
-    accent: [palette.primaryBlue[500], palette.cornflowerBlue[500]],
-    success: [palette.green[400], palette.green[600]],
-    error: [palette.red[400], palette.red[600]],
-    warning: [palette.orange[400], palette.orange[600]],
-    info: [palette.primaryBlue[500], palette.primaryBlue[700]],
-    dark: [palette.night[300], palette.night[500]],
-    light: [palette.alabaster[700], palette.alabaster[500]],
+    primary: [palette.indigo[500], palette.indigo[700]],
+    secondary: [palette.violet[500], palette.violet[700]],
+    accent: [palette.indigo[500], palette.violet[600]],
+    success: [palette.emerald[500], palette.emerald[700]],
+    error: [palette.rose[500], palette.rose[700]],
+    warning: [palette.amber[400], palette.amber[600]],
+    info: [palette.azure[500], palette.azure[700]],
+    glass: ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)'],
+    premium: [palette.indigo[600], palette.violet[600], palette.azure[500]],
   },
-});
+};
+
+// Premium Dark Theme
+export const DARK_COLORS: ColorTheme = {
+  background: {
+    primary: palette.slate[950],
+    secondary: palette.slate[900],
+    tertiary: palette.slate[800],
+    accent: palette.indigo[950],
+    tinted: palette.violet[950],
+    card: palette.slate[900],
+  },
+  surface: {
+    primary: palette.slate[900],
+    secondary: palette.slate[800],
+    tertiary: palette.slate[700],
+    elevated: palette.slate[800],
+    interactive: palette.indigo[900],
+    glass: 'rgba(15, 23, 42, 0.8)',
+  },
+  brand: {
+    primary: palette.indigo[400],
+    secondary: palette.violet[400],
+    dark: palette.indigo[500],
+    light: palette.indigo[300],
+    gradient: [palette.indigo[400], palette.violet[500]],
+  },
+  text: {
+    primary: palette.slate[50],
+    secondary: palette.slate[300],
+    tertiary: palette.slate[400],
+    quaternary: palette.slate[500],
+    inverse: palette.slate[900],
+    accent: palette.indigo[400],
+    link: palette.azure[400],
+  },
+  status: {
+    success: palette.emerald[400],
+    error: palette.rose[400],
+    warning: palette.amber[400],
+    info: palette.azure[400],
+    successLight: palette.emerald[950],
+    errorLight: palette.rose[950],
+    warningLight: palette.amber[950],
+    infoLight: palette.azure[950],
+  },
+  border: {
+    light: palette.slate[700],
+    medium: palette.slate[600],
+    dark: palette.slate[500],
+    accent: palette.indigo[600],
+    glass: 'rgba(255, 255, 255, 0.1)',
+  },
+  shadow: {
+    light: 'rgba(0, 0, 0, 0.2)',
+    medium: 'rgba(0, 0, 0, 0.3)',
+    dark: 'rgba(0, 0, 0, 0.4)',
+    colored: 'rgba(99, 102, 241, 0.3)',
+  },
+  gradients: {
+    primary: [palette.indigo[400], palette.indigo[600]],
+    secondary: [palette.violet[400], palette.violet[600]],
+    accent: [palette.indigo[400], palette.violet[500]],
+    success: [palette.emerald[400], palette.emerald[600]],
+    error: [palette.rose[400], palette.rose[600]],
+    warning: [palette.amber[400], palette.amber[600]],
+    info: [palette.azure[400], palette.azure[600]],
+    glass: ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.02)'],
+    premium: [palette.indigo[400], palette.violet[500], palette.azure[400]],
+  },
+};
+
+// Enhanced theme creation function
+export const createTheme = (isDark = false): ColorTheme => {
+  return isDark ? DARK_COLORS : COLORS;
+};
+
+// Premium gradient presets for common use cases
+export const PREMIUM_GRADIENTS = {
+  // Header gradients
+  headerLight: ['#667eea', '#764ba2', '#f093fb'],
+  headerDark: ['#1a1a2e', '#16213e', '#0f3460'],
+  
+  // Card gradients
+  cardLight: ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.7)'],
+  cardDark: ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)'],
+  
+  // Button gradients
+  primaryButton: [palette.indigo[500], palette.indigo[700]],
+  secondaryButton: [palette.violet[500], palette.violet[700]],
+  successButton: [palette.emerald[500], palette.emerald[700]],
+  errorButton: [palette.rose[500], palette.rose[700]],
+  
+  // Glass morphism gradients
+  glassLight: ['rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.1)'],
+  glassDark: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.05)'],
+  
+  // Premium brand gradients
+  brand: [palette.indigo[600], palette.violet[600], palette.azure[500]],
+  brandDark: [palette.indigo[400], palette.violet[500], palette.azure[400]],
+};
+
+// Shadow presets for consistent elevation
+export const PREMIUM_SHADOWS = {
+  none: {
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  xs: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  xl: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  premium: {
+    shadowColor: palette.indigo[600],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+};
 
 // Export the light theme as the default
-export const COLORS_LIGHT = createTheme(false);
+export const COLORS_LIGHT = COLORS;
 
 // Also export a dark theme
-export const DARK_COLORS_DARK = createTheme(true);
+export const COLORS_DARK = DARK_COLORS;
 
-// Type for the colors object
+// Legacy support - keeping old type names for backward compatibility
 export type ColorTheme_OLD = typeof COLORS_LIGHT;
 
-// Utility type to get nested color values
 export type ColorValue = {
   [K in keyof typeof COLORS_LIGHT]: typeof COLORS_LIGHT[K] extends string
     ? typeof COLORS_LIGHT[K]
