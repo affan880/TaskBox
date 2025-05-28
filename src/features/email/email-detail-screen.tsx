@@ -12,7 +12,6 @@ import {
   Animated as RNAnimated,
   Alert,
   Linking,
-  Image,
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,9 +25,6 @@ import { useGmail } from '@/hooks/use-gmail';
 import { useEmailStore } from '@/features/email/store/email-store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { LinearGradient } from 'react-native-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
-
 // Components
 import { ErrorBoundary } from '../../components/ui/error-boundary';
 import { AutoHeightWebView } from './components/auto-height-webview';

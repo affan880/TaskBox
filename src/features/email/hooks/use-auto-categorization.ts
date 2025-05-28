@@ -450,9 +450,34 @@ export function useAutoCategorization(
       }
     } catch (error) {
       console.error('[AutoCategorization] Error during forced analysis:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'There was a problem analyzing your emails. Please try again later.';
+      
+      if (error instanceof Error) {
+        console.error('[AutoCategorization] Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        
+        // Check for specific error types
+        if (error.message.includes('Network request failed')) {
+          errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (error.message.includes('401') || error.message.includes('403')) {
+          errorMessage = 'Authentication failed. Please sign out and sign in again.';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (error.message.includes('No access token')) {
+          errorMessage = 'Authentication required. Please sign in again.';
+        }
+      }
+      
       Alert.alert(
         'Analysis Error',
-        'There was a problem analyzing your emails. Please try again later.'
+        errorMessage
       );
     } finally {
       setIsAnalyzing(false);

@@ -24,14 +24,13 @@ export type EmailAttachment = {
   size?: number;
 };
 
+import { BASE_URL } from '@/lib/env/api-config';
+
 import axios from 'axios';
 import { Email } from '../types/email';
 
-// API base URL (replace with your actual API endpoint)
-const BASE_URL = process.env.BASE_URL;
-
 // Base URL for Gmail API
-console.log('BASE_URL', BASE_URL);
+console.log('📍 Gmail API - BASE_URL:', BASE_URL);
 const GMAIL_API_BASE_URL = `${BASE_URL}/api/gmail`;
 
 // --- Token Caching and Refresh Synchronization ---
@@ -781,7 +780,8 @@ export async function getAttachment(messageId: string, attachmentId: string): Pr
 
 export async function fetchEmails(): Promise<Email[]> {
   try {
-    const response = await axios.get(`${BASE_URL}/emails`);
+    console.log('📍 Fetching emails from:', `${BASE_URL}/api/emails`);
+    const response = await axios.get(`${BASE_URL}/api/emails`);
     return response.data;
   } catch (error) {
     console.error('Error fetching emails:', error);

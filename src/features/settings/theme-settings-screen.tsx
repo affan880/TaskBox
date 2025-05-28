@@ -59,6 +59,20 @@ export function ThemeSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Icon name="arrow-left" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text.primary }]}>
+          Theme Settings
+        </Text>
+      </View>
+
       <ScrollView style={styles.content}>
         <Text style={[styles.sectionTitle, { color: colors.text.secondary }]}>
           Choose your preferred theme
@@ -70,7 +84,11 @@ export function ThemeSettingsScreen() {
               key={option.id}
               style={[
                 styles.themeOption,
-                selectedTheme === option.id && { borderColor: colors.brand.primary, borderWidth: 1 },
+                {
+                  backgroundColor: colors.surface.primary,
+                  borderColor: selectedTheme === option.id ? colors.brand.primary : colors.border.light,
+                },
+                selectedTheme === option.id && { borderWidth: 2 },
               ]}
               onPress={() => handleSelectTheme(option.id as ThemeType)}
               activeOpacity={0.8}
@@ -113,6 +131,22 @@ export function ThemeSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
     flex: 1,
   },
   content: {

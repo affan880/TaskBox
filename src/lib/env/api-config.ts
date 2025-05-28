@@ -14,12 +14,12 @@ export const API_CONFIG = {
   
   // Staging environment
   staging: {
-    BASE_URL: 'https://api-staging.yourdomain.com', // Replace with your staging API URL
+    BASE_URL: process.env.BASE_URL || 'https://taskbox-backend-production.up.railway.app', // Replace with your staging API URL
   },
   
   // Production environment
   prod: {
-    BASE_URL: 'https://api.yourdomain.com', // Replace with your production API URL
+    BASE_URL: process.env.BASE_URL || 'https://taskbox-backend-production.up.railway.app', // Use environment variable or fallback to your server
   }
 };
 
@@ -34,8 +34,6 @@ export const CURRENT_API_CONFIG = API_CONFIG[ENVIRONMENT];
 export const BASE_URL = CURRENT_API_CONFIG.BASE_URL; 
 
 // Debug logging
-if (__DEV__) {
-  console.log('🔧 API Config - Environment:', ENVIRONMENT);
-  console.log('🔧 API Config - process.env.BASE_URL:', process.env.BASE_URL);
-  console.log('🔧 API Config - Configured URL:', BASE_URL);
-} 
+console.log('🔧 API Config - Environment:', ENVIRONMENT);
+console.log('🔧 API Config - process.env.BASE_URL:', process.env.BASE_URL);
+console.log('🔧 API Config - Configured URL:', BASE_URL); 

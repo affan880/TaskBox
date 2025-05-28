@@ -88,6 +88,20 @@ export function NotificationSettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: colors.border.light }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Icon name="arrow-left" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text.primary }]}>
+          Notification Settings
+        </Text>
+      </View>
+
       <ScrollView style={styles.content}>
         <Text style={[styles.sectionTitle, { color: colors.text.secondary }]}>
           Manage your notification preferences
@@ -146,16 +160,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     marginRight: 16,
+    padding: 4,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
   },
   content: {
     flex: 1,

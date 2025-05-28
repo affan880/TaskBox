@@ -366,7 +366,7 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             name="ThemeSettings"
             component={ThemeSettingsScreen}
             options={{
-              headerShown: true,
+              headerShown: false,
               headerTitle: 'Theme Settings',
               headerStyle: {
                 backgroundColor: colors.background.primary,
@@ -378,7 +378,7 @@ export const NavigationRoot = React.memo(({ forceAuthScreen, onNavigated }: { fo
             name="NotificationSettings"
             component={NotificationSettingsScreen}
             options={{
-              headerShown: true,
+              headerShown: false,
               headerTitle: 'Notification Settings',
               headerStyle: {
                 backgroundColor: colors.background.primary,

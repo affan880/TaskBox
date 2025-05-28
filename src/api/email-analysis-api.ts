@@ -6,8 +6,9 @@ import EventSourcePolyfill from 'react-native-sse';
 // Debug flag - only log in development mode
 const DEBUG = __DEV__ && false; // Set to true for verbose debugging
 
-// Only log the BASE_URL once at module load time
-if (DEBUG) console.log('📍 Email Analysis API - BASE_URL:', BASE_URL);
+// Always log the BASE_URL for debugging production issues
+console.log('📍 Email Analysis API - BASE_URL:', BASE_URL);
+console.log('📍 Email Analysis API - Environment:', __DEV__ ? 'Development' : 'Production');
 
 /**
  * API response type for the email analysis endpoint
@@ -86,10 +87,10 @@ export async function analyzeEmails(
     }
 
     // Filter out 'All' category and normalize the rest
-    const filteredCategories = storedCategories
-      .filter(cat => cat.toLowerCase() !== 'all')
-      .map(category => category.toLowerCase())
-      .filter((category, index, self) => self.indexOf(category) === index); // Remove duplicates
+    const filteredCategories = (storedCategories as string[])
+      .filter((cat: string) => cat.toLowerCase() !== 'all')
+      .map((category: string) => category.toLowerCase())
+      .filter((category: string, index: number, self: string[]) => self.indexOf(category) === index); // Remove duplicates
 
     if (filteredCategories.length === 0) {
       throw new Error('No valid categories provided for email analysis');
@@ -132,9 +133,15 @@ export async function analyzeEmails(
         accessToken,
       }),
     });
+    
+    console.log('📍 API Response Status:', response.status);
+    console.log('📍 API Response Headers:', Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API error response:', errorText);
+      console.error('📍 API Error Response:', errorText);
+      console.error('📍 Request URL:', `${BASE_URL}/api/analyze-emails`);
+      console.error('📍 Request Body:', JSON.stringify(requestBody, null, 2));
       throw new Error(`Email analysis API error (${response.status}): ${errorText}`);
     }
     
