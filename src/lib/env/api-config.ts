@@ -9,7 +9,7 @@
 export const API_CONFIG = {
   // Development environment
   dev: {
-    BASE_URL: process.env.BASE_URL, // Ngrok URL
+    BASE_URL: process.env.BASE_URL || 'http://192.168.1.50:3000', // Local development server
   },
   
   // Staging environment
@@ -19,7 +19,7 @@ export const API_CONFIG = {
   
   // Production environment
   prod: {
-    BASE_URL: process.env.BASE_URL || 'https://taskbox-backend-production.up.railway.app', // Use environment variable or fallback to your server
+    BASE_URL: 'https://taskbox-backend-production.up.railway.app', // Production Railway URL
   }
 };
 
