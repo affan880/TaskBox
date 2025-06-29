@@ -4,6 +4,7 @@ import { analyzeEmails } from '@/api/email-analysis-api';
 import { AppState, AppStateStatus, Alert } from 'react-native';
 import { getItemSync, setItemSync, getItem, setItem } from '@/lib/storage/storage';
 import React from 'react';
+import { isFeatureEnabled } from '@/lib/env/api-config';
 
 // The storage key for cached categorized emails
 const CATEGORIZED_EMAILS_CACHE_KEY = 'categorized_emails_cache';
@@ -408,45 +409,41 @@ export function useAutoCategorization(
   const forceAnalysis = useCallback(async () => {
     if (isAnalyzing) return;
     
+    // Check if email analysis feature is available
+    if (!isFeatureEnabled('EMAIL_ANALYSIS')) {
+      Alert.alert(
+        'Feature Not Available',
+        'Email analysis with AI is not available in this environment. This feature requires a backend server with AI capabilities.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    
     try {
-      setIsAnalyzing(true);
+      console.log('[AutoCategorization] Starting forced analysis with categories:', validCategories);
       
-      if (__DEV__) {
-        console.log('[AutoCategorization] Forced analysis started');
-        console.log('[AutoCategorization] Using categories:', validCategories);
-      }
-      
-      // Call the API with valid categories
-      const analysisResult = await analyzeEmails(
-        undefined, // count
-        undefined, // days
-        undefined, // category
-        validCategories // pass the validated categories array
+      // Call the analysis API
+      const response = await analyzeEmails(
+        emails.length, // Use actual email count
+        7, // Default to 7 days
+        undefined, // No specific category filter
+        validCategories
       );
       
-      // Update last analysis time
-      const currentTime = Date.now();
-      lastAnalysisTime.current = currentTime;
-      await setItem(LAST_ANALYSIS_TIME_KEY, currentTime);
+      console.log('[AutoCategorization] Analysis response:', response);
       
-      // Check if we have categorized emails
-      if (analysisResult.categorizedEmails) {
-        // Store raw API response
-        setApiRawResponse(analysisResult.categorizedEmails);
-        
-        // Process the response
-        const processedCategories = processCategorizedEmails(
-          analysisResult.categorizedEmails, 
-          emails
-        );
-        
-        // Update categorized emails state
-        setCategorizedEmails(processedCategories);
+      if (response && response.categorizedEmails) {
+        // Process the categorized emails
+        processCategorizedEmails(response.categorizedEmails, emails);
         
         // Cache the results
-        await setItem(CATEGORIZED_EMAILS_CACHE_KEY, processedCategories);
+        await setItem(CATEGORIZED_EMAILS_CACHE_KEY, response.categorizedEmails);
         
-        if (__DEV__) console.log('[AutoCategorization] Forced analysis complete');
+        console.log('[AutoCategorization] Analysis completed and cached');
+      } else {
+        throw new Error('Invalid response from analysis API');
       }
     } catch (error) {
       console.error('[AutoCategorization] Error during forced analysis:', error);
@@ -462,7 +459,15 @@ export function useAutoCategorization(
         });
         
         // Check for specific error types
-        if (error.message.includes('Network request failed')) {
+        if (error.message.includes('not available in this environment')) {
+          errorMessage = 'Email analysis with AI is not available in this environment. This feature requires a backend server with AI capabilities.';
+        } else if (error.message.includes('billing issues') || error.message.includes('payment method')) {
+          errorMessage = 'AI service is temporarily unavailable due to billing issues. Please contact support or try again later.';
+        } else if (error.message.includes('AI service is temporarily unavailable')) {
+          errorMessage = 'AI service is temporarily unavailable. Please try again later.';
+        } else if (error.message.includes('access token is invalid') || error.message.includes('Invalid Credentials')) {
+          errorMessage = 'Your Gmail access has expired. Please sign out and sign in again to refresh your authentication.';
+        } else if (error.message.includes('Network request failed')) {
           errorMessage = 'Network connection failed. Please check your internet connection and try again.';
         } else if (error.message.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
@@ -472,6 +477,8 @@ export function useAutoCategorization(
           errorMessage = 'Server error. Please try again later.';
         } else if (error.message.includes('No access token')) {
           errorMessage = 'Authentication required. Please sign in again.';
+        } else if (error.message.includes('does not have this endpoint implemented')) {
+          errorMessage = 'Email analysis service is not available. The backend server does not support this feature.';
         }
       }
       

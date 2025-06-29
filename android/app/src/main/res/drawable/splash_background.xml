@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background color -->
     <item android:drawable="@color/splash_background" />
-    <item>
+    
+    <!-- Logo centered with proper sizing -->
+    <item
+        android:width="320dp"
+        android:height="320dp"
+        android:gravity="center">
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/ic_launcher" />
+            android:src="@drawable/splash_logo_optimized"
+            android:filter="true"
+            android:antialias="true" />
     </item>
 </layer-list> 

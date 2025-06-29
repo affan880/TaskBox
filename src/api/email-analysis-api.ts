@@ -1,5 +1,5 @@
 import { getAccessToken } from '@/lib/utils/email-attachments';
-import { BASE_URL } from '@/lib/env/api-config';
+import { BASE_URL, isFeatureEnabled } from '@/lib/env/api-config';
 import { storageConfig } from '@/lib/storage';
 import EventSourcePolyfill from 'react-native-sse';
 
@@ -76,6 +76,11 @@ export async function analyzeEmails(
   category?: string,
   categories?: string[]
 ): Promise<EmailAnalysisResponse> {
+  // Check if feature is enabled
+  if (!isFeatureEnabled('EMAIL_ANALYSIS')) {
+    throw new Error('Email analysis is not available in this environment. This feature requires a backend server with AI capabilities.');
+  }
+
   const STORAGE_KEY = 'email_categories';
   const storedCategories = await storageConfig.getItem(STORAGE_KEY);
   console.log('storedCategories', storedCategories);
@@ -142,7 +147,29 @@ export async function analyzeEmails(
       console.error('📍 API Error Response:', errorText);
       console.error('📍 Request URL:', `${BASE_URL}/api/analyze-emails`);
       console.error('📍 Request Body:', JSON.stringify(requestBody, null, 2));
-      throw new Error(`Email analysis API error (${response.status}): ${errorText}`);
+      
+      // Try to parse the error response for more specific error handling
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // If parsing fails, use the raw text
+      }
+      
+      // Check for specific error types
+      if (errorData?.details?.includes('Invalid Credentials') || errorData?.googleApiError?.error?.code === 401) {
+        throw new Error('Gmail access token is invalid or expired. Please sign out and sign in again to refresh your authentication.');
+      } else if (errorData?.details?.includes('payment method')) {
+        throw new Error('AI service is temporarily unavailable due to billing issues. Please try again later or contact support.');
+      } else if (errorData?.details?.includes('Cohere')) {
+        throw new Error('AI service is temporarily unavailable. Please try again later.');
+      } else if (response.status === 404) {
+        throw new Error('Email analysis service is not available. The backend server does not have this endpoint implemented.');
+      } else if (response.status >= 500) {
+        throw new Error('Email analysis service is temporarily unavailable. Please try again later.');
+      } else {
+        throw new Error(`Email analysis API error (${response.status}): ${errorData?.error || errorText}`);
+      }
     }
     
     const responseData = await response.json();
@@ -162,6 +189,11 @@ export async function analyzeEmails(
  * @returns The summary results from the API
  */
 export async function summarizeEmailContent(emailBody: string): Promise<EmailSummaryResponse> {
+  // Check if feature is enabled
+  if (!isFeatureEnabled('EMAIL_SUMMARIZATION')) {
+    throw new Error('Email summarization is not available in this environment. This feature requires a backend server with AI capabilities.');
+  }
+
   if (DEBUG) console.log('📍 API Call - Summarizing email content');
   try {
     // Make the POST request to the summary endpoint
@@ -179,7 +211,27 @@ export async function summarizeEmailContent(emailBody: string): Promise<EmailSum
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API error response:', errorText);
-      throw new Error(`Email summary API error (${response.status}): ${errorText}`);
+      
+      // Try to parse the error response for more specific error handling
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // If parsing fails, use the raw text
+      }
+      
+      // Check for specific error types
+      if (errorData?.details?.includes('payment method')) {
+        throw new Error('AI service is temporarily unavailable due to billing issues. Please try again later or contact support.');
+      } else if (errorData?.details?.includes('Cohere')) {
+        throw new Error('AI service is temporarily unavailable. Please try again later.');
+      } else if (response.status === 404) {
+        throw new Error('Email summarization service is not available. The backend server does not have this endpoint implemented.');
+      } else if (response.status >= 500) {
+        throw new Error('Email summarization service is temporarily unavailable. Please try again later.');
+      } else {
+        throw new Error(`Email summary API error (${response.status}): ${errorData?.error || errorText}`);
+      }
     }
     
     const responseData = await response.json();
@@ -198,6 +250,11 @@ export async function summarizeEmailContent(emailBody: string): Promise<EmailSum
  * @returns The intent detection results from the API
  */
 export async function detectEmailIntent(messageId: string): Promise<EmailIntentResponse> {
+  // Check if feature is enabled
+  if (!isFeatureEnabled('INTENT_DETECTION')) {
+    throw new Error('Email intent detection is not available in this environment. This feature requires a backend server with AI capabilities.');
+  }
+
   console.log('📍 API Call - Detecting email intent for messageId:', messageId);
   try {
     // Get the access token
@@ -228,7 +285,29 @@ export async function detectEmailIntent(messageId: string): Promise<EmailIntentR
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API error response:', errorText);
-      throw new Error(`Email intent detection API error (${response.status}): ${errorText}`);
+      
+      // Try to parse the error response for more specific error handling
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // If parsing fails, use the raw text
+      }
+      
+      // Check for specific error types
+      if (errorData?.details?.includes('Invalid Credentials') || errorData?.error?.includes('Invalid Credentials')) {
+        throw new Error('Gmail access token is invalid or expired. Please sign out and sign in again to refresh your authentication.');
+      } else if (errorData?.details?.includes('payment method')) {
+        throw new Error('AI service is temporarily unavailable due to billing issues. Please try again later or contact support.');
+      } else if (errorData?.details?.includes('Cohere')) {
+        throw new Error('AI service is temporarily unavailable. Please try again later.');
+      } else if (response.status === 404) {
+        throw new Error('Email intent detection service is not available. The backend server does not have this endpoint implemented.');
+      } else if (response.status >= 500) {
+        throw new Error('Email intent detection service is temporarily unavailable. Please try again later.');
+      } else {
+        throw new Error(`Email intent detection API error (${response.status}): ${errorData?.error || errorText}`);
+      }
     }
     
     const responseData = await response.json();
@@ -247,6 +326,11 @@ export async function detectEmailIntent(messageId: string): Promise<EmailIntentR
  * @returns The generated email content from the API
  */
 export async function generateEmailContent(params: EmailGenerationRequest): Promise<EmailGenerationResponse> {
+  // Check if feature is enabled
+  if (!isFeatureEnabled('EMAIL_GENERATION')) {
+    throw new Error('Email generation is not available in this environment. This feature requires a backend server with AI capabilities.');
+  }
+
   if (DEBUG) console.log('📍 API Call - Generating email content with params:', params);
   try {
     // Get the access token
@@ -271,7 +355,27 @@ export async function generateEmailContent(params: EmailGenerationRequest): Prom
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API error response:', errorText);
-      throw new Error(`Email generation API error (${response.status}): ${errorText}`);
+      
+      // Try to parse the error response for more specific error handling
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        // If parsing fails, use the raw text
+      }
+      
+      // Check for specific error types
+      if (errorData?.details?.includes('payment method')) {
+        throw new Error('AI service is temporarily unavailable due to billing issues. Please try again later or contact support.');
+      } else if (errorData?.details?.includes('Cohere')) {
+        throw new Error('AI service is temporarily unavailable. Please try again later.');
+      } else if (response.status === 404) {
+        throw new Error('Email generation service is not available. The backend server does not have this endpoint implemented.');
+      } else if (response.status >= 500) {
+        throw new Error('Email generation service is temporarily unavailable. Please try again later.');
+      } else {
+        throw new Error(`Email generation API error (${response.status}): ${errorData?.error || errorText}`);
+      }
     }
     
     const responseData = await response.json();

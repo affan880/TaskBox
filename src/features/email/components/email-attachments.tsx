@@ -36,7 +36,9 @@ function formatBytes(bytes: number, decimals = 1): string {
 // Individual attachment component
 type EmailAttachmentProps = {
   attachment: Attachment;
+  messageId: string;
   onPress?: (attachment: Attachment) => void;
+  onDownloadPress?: (messageId: string, attachment: Attachment) => Promise<void>;
   onRemove?: (id: string) => void;
   downloadProgress?: number;
   isUploading?: boolean;
@@ -47,7 +49,9 @@ type EmailAttachmentProps = {
 
 function EmailAttachment({
   attachment,
+  messageId,
   onPress,
+  onDownloadPress,
   onRemove,
   downloadProgress = 0,
   isUploading = false,
@@ -85,7 +89,7 @@ function EmailAttachment({
         style={[styles.attachmentIconContainer, {
           backgroundColor: isDark ? 'rgba(138, 180, 248, 0.2)' : 'rgba(26, 115, 232, 0.1)',
         }]}
-        onPress={() => onPress?.(attachment)}
+        onPress={() => onDownloadPress?.(messageId, attachment)}
         disabled={disabled || isUploading || isDownloading}
       >
         {isUploading || isDownloading ? (
@@ -133,24 +137,30 @@ function EmailAttachment({
 // Attachments list component
 type EmailAttachmentsProps = {
   attachments: Attachment[];
+  messageId: string;
   onAttachmentPress?: (attachment: Attachment) => void;
+  onDownloadPress?: (messageId: string, attachment: Attachment) => Promise<void>;
   onRemoveAttachment?: (id: string) => void;
   downloadProgress?: { [key: string]: number };
   currentUploadId?: string | null;
   uploadProgress?: number;
   showRemoveButton?: boolean;
   disabled?: boolean;
+  gmailTheme?: any;
 };
 
 export function EmailAttachments({
   attachments,
+  messageId,
   onAttachmentPress,
+  onDownloadPress,
   onRemoveAttachment,
   downloadProgress = {},
   currentUploadId = null,
   uploadProgress = 0,
   showRemoveButton = false,
   disabled = false,
+  gmailTheme,
 }: EmailAttachmentsProps): React.ReactElement | null {
   const { colors } = useTheme();
 
@@ -185,7 +195,9 @@ export function EmailAttachments({
           <EmailAttachment
             key={attachment.id}
             attachment={attachment}
+            messageId={messageId}
             onPress={onAttachmentPress}
+            onDownloadPress={onDownloadPress}
             onRemove={onRemoveAttachment}
             downloadProgress={downloadProgress[attachment.id]}
             isUploading={attachment.id === currentUploadId}

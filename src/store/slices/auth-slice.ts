@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Debug flag - only log in development mode and when needed
-const DEBUG = __DEV__ && false; // Set to true for verbose debugging
+const DEBUG = __DEV__ && true; // Set to true for verbose debugging during testing
 
 // Export the type
 export type AuthState = {
@@ -46,17 +46,17 @@ const configureGoogleSignin = () => {
   if (googleSigninConfigured) return;
   
   if (DEBUG) {
-    console.log('Configuring GoogleSignin with the following client IDs:',
-      { webClientId: FIREBASE_WEB_CLIENT_ID ? 'present' : 'missing', 
-        iosClientId: FIREBASE_IOS_CLIENT_ID ? 'present' : 'missing' });
+    console.log('Configuring GoogleSignin for platform:', Platform.OS);
+    console.log('Environment variables:', {
+      webClientId: FIREBASE_WEB_CLIENT_ID ? 'present' : 'missing', 
+      iosClientId: FIREBASE_IOS_CLIENT_ID ? 'present' : 'missing'
+    });
   }
       
   if (Platform.OS === 'android') {
-    // For Android, use the server_client_id from strings.xml directly
-    GoogleSignin.configure({
-      // Android will automatically use the 'default_web_client_id' from resources
-      webClientId: FIREBASE_WEB_CLIENT_ID, // Explicitly provide the ID
-      iosClientId: FIREBASE_IOS_CLIENT_ID,
+    // For Android, we need to specify webClientId when using offlineAccess for Gmail API
+    const config = {
+      webClientId: FIREBASE_WEB_CLIENT_ID, // Required for offline access
       scopes: [
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send',   
@@ -67,10 +67,16 @@ const configureGoogleSignin = () => {
       ],
       offlineAccess: true,
       forceCodeForRefreshToken: true,
-    });
+    };
+    
+    if (DEBUG) {
+      console.log('Android GoogleSignin config:', config);
+    }
+    
+    GoogleSignin.configure(config);
   } else {
     // For iOS, use the client IDs from env
-    GoogleSignin.configure({
+    const config = {
       webClientId: FIREBASE_WEB_CLIENT_ID,
       iosClientId: FIREBASE_IOS_CLIENT_ID,
       scopes: [
@@ -83,11 +89,18 @@ const configureGoogleSignin = () => {
       ],
       offlineAccess: true,
       forceCodeForRefreshToken: true,
-    });
+    };
+    
+    if (DEBUG) {
+      console.log('iOS GoogleSignin config:', config);
+    }
+    
+    GoogleSignin.configure(config);
   }
   
   // Mark as configured
   googleSigninConfigured = true;
+  if (DEBUG) console.log('GoogleSignin configuration completed');
 };
 
 // Helper for debugging Google Sign-In state
@@ -292,9 +305,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Get user info and sign in
       if (DEBUG) console.log('Starting Google Sign In process');
       const userInfo = await GoogleSignin.signIn();
+      if (DEBUG) console.log('Google Sign In userInfo received:', userInfo ? 'Success' : 'Failed');
       
       // Get access and ID tokens for Firebase Auth
       const { accessToken, idToken } = await GoogleSignin.getTokens();
+      if (DEBUG) console.log('Tokens received:', { 
+        accessToken: accessToken ? 'present' : 'missing',
+        idToken: idToken ? 'present' : 'missing'
+      });
       
       if (!idToken) {
         throw new Error('Google Sign In failed - no ID token. Please check your Google Sign-In configuration.');
@@ -322,6 +340,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
     } catch (error: any) {
       console.error('Google Sign In Error:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      
       let errorMessage = 'Failed to sign in with Google';
       
       if (error.code === 'SIGN_IN_CANCELLED') {
@@ -334,6 +358,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         errorMessage = 'Google Play Services are not available or outdated';
       } else if (error.message?.includes('no ID token')) {
         errorMessage = 'Google Sign-In configuration error. Please check your setup.';
+      } else if (error.message?.includes('DEVELOPER_ERROR')) {
+        errorMessage = 'Developer configuration error. Check SHA-1 fingerprints in Firebase Console.';
+      } else if (error.message?.includes('NETWORK_ERROR')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message?.includes('INTERNAL_ERROR')) {
+        errorMessage = 'Internal error. Please try again later.';
+      }
+      
+      // Add the original error message for debugging
+      if (DEBUG) {
+        errorMessage += ` (Debug: ${error.message})`;
       }
       
       set({ error: errorMessage });

@@ -5,11 +5,29 @@
  * Update the BASE_URL depending on your environment (development, staging, production).
  */
 
+// Environment-specific feature flags for API endpoints
+const DEVELOPMENT_FEATURES = {
+  EMAIL_ANALYSIS: true,
+  EMAIL_SUMMARIZATION: true,
+  EMAIL_GENERATION: true,
+  INTENT_DETECTION: true,
+};
+
+const PRODUCTION_FEATURES = {
+  EMAIL_ANALYSIS: true, // Backend is deployed and working
+  EMAIL_SUMMARIZATION: true, // Backend is deployed and working
+  EMAIL_GENERATION: true, // Backend is deployed and working
+  INTENT_DETECTION: true, // Backend is deployed and working
+};
+
+// Feature flags for API endpoints
+export const API_FEATURES = __DEV__ ? DEVELOPMENT_FEATURES : PRODUCTION_FEATURES;
+
 // Base URL for all API endpoints
 export const API_CONFIG = {
-  // Development environment
+  // Development environment - use production URL if local server is not available
   dev: {
-    BASE_URL: process.env.BASE_URL || 'http://192.168.1.50:3000', // Local development server
+    BASE_URL: process.env.BASE_URL || 'https://taskbox-backend-production.up.railway.app', // Use production as fallback
   },
   
   // Staging environment
@@ -19,7 +37,7 @@ export const API_CONFIG = {
   
   // Production environment
   prod: {
-    BASE_URL: 'https://taskbox-backend-production.up.railway.app', // Production Railway URL
+    BASE_URL: process.env.BASE_URL || 'https://taskbox-backend-production.up.railway.app', // Production Railway URL
   }
 };
 
@@ -36,4 +54,10 @@ export const BASE_URL = CURRENT_API_CONFIG.BASE_URL;
 // Debug logging
 console.log('🔧 API Config - Environment:', ENVIRONMENT);
 console.log('🔧 API Config - process.env.BASE_URL:', process.env.BASE_URL);
-console.log('🔧 API Config - Configured URL:', BASE_URL); 
+console.log('🔧 API Config - Configured URL:', BASE_URL);
+console.log('🔧 API Config - Features enabled:', API_FEATURES);
+
+// Helper function to check if an API feature is enabled
+export const isFeatureEnabled = (feature: keyof typeof API_FEATURES): boolean => {
+  return API_FEATURES[feature];
+}; 

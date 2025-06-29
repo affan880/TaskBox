@@ -9,7 +9,7 @@ import 'react-native-gesture-handler'; // MUST BE FIRST
 
 import * as React from 'react';
 import type { JSX } from 'react';
-import { StatusBar, AppState, AppStateStatus, LogBox } from 'react-native';
+import { StatusBar, AppState, AppStateStatus, LogBox, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppNavigator } from '@/navigation/app-navigator';
 import { useAuthStore } from '@/store/slices/auth-slice';
@@ -20,27 +20,41 @@ import { AuthProvider } from '@/lib/auth/auth-provider';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { FIREBASE_WEB_CLIENT_ID, FIREBASE_IOS_CLIENT_ID } from '@env';
 
-// Ignore specific warnings
 LogBox.ignoreLogs([
   'Sending `onAnimatedValueUpdate` with no listeners registered',
   'Non-serializable values were found in the navigation state',
 ]);
 
-// Google Sign-In Configuration
-GoogleSignin.configure({
-  webClientId: process.env.FIREBASE_WEB_CLIENT_ID,
-  iosClientId: process.env.FIREBASE_IOS_CLIENT_ID,
-  offlineAccess: true,
-  scopes: [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.modify',
-    'profile',
-    'email',
-    'openid'
-  ],
-});
+if (Platform.OS === 'android') {
+  GoogleSignin.configure({
+    webClientId: FIREBASE_WEB_CLIENT_ID,
+    offlineAccess: true,
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'profile',
+      'email',
+      'openid'
+    ],
+  });
+} else {
+  GoogleSignin.configure({
+    webClientId: FIREBASE_WEB_CLIENT_ID,
+    iosClientId: FIREBASE_IOS_CLIENT_ID,
+    offlineAccess: true,
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'profile',
+      'email',
+      'openid'
+    ],
+  });
+}
 
 function useAppStateListener(): void {
   const appState = React.useRef(AppState.currentState);
@@ -66,10 +80,6 @@ function useAuthListener(): void {
     return () => unsubscribe();
   }, [initializeAuthListener]);
 }
-
-/**
- * Plexar - A simple task management app with Firebase integration
- */
 export default function App(): JSX.Element {
   useAuthListener();
   useAppStateListener();
